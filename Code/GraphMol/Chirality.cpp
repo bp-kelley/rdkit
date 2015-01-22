@@ -380,7 +380,7 @@ namespace RDKit{
       }
     }
 
-    bool atomIsCandidateForRingStereochem(const ROMol &mol,const Atom *atom){
+    bool atomIsCandidateForRingStereochem(ROMol &mol,Atom *atom){
       PRECONDITION(atom,"bad atom");
       bool res=false;
       if(!atom->getPropIfPresent(common_properties::_ringStereochemCand, res)) {
@@ -430,7 +430,7 @@ namespace RDKit{
     }
 
     // returns true if the atom is allowed to have stereochemistry specified
-    bool checkChiralAtomSpecialCases(ROMol &mol,const Atom *atom){
+    bool checkChiralAtomSpecialCases(ROMol &mol, Atom *atom){
       PRECONDITION(atom,"bad atom");
 
       if(!mol.getRingInfo()->isInitialized()){
@@ -726,7 +726,7 @@ namespace RDKit{
 
     // reassign atom ranks by supplementing the current ranks
     // with information about known chirality
-    void rerankAtoms(const ROMol &mol, INT_VECT &ranks) {
+    void rerankAtoms(ROMol &mol, INT_VECT &ranks) {
       PRECONDITION(ranks.size()==mol.getNumAtoms(),"bad rank vector size");
       unsigned int factor=100;
       while(factor<mol.getNumAtoms()) factor*=10;

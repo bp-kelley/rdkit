@@ -891,7 +891,7 @@ namespace RDKit{
       MolOps::assignStereochemistry(trwmol);
     }
 #endif
-    const RWMol &tmol = const_cast<RWMol &>(trwmol);
+    RWMol &tmol = trwmol;
 
     std::string res;
 
@@ -985,14 +985,14 @@ namespace RDKit{
 
     if (!isV3000) {
       // V2000 output.
-      for(ROMol::ConstAtomIterator atomIt=tmol.beginAtoms();
+      for(ROMol::AtomIterator atomIt=tmol.beginAtoms();
           atomIt!=tmol.endAtoms();++atomIt){
         res += GetMolFileAtomLine(*atomIt, conf);
         res += "\n";
       }
 
       INT_MAP_INT wedgeBonds = pickBondsToWedge(tmol);
-      for(ROMol::ConstBondIterator bondIt=tmol.beginBonds();
+      for(ROMol::BondIterator bondIt=tmol.beginBonds();
           bondIt!=tmol.endBonds();++bondIt){
         res += GetMolFileBondLine(*bondIt, wedgeBonds, conf);
         res += "\n";
@@ -1018,7 +1018,7 @@ namespace RDKit{
       res += ss.str();
 
       res += "M  V30 BEGIN ATOM\n";
-      for(ROMol::ConstAtomIterator atomIt=tmol.beginAtoms();
+      for(ROMol::AtomIterator atomIt=tmol.beginAtoms();
           atomIt!=tmol.endAtoms();++atomIt){
         res += GetV3000MolFileAtomLine(*atomIt, conf);
         res += "\n";
@@ -1028,7 +1028,7 @@ namespace RDKit{
       if(tmol.getNumBonds()){
         res += "M  V30 BEGIN BOND\n";
         INT_MAP_INT wedgeBonds = pickBondsToWedge(tmol);
-        for(ROMol::ConstBondIterator bondIt=tmol.beginBonds();
+        for(ROMol::BondIterator bondIt=tmol.beginBonds();
             bondIt!=tmol.endBonds();++bondIt){
           res += GetV3000MolFileBondLine(*bondIt, wedgeBonds, conf);
           res += "\n";

@@ -560,7 +560,7 @@ namespace RDKit{
     //  description in that paper.  Steps refer to Table III of the paper
     //
     // --------------------------------------------------
-    void rankAtoms(const ROMol &mol,INT_VECT &ranks,
+    void rankAtoms(ROMol &mol,INT_VECT &ranks,
                    bool breakTies,
                    bool includeChirality,
                    bool includeIsotopes,
@@ -716,7 +716,7 @@ namespace RDKit{
       }
     } // end of function rankAtoms
 
-    void rankAtomsInFragment(const ROMol &mol,INT_VECT &ranks,
+    void rankAtomsInFragment(ROMol &mol,INT_VECT &ranks,
                              const boost::dynamic_bitset<> &atomsToUse,
                              const boost::dynamic_bitset<> &bondsToUse,
                              const std::vector<std::string> *atomSymbols,

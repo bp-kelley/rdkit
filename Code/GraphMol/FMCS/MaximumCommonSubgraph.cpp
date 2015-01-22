@@ -563,8 +563,18 @@ namespace RDKit {
                 makeInitialSeeds();
 
                 if(Parameters.Verbose)
-                    std::cout<<"Query "<< MolToSmiles(*QueryMolecule)<<" "<<QueryMolecule->getNumAtoms()<<"("<<QueryMoleculeMatchedAtoms<<") atoms, "
-                             <<QueryMolecule->getNumBonds()<<"("<<QueryMoleculeMatchedBonds<<") bonds\n";
+                {
+                  ROMol query(*QueryMolecule);
+                  std::cout<<"Query "<<
+                    MolToSmiles(query) <<
+                    " " <<QueryMolecule->getNumAtoms() <<
+                    "(" <<QueryMoleculeMatchedAtoms<<
+                    ") atoms, " <<
+                    QueryMolecule->getNumBonds() <<
+                    "(" <<
+                    QueryMoleculeMatchedBonds <<
+                    ") bonds\n";
+                }
 
                 if(Seeds.empty())
                     break;
@@ -590,7 +600,10 @@ namespace RDKit {
 
                     bool target_matched = SubstructMatch(*tag->Molecule, *m, match);
                     if(!target_matched)
-                        std::cout<<"Target "<< itarget+1 << (target_matched ? " matched " : " MISMATCHED ") << MolToSmiles(*tag->Molecule) <<"\n";
+                    {
+                      ROMol taggedMol(*tag->Molecule);
+                      std::cout<<"Target "<< itarget+1 << (target_matched ? " matched " : " MISMATCHED ") << MolToSmiles(taggedMol) <<"\n";
+                    }
                     delete m;
                 }
 

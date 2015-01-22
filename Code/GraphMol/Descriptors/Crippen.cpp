@@ -30,7 +30,7 @@ namespace RDKit{
   namespace Descriptors {
     extern const std::string defaultParamData;
 
-    void getCrippenAtomContribs(const ROMol &mol,
+    void getCrippenAtomContribs(ROMol &mol,
 				std::vector< double > &logpContribs,
 				std::vector< double > &mrContribs,
 				bool force,
@@ -81,7 +81,7 @@ namespace RDKit{
       mol.setProp(common_properties::_crippenLogPContribs,logpContribs,true);
       mol.setProp(common_properties::_crippenMRContribs,mrContribs,true);
     }
-    void calcCrippenDescriptors(const ROMol &mol,double &logp,double &mr,bool includeHs,
+    void calcCrippenDescriptors(ROMol &mol,double &logp,double &mr,bool includeHs,
 				bool force){
       if(!force && mol.hasProp(common_properties::_crippenLogP)){
 	mol.getProp(common_properties::_crippenLogP,logp);

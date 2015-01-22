@@ -39,7 +39,7 @@ namespace RDKit{
       \return the sum of the atomic contributions
 
     */
-    double getLabuteAtomContribs(const ROMol &mol,
+    double getLabuteAtomContribs(ROMol &mol,
 				 std::vector<double> &Vi,
 				 double &hContrib,
 				 bool includeHs=true,
@@ -57,7 +57,7 @@ namespace RDKit{
       \param force      (optional) calculate the value even if it's cached.
 	  
     */
-    double calcLabuteASA(const ROMol &mol,bool includeHs=true,
+    double calcLabuteASA(ROMol &mol,bool includeHs=true,
 			 bool force=false);
 
     const std::string tpsaVersion="1.1.0";
@@ -76,7 +76,7 @@ namespace RDKit{
       \return the sum of the atomic contributions
 
     */
-    double getTPSAAtomContribs(const ROMol &mol,
+    double getTPSAAtomContribs( ROMol &mol,
                                std::vector<double> &Vi,
                                bool force=false);
 
@@ -92,14 +92,14 @@ namespace RDKit{
       \param force      (optional) calculate the value even if it's cached.
 	  
     */
-    double calcTPSA(const ROMol &mol,
+    double calcTPSA(ROMol &mol,
                     bool force=false);
 
-    std::vector<double> calcSlogP_VSA(const ROMol &mol,std::vector<double> *bins=0,
+    std::vector<double> calcSlogP_VSA(ROMol &mol,std::vector<double> *bins=0,
                                       bool force=false);
-    std::vector<double> calcSMR_VSA(const ROMol &mol,std::vector<double> *bins=0,
+    std::vector<double> calcSMR_VSA(ROMol &mol,std::vector<double> *bins=0,
                                       bool force=false);
-    std::vector<double> calcPEOE_VSA(const ROMol &mol,std::vector<double> *bins=0,
+    std::vector<double> calcPEOE_VSA(ROMol &mol,std::vector<double> *bins=0,
                                       bool force=false);
     
   } // end of namespace Descriptors

@@ -191,7 +191,7 @@ namespace FindRings {
     }
   };
 
-  void removeExtraRings(VECT_INT_VECT &res, unsigned int nexpt, const ROMol &mol) {
+  void removeExtraRings(VECT_INT_VECT &res, unsigned int nexpt, ROMol &mol) {
     // sort on size
     std::sort(res.begin(), res.end(), compRingSize());
 
@@ -730,7 +730,7 @@ namespace FindRings {
 
 namespace RDKit {
   namespace MolOps {
-    int findSSSR(const ROMol &mol, VECT_INT_VECT *res) {
+    int findSSSR(ROMol &mol, VECT_INT_VECT *res) {
       if (!res) {
         VECT_INT_VECT rings;
         return findSSSR(mol, rings);
@@ -740,7 +740,7 @@ namespace RDKit {
       }
     }
 
-    int findSSSR(const ROMol &mol, VECT_INT_VECT &res) {
+    int findSSSR(ROMol &mol, VECT_INT_VECT &res) {
       res.resize(0);
       // check if SSSR's are already on the molecule
       if(mol.getRingInfo()->isInitialized()){
@@ -876,7 +876,7 @@ namespace RDKit {
 
         // calculate the cyclomatic number for the fragment:
         unsigned int nbnds=0;
-        for(ROMol::ConstBondIterator bndIt=mol.beginBonds();
+        for(ROMol::BondIterator bndIt=mol.beginBonds();
             bndIt!=mol.endBonds();++bndIt){
           if(std::find(curFrag.begin(),curFrag.end(),(*bndIt)->getBeginAtomIdx())!=curFrag.end() &&
              std::find(curFrag.begin(),curFrag.end(),(*bndIt)->getEndAtomIdx())!=curFrag.end() &&

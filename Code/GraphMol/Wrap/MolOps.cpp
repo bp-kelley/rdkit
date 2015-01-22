@@ -468,7 +468,7 @@ namespace RDKit{
     return python::tuple(res);
   }
 
-  ExplicitBitVect *wrapLayeredFingerprint(const ROMol &mol,unsigned int layerFlags,
+  ExplicitBitVect *wrapLayeredFingerprint(ROMol &mol,unsigned int layerFlags,
                                           unsigned int minPath,unsigned int maxPath,
                                           unsigned int fpSize,
                                           python::list atomCounts,

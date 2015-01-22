@@ -4332,7 +4332,7 @@ void testGitHubIssue72()
 }
 
 namespace{
-  void _renumberTest(const ROMol *m){
+  void _renumberTest(ROMol *m){
     PRECONDITION(m,"no molecule");
     std::vector<unsigned int> idxV(m->getNumAtoms());
     for(unsigned int i=0;i<m->getNumAtoms();++i) idxV[i]=i;

@@ -27,7 +27,7 @@ namespace python = boost::python;
 namespace {
   std::vector<unsigned int> atomPairTypes(RDKit::AtomPairs::atomNumberTypes,
 					  RDKit::AtomPairs::atomNumberTypes+sizeof(RDKit::AtomPairs::atomNumberTypes)/sizeof(unsigned int));
-  python::tuple computeASAContribs(const RDKit::ROMol &mol,bool includeHs=true,
+  python::tuple computeASAContribs(RDKit::ROMol &mol,bool includeHs=true,
 				   bool force=false){
     std::vector<double> contribs(mol.getNumAtoms());
     double hContrib=0.0;
@@ -35,7 +35,7 @@ namespace {
     python::tuple pycontribs(contribs);
     return python::make_tuple(contribs,hContrib);
   }
-  python::tuple computeTPSAContribs(const RDKit::ROMol &mol,
+  python::tuple computeTPSAContribs(RDKit::ROMol &mol,
 				   bool force=false){
     std::vector<double> contribs(mol.getNumAtoms());
     RDKit::Descriptors::getTPSAAtomContribs(mol,contribs,force);
@@ -43,7 +43,7 @@ namespace {
     return pycontribs;
   }
 
-  python::list computeCrippenContribs(const RDKit::ROMol &mol,
+  python::list computeCrippenContribs(RDKit::ROMol &mol,
                                       bool force=false,
                                       python::list atomTypes=python::list(),
                                       python::list atomTypeLabels=python::list()){
@@ -86,14 +86,14 @@ namespace {
     }
     return pycontribs;
   }
-  python::tuple calcCrippenDescriptors(const RDKit::ROMol &mol,bool includeHs=true,
+  python::tuple calcCrippenDescriptors(RDKit::ROMol &mol,bool includeHs=true,
 				       bool force=false){
     double logp,mr;
     RDKit::Descriptors::calcCrippenDescriptors(mol,logp,mr,includeHs,force);
     return python::make_tuple(logp,mr);
   }
 
-  RDKit::SparseIntVect<boost::int32_t> *GetAtomPairFingerprint(const RDKit::ROMol &mol,
+  RDKit::SparseIntVect<boost::int32_t> *GetAtomPairFingerprint(RDKit::ROMol &mol,
                                                                unsigned int minLength,
                                                                unsigned int maxLength,
                                                                python::object fromAtoms,
@@ -112,7 +112,7 @@ namespace {
     if(invvect) delete invvect;
     return res;
   }
-  RDKit::SparseIntVect<boost::int32_t> *GetHashedAtomPairFingerprint(const RDKit::ROMol &mol,
+  RDKit::SparseIntVect<boost::int32_t> *GetHashedAtomPairFingerprint(RDKit::ROMol &mol,
                                                                      unsigned int nBits,
                                                                      unsigned int minLength,
                                                                      unsigned int maxLength,
@@ -199,7 +199,7 @@ namespace {
     return res;
   }
 
-  ExplicitBitVect *GetHashedAtomPairFingerprintAsBitVect(const RDKit::ROMol &mol,
+  ExplicitBitVect *GetHashedAtomPairFingerprintAsBitVect(RDKit::ROMol &mol,
                                                          unsigned int nBits,
                                                          unsigned int minLength,
                                                          unsigned int maxLength,
@@ -437,7 +437,7 @@ namespace {
     return res;
   }
 
-  python::list CalcSlogPVSA(const RDKit::ROMol &mol,
+  python::list CalcSlogPVSA(RDKit::ROMol &mol,
                             python::object bins,
                             bool force){
     std::vector<double> *lbins=0;
@@ -459,7 +459,7 @@ namespace {
     }
     return pyres;
   }
-  python::list CalcSMRVSA(const RDKit::ROMol &mol,
+  python::list CalcSMRVSA(RDKit::ROMol &mol,
                             python::object bins,
                             bool force){
     std::vector<double> *lbins=0;
@@ -481,7 +481,7 @@ namespace {
     }
     return pyres;
   }
-  python::list CalcPEOEVSA(const RDKit::ROMol &mol,
+  python::list CalcPEOEVSA(RDKit::ROMol &mol,
                             python::object bins,
                             bool force){
     std::vector<double> *lbins=0;

@@ -168,10 +168,10 @@ namespace RDKit{
   } // end of local utility namespace
   
   namespace MolOps {
-    double *getDistanceMat(const ROMol &mol,bool useBO,
-				   bool useAtomWts,
-				   bool force,
-				   const char *propNamePrefix){
+    double *getDistanceMat(ROMol &mol,bool useBO,
+                           bool useAtomWts,
+                           bool force,
+                           const char *propNamePrefix){
       std::string propName;
       boost::shared_array<double> sptr;
       if(propNamePrefix){
@@ -285,7 +285,7 @@ namespace RDKit{
 
 
     // NOTE: do *not* delete results
-    double *getAdjacencyMatrix(const ROMol &mol,
+    double *getAdjacencyMatrix(ROMol &mol,
                                bool useBO,
                                int emptyVal,
                                bool force,
@@ -310,7 +310,7 @@ namespace RDKit{
       double *res = new double[nAts*nAts];
       memset(static_cast<void *>(res),emptyVal,nAts*nAts*sizeof(double));
 
-      for(ROMol::ConstBondIterator bondIt=mol.beginBonds();
+      for(ROMol::BondIterator bondIt=mol.beginBonds();
           bondIt!=mol.endBonds();bondIt++){
         if(bondsToUse && !(*bondsToUse)[(*bondIt)->getIdx()]){
           continue;
@@ -396,7 +396,7 @@ namespace RDKit{
  
     }
 
-    double *get3DDistanceMat(const ROMol &mol,
+    double *get3DDistanceMat(ROMol &mol,
                              int confId,
                              bool useAtomWts,
                              bool force,

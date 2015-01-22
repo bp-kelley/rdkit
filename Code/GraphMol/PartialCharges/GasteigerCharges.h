@@ -14,11 +14,11 @@
 
 namespace RDKit {
   class ROMol;
-  void computeGasteigerCharges(const ROMol *mol, int nIter=12,
+  void computeGasteigerCharges(ROMol *mol, int nIter=12,
 			       bool throwOnParamFailure=false);
-  void computeGasteigerCharges(const ROMol &mol, int nIter=12,
+  void computeGasteigerCharges(ROMol &mol, int nIter=12,
 			       bool throwOnParamFailure=false);
-  void computeGasteigerCharges(const ROMol &mol,std::vector<double> &charges,
+  void computeGasteigerCharges(ROMol &mol,std::vector<double> &charges,
                                int nIter=12,bool throwOnParamFailure=false);
 }
 

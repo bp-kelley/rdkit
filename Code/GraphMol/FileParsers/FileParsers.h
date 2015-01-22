@@ -229,7 +229,7 @@ namespace RDKit{
    *         flavor & 16 : Write MASTER record
    *         flavor & 32 : Write TER record
    */
-  void MolToPDBFile(const ROMol &mol,const std::string &fname, int confId=-1, unsigned int flavor=0);
+  void MolToPDBFile(ROMol &mol,const std::string &fname, int confId=-1, unsigned int flavor=0);
 }
 
 #endif

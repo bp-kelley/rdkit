@@ -55,10 +55,10 @@ namespace RDKit{
     return res;
   }
 
-  void BondSetProp(const Bond *bond, const char *key,std::string val) {
+  void BondSetProp(Bond *bond, const char *key,std::string val) {
     bond->setProp(key, val);
   }
-  void BondClearProp(const Bond *bond, const char *key){
+  void BondClearProp(Bond *bond, const char *key){
     if (!bond->hasProp(key)) {
       return;
     }
@@ -96,7 +96,7 @@ namespace RDKit{
     return bond->getStereoAtoms();
   }
 
-  std::string BondGetSmarts(const Bond *bond,bool allBondsExplicit){
+  std::string BondGetSmarts(Bond *bond,bool allBondsExplicit){
     std::string res;
     if(bond->hasQuery()){      
       res=SmartsWrite::GetBondSmarts(static_cast<const QueryBond *>(bond));

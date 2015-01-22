@@ -529,7 +529,7 @@ namespace RDKit{
     }
 
     //! clears all of our \c computed \c properties
-    void clearComputedProps(bool includeRings=true) const;
+    void clearComputedProps(bool includeRings=true);
     //! calculates any of our lazy \c properties
     /*!
       <b>Notes:</b>

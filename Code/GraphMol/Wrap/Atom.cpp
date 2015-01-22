@@ -58,7 +58,7 @@ namespace RDKit{
     }
   }
 
-  void AtomSetProp(const Atom *atom, const char *key,std::string val) {
+  void AtomSetProp(Atom *atom, const char *key,std::string val) {
     //std::cerr<<"asp: "<<atom<<" " << key<<" - " << val << std::endl;
     atom->setProp(key, val);
   }
@@ -79,7 +79,7 @@ namespace RDKit{
     return res;
   }
 
-  void AtomClearProp(const Atom *atom, const char *key) {
+  void AtomClearProp(Atom *atom, const char *key) {
     if (!atom->hasProp(key)) {
       return;
     }

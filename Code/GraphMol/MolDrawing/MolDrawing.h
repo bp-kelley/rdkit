@@ -142,7 +142,7 @@ namespace RDKit {
       }
     } // end of detail namespace
     // **************************************************************************
-    std::vector<ElementType> DrawMol(const ROMol &mol,int confId=-1,
+    std::vector<ElementType> DrawMol(ROMol &mol,int confId=-1,
                                      const std::vector<int> *highlightAtoms=0,
                                      bool includeAtomCircles=false,
                                      unsigned int dotsPerAngstrom=100,

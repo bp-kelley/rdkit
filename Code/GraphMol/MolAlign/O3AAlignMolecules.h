@@ -165,11 +165,11 @@ namespace RDKit {
         return d_rowSol[i];
       }
       void computeMinCostPath(const int dim);
-      void computeCostMatrix(const ROMol &prbMol, const MolHistogram &prbHist,
-        const ROMol &refMol, const MolHistogram &refHist,
-        O3AConstraintVect *o3aConstraintVect, int (*costFunc)
-        (const unsigned int, const unsigned int, double, void *),
-        void *data, const unsigned int n_bins = O3_MAX_H_BINS);
+      void computeCostMatrix(ROMol &prbMol, const MolHistogram &prbHist,
+                             ROMol &refMol, const MolHistogram &refHist,
+                             O3AConstraintVect *o3aConstraintVect, int (*costFunc)
+                             (const unsigned int, const unsigned int, double, void *),
+                             void *data, const unsigned int n_bins = O3_MAX_H_BINS);
     private:
       std::vector<int> d_rowSol;
       std::vector<int> d_colSol;
@@ -265,7 +265,7 @@ namespace RDKit {
         MMFF94=0,
         CRIPPEN
       } AtomTypeScheme;
-      O3A(ROMol &prbMol, const ROMol &refMol,
+      O3A(ROMol &prbMol, ROMol &refMol,
           void *prbProp, void *refProp, AtomTypeScheme atomTypes = MMFF94,
           const int prbCid = -1, const int refCid = -1,
           const bool reflect = false, const unsigned int maxIters = 50,
@@ -275,7 +275,7 @@ namespace RDKit {
       O3A(int (*costFunc)(const unsigned int, const unsigned int, double, void *),
         double (*weightFunc)(const unsigned int, const unsigned int, void *),
         double (*scoringFunc)(const unsigned int, const unsigned int, void *),
-        void *data, ROMol &prbMol, const ROMol &refMol,
+        void *data, ROMol &prbMol, ROMol &refMol,
         const int prbCid, const int refCid,
         boost::dynamic_bitset<> *prbHvyAtoms = NULL,
         boost::dynamic_bitset<> *refHvyAtoms = NULL,

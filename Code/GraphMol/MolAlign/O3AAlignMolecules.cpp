@@ -189,8 +189,8 @@ namespace RDKit {
     }
 
 
-    void LAP::computeCostMatrix(const ROMol &prbMol, const MolHistogram &prbHist,
-      const ROMol &refMol, const MolHistogram &refHist, O3AConstraintVect *o3aConstraintVect,
+    void LAP::computeCostMatrix( ROMol &prbMol, const MolHistogram &prbHist,
+       ROMol &refMol, const MolHistogram &refHist, O3AConstraintVect *o3aConstraintVect,
       int (*costFunc)(const unsigned int, const unsigned int, double, void *),
       void *data, const unsigned int n_bins)
     {
@@ -779,7 +779,7 @@ namespace RDKit {
     O3A::O3A(int (*costFunc)(const unsigned int, const unsigned int, double, void *),
       double (*weightFunc)(const unsigned int, const unsigned int, void *),
       double (*scoringFunc)(const unsigned int, const unsigned int, void *),
-      void *data, ROMol &prbMol, const ROMol &refMol,
+      void *data, ROMol &prbMol, ROMol &refMol,
       const int prbCid, const int refCid,
       boost::dynamic_bitset<> *prbHvyAtoms,
       boost::dynamic_bitset<> *refHvyAtoms,
@@ -948,7 +948,7 @@ namespace RDKit {
     }
 
 
-    O3A::O3A(ROMol &prbMol, const ROMol &refMol, void *prbProp, void *refProp,
+    O3A::O3A(ROMol &prbMol, ROMol &refMol, void *prbProp, void *refProp,
       AtomTypeScheme atomTypes, const int prbCid, const int refCid,
       const bool reflect, const unsigned int maxIters, unsigned int options,
       const MatchVectType *constraintMap, const RDNumeric::DoubleVector *constraintWeights,

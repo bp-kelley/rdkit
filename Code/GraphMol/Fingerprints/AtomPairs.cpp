@@ -109,7 +109,7 @@ namespace RDKit{
       }
     }
 
-    SparseIntVect<boost::int32_t> *getAtomPairFingerprint(const ROMol &mol,
+    SparseIntVect<boost::int32_t> *getAtomPairFingerprint(ROMol &mol,
                                                           const std::vector<boost::uint32_t> *fromAtoms,
                                                           const std::vector<boost::uint32_t> *ignoreAtoms,
                                                           const std::vector<boost::uint32_t> *atomInvariants,
@@ -120,7 +120,7 @@ namespace RDKit{
     };
 
     SparseIntVect<boost::int32_t> *
-    getAtomPairFingerprint(const ROMol &mol,unsigned int minLength,unsigned int maxLength,
+    getAtomPairFingerprint(ROMol &mol,unsigned int minLength,unsigned int maxLength,
                            const std::vector<boost::uint32_t> *fromAtoms,
                            const std::vector<boost::uint32_t> *ignoreAtoms,
                            const std::vector<boost::uint32_t> *atomInvariants,
@@ -139,7 +139,7 @@ namespace RDKit{
       const unsigned int nAtoms=mol.getNumAtoms();
 
       std::vector<boost::uint32_t> atomCodes;
-      for(ROMol::ConstAtomIterator atomItI=mol.beginAtoms();
+      for(ROMol::AtomIterator atomItI=mol.beginAtoms();
           atomItI!=mol.endAtoms();++atomItI){
         if(!atomInvariants){
           atomCodes.push_back(getAtomCode(*atomItI,0,includeChirality));
@@ -148,7 +148,7 @@ namespace RDKit{
         }
       }
 
-      for(ROMol::ConstAtomIterator atomItI=mol.beginAtoms();
+      for(ROMol::AtomIterator atomItI=mol.beginAtoms();
           atomItI!=mol.endAtoms();++atomItI){
         unsigned int i=(*atomItI)->getIdx();
         if(ignoreAtoms &&
@@ -156,7 +156,7 @@ namespace RDKit{
           continue;
         }
         if(!fromAtoms){
-          for(ROMol::ConstAtomIterator atomItJ=atomItI+1;
+          for(ROMol::AtomIterator atomItJ=atomItI+1;
               atomItJ!=mol.endAtoms();++atomItJ){
             unsigned int j=(*atomItJ)->getIdx();
             if(ignoreAtoms &&
@@ -181,7 +181,7 @@ namespace RDKit{
     }
 
     SparseIntVect<boost::int32_t> *
-    getHashedAtomPairFingerprint(const ROMol &mol,unsigned int nBits,
+    getHashedAtomPairFingerprint(ROMol &mol,unsigned int nBits,
                                  unsigned int minLength,unsigned int maxLength,
                                  const std::vector<boost::uint32_t> *fromAtoms,
                                  const std::vector<boost::uint32_t> *ignoreAtoms,
@@ -203,7 +203,7 @@ namespace RDKit{
 
       std::vector<boost::uint32_t> atomCodes;
       atomCodes.reserve(nAtoms);
-      for(ROMol::ConstAtomIterator atomItI=mol.beginAtoms();
+      for(ROMol::AtomIterator atomItI=mol.beginAtoms();
           atomItI!=mol.endAtoms();++atomItI){
         if(!atomInvariants){
           atomCodes.push_back(getAtomCode(*atomItI,0,includeChirality));
@@ -212,7 +212,7 @@ namespace RDKit{
         }
       }
 
-      for(ROMol::ConstAtomIterator atomItI=mol.beginAtoms();
+      for(ROMol::AtomIterator atomItI=mol.beginAtoms();
           atomItI!=mol.endAtoms();++atomItI){
         unsigned int i=(*atomItI)->getIdx();
         if(ignoreAtoms &&
@@ -220,7 +220,7 @@ namespace RDKit{
           continue;
         }
         if(!fromAtoms){
-          for(ROMol::ConstAtomIterator atomItJ=atomItI+1;
+          for(ROMol::AtomIterator atomItJ=atomItI+1;
               atomItJ!=mol.endAtoms();++atomItJ){
             unsigned int j=(*atomItJ)->getIdx();
             if(ignoreAtoms &&
@@ -259,7 +259,7 @@ namespace RDKit{
     }
 
     ExplicitBitVect *
-    getHashedAtomPairFingerprintAsBitVect(const ROMol &mol,unsigned int nBits,
+    getHashedAtomPairFingerprintAsBitVect(ROMol &mol,unsigned int nBits,
                                           unsigned int minLength,unsigned int maxLength,
                                           const std::vector<boost::uint32_t> *fromAtoms,
                                           const std::vector<boost::uint32_t> *ignoreAtoms,

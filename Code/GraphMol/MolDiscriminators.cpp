@@ -54,7 +54,7 @@ namespace RDKit {
       return nActive/((mu+1)*accum);
     }
 
-    double computeBalabanJ(const ROMol &mol, 
+    double computeBalabanJ(ROMol &mol, 
                            bool useBO,
                            bool force,
                            const std::vector<int> *bondPath,

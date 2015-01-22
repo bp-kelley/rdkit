@@ -146,7 +146,7 @@ namespace RDDepict {
     /*!
       A single Embedded Atom with this atom ID is added and placed at the origin
     */
-    EmbeddedFrag(unsigned int aid, const RDKit::ROMol *mol);
+    EmbeddedFrag(unsigned int aid, RDKit::ROMol *mol);
 
     //! Constructor when the coordinates have been specified for a set of atoms
     /*! 
@@ -160,7 +160,7 @@ namespace RDDepict {
          depends on  atoms properly so that new 
          neighbors can be added to them
     */
-    EmbeddedFrag(const RDKit::ROMol *mol, const RDGeom::INT_POINT2D_MAP &coordMap);
+    EmbeddedFrag(RDKit::ROMol *mol, const RDGeom::INT_POINT2D_MAP &coordMap);
 
     //! Initializer from a set of fused rings
     /*!
@@ -168,7 +168,7 @@ namespace RDDepict {
       \param mol        the molecule of interest
       \param fusedRings a vector of rings, each ring is a list of atom ids 
     */
-    EmbeddedFrag(const RDKit::ROMol *mol, const RDKit::VECT_INT_VECT &fusedRings);
+    EmbeddedFrag(RDKit::ROMol *mol, const RDKit::VECT_INT_VECT &fusedRings);
 
     //! Initializer for a cis/trans system using the double bond
     /*!
@@ -240,6 +240,7 @@ namespace RDDepict {
     }
 
     //! Get the molecule that this embedded fragmetn blongs to
+          RDKit::ROMol *getMol()       { return dp_mol;}
     const RDKit::ROMol *getMol() const { return dp_mol;}
 
     //! Find the common atom ids between this fragment and a second one
@@ -522,7 +523,7 @@ namespace RDDepict {
     RDKit::INT_LIST d_attachPts;
 
     // pointer to the owning molecule
-    const RDKit::ROMol *dp_mol;
+    RDKit::ROMol *dp_mol;
 
   };
 

@@ -102,7 +102,7 @@ namespace RDKit {
 
     */
     SparseIntVect<boost::int32_t> *
-    getAtomPairFingerprint(const ROMol &mol,
+    getAtomPairFingerprint(ROMol &mol,
                            unsigned int minLength,unsigned int maxLength,
                            const std::vector<boost::uint32_t> *fromAtoms=0,
                            const std::vector<boost::uint32_t> *ignoreAtoms=0,
@@ -111,7 +111,7 @@ namespace RDKit {
                            bool use2D=true);
     //! \overload
     SparseIntVect<boost::int32_t> *
-    getAtomPairFingerprint(const ROMol &mol,
+    getAtomPairFingerprint(ROMol &mol,
                            const std::vector<boost::uint32_t> *fromAtoms=0,
                            const std::vector<boost::uint32_t> *ignoreAtoms=0,
                            const std::vector<boost::uint32_t> *atomInvariants=0,
@@ -146,7 +146,7 @@ namespace RDKit {
 
     */
     SparseIntVect<boost::int32_t> *
-    getHashedAtomPairFingerprint(const ROMol &mol,
+    getHashedAtomPairFingerprint(ROMol &mol,
                                  unsigned int nBits=2048,
                                  unsigned int minLength=1,
                                  unsigned int maxLength=maxPathLen-1,
@@ -183,7 +183,7 @@ namespace RDKit {
 
     */
     ExplicitBitVect *
-    getHashedAtomPairFingerprintAsBitVect(const ROMol &mol,
+    getHashedAtomPairFingerprintAsBitVect(ROMol &mol,
                                           unsigned int nBits=2048,
                                           unsigned int minLength=1,
                                           unsigned int maxLength=maxPathLen-1,

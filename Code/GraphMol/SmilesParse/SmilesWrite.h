@@ -43,7 +43,7 @@ namespace RDKit{
         bond orders for aromatic bonds)
       \param allBondsExplicit : if true, symbols will be included for all bonds.
     */
-    std::string GetBondSmiles(const Bond *bond,int atomToLeftIdx=-1,
+    std::string GetBondSmiles(Bond *bond,int atomToLeftIdx=-1,
                               bool doKekule=false,bool allBondsExplicit=false);
   } 
   
@@ -59,7 +59,7 @@ namespace RDKit{
     \param allBondsExplicit : if true, symbols will be included for all bonds.
     \param allHsExplicit : if true, hydrogen counts will be provided for every atom.
    */
-  std::string MolToSmiles(const ROMol &mol,bool doIsomericSmiles=false,
+  std::string MolToSmiles(ROMol &mol,bool doIsomericSmiles=false,
 			  bool doKekule=false,int rootedAtAtom=-1,
                           bool canonical=true,
                           bool allBondsExplicit=false,
@@ -82,7 +82,7 @@ namespace RDKit{
     \param allBondsExplicit : if true, symbols will be included for all bonds.
     \param allHsExplicit : if true, hydrogen counts will be provided for every atom.
    */
-  std::string MolFragmentToSmiles(const ROMol &mol,
+  std::string MolFragmentToSmiles(ROMol &mol,
                                   const std::vector<int> &atomsToUse,
                                   const std::vector<int> *bondsToUse=0,
                                   const std::vector<std::string> *atomSymbols=0,

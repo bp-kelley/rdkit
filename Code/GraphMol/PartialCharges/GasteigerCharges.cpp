@@ -77,11 +77,11 @@ namespace Gasteiger {
 } // end of namespace Gasteiger
 
 namespace RDKit {
-  void computeGasteigerCharges(const ROMol *mol,int nIter, bool throwOnParamFailure) {
+  void computeGasteigerCharges(ROMol *mol,int nIter, bool throwOnParamFailure) {
     PRECONDITION(mol,"bad molecule");
     computeGasteigerCharges(*mol,nIter,throwOnParamFailure);
   }
-  void computeGasteigerCharges(const ROMol &mol,int nIter, bool throwOnParamFailure) {
+  void computeGasteigerCharges(ROMol &mol,int nIter, bool throwOnParamFailure) {
     std::vector<double> chgs(mol.getNumAtoms());
     computeGasteigerCharges(mol,chgs,nIter,throwOnParamFailure);
   }
@@ -92,7 +92,7 @@ namespace RDKit {
    * Ref : J.Gasteiger, M. Marsili, "Iterative Equalization of Oribital Electronegatiity
    *  A Rapid Access to Atomic Charges", Tetrahedron Vol 36 p3219 1980
    */
-  void computeGasteigerCharges(const ROMol &mol, std::vector<double> &charges,
+  void computeGasteigerCharges(ROMol &mol, std::vector<double> &charges,
                                int nIter, bool throwOnParamFailure) {
     PRECONDITION(charges.size()>=mol.getNumAtoms(),"bad array size");
     
@@ -123,7 +123,7 @@ namespace RDKit {
     Gasteiger::splitChargeConjugated(mol, charges);
 
     // now read in the parameters
-    ROMol::ConstAtomIterator ai; 
+    ROMol::AtomIterator ai; 
     
     for (ai = mol.beginAtoms(); ai != mol.endAtoms(); ai++) {
       std::string elem = table->getElementSymbol((*ai)->getAtomicNum());

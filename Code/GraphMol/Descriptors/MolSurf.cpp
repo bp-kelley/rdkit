@@ -21,7 +21,7 @@
 
 namespace RDKit{
   namespace Descriptors {
-    double getLabuteAtomContribs(const ROMol &mol,
+    double getLabuteAtomContribs(ROMol &mol,
 				 std::vector<double> &Vi,
 				 double &hContrib,
 				 bool includeHs,
@@ -41,7 +41,7 @@ namespace RDKit{
 	Vi[i]=0.0;
       }
 
-      for(ROMol::ConstBondIterator bondIt=mol.beginBonds();
+      for(ROMol::BondIterator bondIt=mol.beginBonds();
 	  bondIt!=mol.endBonds();++bondIt){
 	const double bondScaleFacts[4]={.1,0,.2,.3};
 	double Ri=rads[(*bondIt)->getBeginAtomIdx()];
@@ -87,7 +87,7 @@ namespace RDKit{
 
       return res;
     }
-    double calcLabuteASA(const ROMol &mol,bool includeHs,bool force){
+    double calcLabuteASA(ROMol &mol,bool includeHs,bool force){
       if(!force && mol.hasProp(common_properties::_labuteASA)){
 	double res;
 	mol.getProp(common_properties::_labuteASA,res);
@@ -102,7 +102,7 @@ namespace RDKit{
     }
 
 
-    double getTPSAAtomContribs(const ROMol &mol,
+    double getTPSAAtomContribs(ROMol &mol,
                                std::vector<double> &Vi,
                                bool force){
       TEST_ASSERT(Vi.size()>=mol.getNumAtoms());
@@ -114,7 +114,7 @@ namespace RDKit{
       }
       unsigned int nAtoms=mol.getNumAtoms();
       std::vector<int> nNbrs(nAtoms,0),nSing(nAtoms,0),nDoub(nAtoms,0),nTrip(nAtoms,0),nArom(nAtoms,0),nHs(nAtoms,0);
-      for(ROMol::ConstBondIterator bIt=mol.beginBonds();bIt!=mol.endBonds();++bIt){
+      for(ROMol::BondIterator bIt=mol.beginBonds();bIt!=mol.endBonds();++bIt){
         const Bond *bnd=(*bIt);
         if(bnd->getBeginAtom()->getAtomicNum()==1){
           nNbrs[bnd->getEndAtomIdx()]-=1;
@@ -223,7 +223,7 @@ namespace RDKit{
       mol.setProp(common_properties::_tpsa,res,true);
       return res;
     }
-    double calcTPSA(const ROMol &mol,bool force){
+    double calcTPSA(ROMol &mol,bool force){
       if(!force && mol.hasProp(common_properties::_tpsa)){
 	double res;
 	mol.getProp(common_properties::_tpsa,res);
@@ -252,7 +252,7 @@ namespace RDKit{
       }
     }
 
-    std::vector<double> calcSlogP_VSA(const ROMol &mol,std::vector<double> *bins,
+    std::vector<double> calcSlogP_VSA(ROMol &mol,std::vector<double> *bins,
                                       bool force){
       // FIX: use force value to include caching
       std::vector<double> lbins;
@@ -278,8 +278,8 @@ namespace RDKit{
       return res;
     }
 
-    std::vector<double> calcSMR_VSA(const ROMol &mol,std::vector<double> *bins,
-                                      bool force){
+    std::vector<double> calcSMR_VSA(ROMol &mol,std::vector<double> *bins,
+                                    bool force){
       std::vector<double> lbins;
       if(!bins){
         double blist[9]={1.29, 1.82, 2.24, 2.45, 2.75, 3.05, 3.63,3.8,4.0};
@@ -303,7 +303,7 @@ namespace RDKit{
       return res;
     }
 
-    std::vector<double> calcPEOE_VSA(const ROMol &mol,std::vector<double> *bins,
+    std::vector<double> calcPEOE_VSA(ROMol &mol,std::vector<double> *bins,
                                       bool force){
       std::vector<double> lbins;
       if(!bins){

@@ -1120,7 +1120,7 @@ namespace RDKit {
       initBoundsMat(mmat.get(),defaultMin,defaultMax);
     };
 
-    void setTopolBounds(const ROMol &mol, DistGeom::BoundsMatPtr mmat,
+    void setTopolBounds(ROMol &mol, DistGeom::BoundsMatPtr mmat,
                         bool set15bounds, bool scaleVDW) {
       PRECONDITION(mmat.get(),"bad pointer");
       unsigned int nb = mol.getNumBonds();

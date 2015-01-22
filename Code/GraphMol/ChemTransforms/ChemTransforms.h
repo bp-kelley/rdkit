@@ -124,7 +124,7 @@ namespace RDKit{
       \return a new ROMol with the Murcko scaffold
               The client is responsible for deleting this molecule.
   */
-  ROMol *MurckoDecompose(const ROMol &mol);
+  ROMol *MurckoDecompose(ROMol &mol);
 
   //! \brief Combined two molecules to create a new one
   //!

@@ -173,7 +173,7 @@ namespace RDKit{
       return res.str();
     }
 
-    std::string GetBondSmiles(const Bond *bond,int atomToLeftIdx,bool doKekule,bool allBondsExplicit){
+    std::string GetBondSmiles(Bond *bond,int atomToLeftIdx,bool doKekule,bool allBondsExplicit){
       PRECONDITION(bond,"bad bond");
       if(atomToLeftIdx<0) atomToLeftIdx=bond->getBeginAtomIdx();
 
@@ -360,7 +360,7 @@ namespace RDKit{
   } // end of namespace SmilesWrite
 
 
-  std::string MolToSmiles(const ROMol &mol,bool doIsomericSmiles,
+  std::string MolToSmiles(ROMol &mol,bool doIsomericSmiles,
                           bool doKekule,int rootedAtAtom,bool canonical,
                           bool allBondsExplicit,bool allHsExplicit){
     if(!mol.getNumAtoms()) return "";
@@ -454,7 +454,7 @@ namespace RDKit{
     return res;
   } // end of MolToSmiles()
 
-  std::string MolFragmentToSmiles(const ROMol &mol,
+  std::string MolFragmentToSmiles(ROMol &mol,
                                   const std::vector<int> &atomsToUse,
                                   const std::vector<int> *bondsToUse,
                                   const std::vector<std::string> *atomSymbols,

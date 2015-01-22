@@ -46,7 +46,7 @@ namespace RDKit {
                               number of atoms
 	  
     */
-    void getCrippenAtomContribs(const ROMol &mol,
+    void getCrippenAtomContribs(ROMol &mol,
 				std::vector<double> &logpContribs,
 				std::vector<double> &mrContribs,
 				bool force=false,
@@ -71,7 +71,7 @@ namespace RDKit {
                         pulled from the cache
 	  
     */
-    void calcCrippenDescriptors(const ROMol &mol,double &logp,double &mr,
+    void calcCrippenDescriptors(ROMol &mol,double &logp,double &mr,
 				bool includeHs=true,bool force=false);
     
     //! a class used to store Crippen parameters

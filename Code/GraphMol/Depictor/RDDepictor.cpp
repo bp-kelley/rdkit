@@ -27,7 +27,7 @@
 namespace RDDepict {
   namespace DepictorLocal {
     // arings: indices of atoms in rings
-    void embedFusedSystems(const RDKit::ROMol &mol,
+    void embedFusedSystems(RDKit::ROMol &mol,
                            const RDKit::VECT_INT_VECT &arings,
                            std::list<EmbeddedFrag> &efrags) {
       RDKit::INT_INT_VECT_MAP neighMap;

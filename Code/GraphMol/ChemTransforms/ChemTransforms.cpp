@@ -446,7 +446,7 @@ namespace RDKit{
     
   }
 
-  ROMol *MurckoDecompose(const ROMol &mol){
+  ROMol *MurckoDecompose(ROMol &mol){
     RWMol *res=new RWMol(mol);
     unsigned int nAtoms=res->getNumAtoms();
     if(!nAtoms) return res;

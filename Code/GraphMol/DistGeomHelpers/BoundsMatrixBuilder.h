@@ -48,7 +48,7 @@ namespace RDKit {
       fail triangle smoothing. In these cases it is recommended to back out and
       recompute the bounds matrix with no 1-5 bounds and with vdW scaling. 
     */
-    void setTopolBounds(const ROMol &mol, DistGeom::BoundsMatPtr mmat,
+    void setTopolBounds(ROMol &mol, DistGeom::BoundsMatPtr mmat,
 			bool set15bounds=true, bool scaleVDW=false);
   }
 }

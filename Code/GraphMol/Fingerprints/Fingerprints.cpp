@@ -612,7 +612,7 @@ namespace RDKit{
   }
 
   // caller owns the result, it must be deleted
-  ExplicitBitVect *LayeredFingerprintMol(const ROMol &mol,
+  ExplicitBitVect *LayeredFingerprintMol(ROMol &mol,
                                          unsigned int layerFlags,
                                          unsigned int minPath,
                                          unsigned int maxPath,

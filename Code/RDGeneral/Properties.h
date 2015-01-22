@@ -42,8 +42,8 @@ namespace RDKit
   {
     //! \brief The \c Properties class can be used to extend objects
     //!        with properties
-    mutable Dict dp_props;  // not a very good solution...
-    mutable STR_VECT *compLst;
+    Dict dp_props;  // not a very good solution...
+    STR_VECT *compLst;
     
   public:
   Properties() : dp_props(), compLst(0) {
@@ -84,8 +84,6 @@ namespace RDKit
   
     // ------------------------------------
     //  Local Property Dict functionality
-    //  all setProp functions are const because they
-    //     are not meant to change the atom chemically 
     // ------------------------------------
     //! returns a list with the names of our \c properties
     STR_VECT getPropList() const {
@@ -102,7 +100,7 @@ namespace RDKit
            \c computed.
      */
     template <typename T>
-    void setProp(const char *key, T val, bool computed=false) const{
+    void setProp(const char *key, T val, bool computed=false) {
     
       //if(!dp_props) dp_props = new Dict();
       std::string what(key);
@@ -111,7 +109,7 @@ namespace RDKit
 
     //! \overload
     template <typename T>
-    void setProp(const std::string &key, T val, bool computed=false) const {
+    void setProp(const std::string &key, T val, bool computed=false)  {
       if (computed) {
         if (!compLst)
         {
@@ -190,12 +188,12 @@ namespace RDKit
 	 - if the \c property is marked as \c computed, it will also be removed
 	   from our list of \c computedProperties
     */
-    void clearProp(const char *key) const {
+    void clearProp(const char *key)  {
       std::string what(key);
       clearProp(what);
     };
     //! \overload
-    void clearProp(const std::string &key) const {
+    void clearProp(const std::string &key)  {
       if(compLst)
       {
 	STR_VECT_I svi = std::find(compLst->begin(), compLst->end(), key);
@@ -207,7 +205,7 @@ namespace RDKit
     };
 
     //! clears all of our \c computed \c properties
-    void clearComputedProps() const {
+    void clearComputedProps()  {
       if (compLst)
       {
 	BOOST_FOREACH(const std::string &sv,*compLst){

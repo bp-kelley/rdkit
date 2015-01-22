@@ -188,7 +188,7 @@ namespace RDKit{
     return static_cast<ROMol *>(newM);
   }
 
-  std::string MolFragmentToSmilesHelper(const ROMol &mol,
+  std::string MolFragmentToSmilesHelper(ROMol &mol,
                                         python::object atomsToUse,
                                         python::object bondsToUse,
                                         python::object atomSymbols,

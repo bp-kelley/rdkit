@@ -136,19 +136,19 @@ namespace RDKit {
     //std::cout << "key: "  << key << ": " << res << std::endl;
     return res;
   }
-  void MolSetProp(const ROMol &mol,const char *key,std::string val,
+  void MolSetProp(ROMol &mol,const char *key,std::string val,
 		  bool computed=false){
     mol.setProp(key, val, computed);
   }
 
-  void MolClearProp(const ROMol &mol,const char *key) {
+  void MolClearProp(ROMol &mol,const char *key) {
     if(!mol.hasProp(key)){
       return;
     }
     mol.clearProp(key);
   }
 
-  void MolClearComputedProps(const ROMol &mol) {
+  void MolClearComputedProps(ROMol &mol) {
     mol.clearComputedProps();
   }
 

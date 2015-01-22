@@ -470,17 +470,17 @@ namespace RDKit{
   }
 
 
-  void ROMol::clearComputedProps(bool includeRings) const {
+  void ROMol::clearComputedProps(bool includeRings) {
     // the SSSR information:
     if(includeRings) this->dp_ringInfo->reset();
     Properties::clearComputedProps();
 
-    for(ConstAtomIterator atomIt=this->beginAtoms();
+    for(AtomIterator atomIt=this->beginAtoms();
         atomIt!=this->endAtoms();
         ++atomIt){
       (*atomIt)->clearComputedProps();
     }
-    for(ConstBondIterator bondIt=this->beginBonds();
+    for(BondIterator bondIt=this->beginBonds();
         bondIt!=this->endBonds();
         bondIt++){
       (*bondIt)->clearComputedProps();

@@ -354,7 +354,7 @@ namespace RDKit {
   }
   
   
-  INT_MAP_INT pickBondsToWedge(const ROMol &mol) {
+  INT_MAP_INT pickBondsToWedge(ROMol &mol) {
     // we need ring information; make sure findSSSR has been called before
     // if not call now
     if ( !mol.getRingInfo()->isInitialized() ) {
@@ -365,7 +365,7 @@ namespace RDKit {
     static int noNbrs=100;
     INT_VECT nChiralNbrs(mol.getNumAtoms(),noNbrs);
     bool chiNbrs=false;
-    for (ROMol::ConstAtomIterator cai = mol.beginAtoms();
+    for (ROMol::AtomIterator cai = mol.beginAtoms();
          cai != mol.endAtoms(); ++cai) {
       const Atom *at=*cai;
       Atom::ChiralType type = at->getChiralTag();

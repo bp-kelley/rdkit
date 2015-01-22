@@ -96,7 +96,7 @@ namespace RDKit{
        - 0x10: ring sizes
        - 0x20: aromaticity
   */
-  ExplicitBitVect *LayeredFingerprintMol(const ROMol &mol,
+  ExplicitBitVect *LayeredFingerprintMol(ROMol &mol,
                                          unsigned int layerFlags=0xFFFFFFFF,
                                          unsigned int minPath=1,unsigned int maxPath=7,
                                          unsigned int fpSize=2048,

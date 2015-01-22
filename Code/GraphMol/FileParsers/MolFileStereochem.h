@@ -17,7 +17,7 @@ namespace RDKit {
   void DetectAtomStereoChemistry(RWMol &mol, const Conformer *conf);
   void DetectBondStereoChemistry(ROMol &mol, const Conformer *conf);
   void WedgeMolBonds(ROMol &mol, const Conformer *conf);
-  INT_MAP_INT pickBondsToWedge(const ROMol &mol);
+  INT_MAP_INT pickBondsToWedge(ROMol &mol);
   void ClearSingleBondDirFlags(ROMol &mol);
   Bond::BondDir DetermineBondWedgeState(const Bond *bond,
                                         const INT_MAP_INT &wedgeBonds,

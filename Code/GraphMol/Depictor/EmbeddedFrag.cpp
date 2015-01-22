@@ -28,7 +28,7 @@ const double NEIGH_RADIUS = 2.5;
 
 namespace RDDepict {
 
-  EmbeddedFrag::EmbeddedFrag(unsigned int aid, const RDKit::ROMol *mol) {
+  EmbeddedFrag::EmbeddedFrag(unsigned int aid, RDKit::ROMol *mol) {
     PRECONDITION(mol,"");
     PRECONDITION(aid < mol->getNumAtoms(), "");
     
@@ -49,7 +49,7 @@ namespace RDDepict {
     this->updateNewNeighs(aid); 
   }
     
-  EmbeddedFrag::EmbeddedFrag(const RDKit::ROMol *mol, const RDKit::VECT_INT_VECT &fusedRings) {
+  EmbeddedFrag::EmbeddedFrag(RDKit::ROMol *mol, const RDKit::VECT_INT_VECT &fusedRings) {
     PRECONDITION(mol,"");
     dp_mol = mol;
     d_eatoms.clear();
@@ -59,7 +59,7 @@ namespace RDDepict {
   }
 
   
-  EmbeddedFrag::EmbeddedFrag(const RDKit::ROMol *mol, const RDGeom::INT_POINT2D_MAP &coordMap) {
+  EmbeddedFrag::EmbeddedFrag(RDKit::ROMol *mol, const RDGeom::INT_POINT2D_MAP &coordMap) {
     // constructor of a case where the user specifies the coordinates for a portion of the 
     // atoms in the molecule - we will use these coordinates blindly without testing for any 
     // kind of correctness - user is GOD :)
@@ -1312,7 +1312,7 @@ namespace RDDepict {
     RDKit::VECT_INT_VECT deg4NbrBids, deg4NbrAids;
     
     if (permuteDeg4Nodes) {
-      for (RDKit::ROMol::ConstAtomIterator ai = dp_mol->beginAtoms(); ai != dp_mol->endAtoms(); ai++) {
+      for (RDKit::ROMol::AtomIterator ai = dp_mol->beginAtoms(); ai != dp_mol->endAtoms(); ai++) {
         unsigned int caid = (*ai)->getIdx();
         if ( ((*ai)->getDegree() == 4) && (!(dp_mol->getRingInfo()->numAtomRings(caid))) ) {
           RDKit::INT_VECT aids, bids;
@@ -1447,7 +1447,7 @@ namespace RDDepict {
     }
     if (includeBonds) {
       // now find bond collisions
-      RDKit::ROMol::ConstBondIterator bi1, bi2;
+      RDKit::ROMol::BondIterator bi1, bi2;
       unsigned int bid1, bid2;
       unsigned int beg1, end1, beg2, end2;
       RDGeom::Point2D avg1, avg2, v1, v2, v3;

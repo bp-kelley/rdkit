@@ -136,11 +136,11 @@ namespace RDKit{
       \return the J index
       
     */
-    double computeBalabanJ(const ROMol &mol, 
-				  bool useBO=true,
-				  bool force=false,
-				  const std::vector<int> *bondPath=0,
-				  bool cacheIt=true);
+    double computeBalabanJ( const ROMol &mol, 
+                            bool useBO=true,
+                            bool force=false,
+                            const std::vector<int> *bondPath=0,
+                            bool cacheIt=true);
     //! \overload
     double computeBalabanJ(double *distMat, int nb, int nAts);
 				
@@ -428,9 +428,9 @@ namespace RDKit{
         - Since SSSR may not be unique, a post-SSSR step to symmetrize may be done.
           The extra rings this process adds can be quite useful.
     */
-    int findSSSR(const ROMol &mol, std::vector<std::vector<int> > &res);
+    int findSSSR(ROMol &mol, std::vector<std::vector<int> > &res);
     //! \overload
-    int findSSSR(const ROMol &mol, std::vector<std::vector<int> > *res=0);
+    int findSSSR(ROMol &mol, std::vector<std::vector<int> > *res=0);
 
     //! use a DFS algorithm to identify ring bonds and atoms in a molecule
     /*!
@@ -489,7 +489,7 @@ namespace RDKit{
 	  this pointer.
 	  
     */
-    double * getAdjacencyMatrix(const ROMol &mol,
+    double * getAdjacencyMatrix(ROMol &mol,
                                 bool useBO=false,
                                 int emptyVal=0,
                                 bool force=false,
@@ -518,11 +518,11 @@ namespace RDKit{
 	  
      
     */
-    double *getDistanceMat(const ROMol &mol,
-				  bool useBO=false,
-				  bool useAtomWts=false,
-				  bool force=false,
-				  const char *propNamePrefix=0);
+    double *getDistanceMat( ROMol &mol,
+                            bool useBO=false,
+                            bool useAtomWts=false,
+                            bool force=false,
+                            const char *propNamePrefix=0);
 
 
     //! Computes the molecule's topological distance matrix
@@ -547,11 +547,11 @@ namespace RDKit{
 	  
      
     */
-    double *getDistanceMat(const ROMol &mol,
-				  const std::vector<int> &activeAtoms,
-				  const std::vector<const Bond *> &bonds,
-				  bool useBO=false,
-				  bool useAtomWts=false);
+    double *getDistanceMat( const ROMol &mol,
+                            const std::vector<int> &activeAtoms,
+                            const std::vector<const Bond *> &bonds,
+                            bool useBO=false,
+                            bool useAtomWts=false);
 
 
     //! Computes the molecule's 3D distance matrix
@@ -572,11 +572,11 @@ namespace RDKit{
 	  this pointer.
      
     */
-    double *get3DDistanceMat(const ROMol &mol,
-                             int confId=-1,
-                             bool useAtomWts=false,
-                             bool force=false,
-                             const char *propNamePrefix=0);
+    double *get3DDistanceMat( ROMol &mol,
+                              int confId=-1,
+                              bool useAtomWts=false,
+                              bool force=false,
+                              const char *propNamePrefix=0);
     //! Find the shortest path between two atoms
     /*!
       Uses the Bellman-Ford algorithm
@@ -621,7 +621,7 @@ namespace RDKit{
 	        individual atoms will be tracked.  The \c rankHistory pointer should be
 	        to a VECT_INT_VECT that has at least \c mol.getNumAtoms() elements.
     */
-    void rankAtoms(const ROMol &mol,std::vector<int> &ranks,
+    void rankAtoms(ROMol &mol,std::vector<int> &ranks,
                    bool breakTies=true,
                    bool includeChirality=true,
                    bool includeIsotopes=true,
@@ -649,7 +649,8 @@ namespace RDKit{
 	        individual atoms will be tracked.  The \c rankHistory pointer should be
 	        to a VECT_INT_VECT that has at least \c mol.getNumAtoms() elements.
     */
-    void rankAtomsInFragment(const ROMol &mol,std::vector<int> &ranks,
+    void rankAtomsInFragment(ROMol &mol,
+                             std::vector<int> &ranks,
                              const boost::dynamic_bitset<> &atomsToUse,
                              const boost::dynamic_bitset<> &bondsToUse,
                              const std::vector<std::string> *atomSymbols=0,
