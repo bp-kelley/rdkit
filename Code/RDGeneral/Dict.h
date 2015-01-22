@@ -22,6 +22,49 @@
 #include <RDBoost/Exceptions.h>
 #include <boost/lexical_cast.hpp>
 
+// Define TRACK_PROPERTIES in order to
+//  track property usage.  When an RDKit program exits,
+//   usage of PROPERTIES will be printed to stderr
+
+//#define TRACK_PROPERTIES
+
+#ifdef TRACK_PROPERTIES
+#include <iostream>
+struct PropertyTracker {
+  std::map<std::string, int> counter;
+  std::string name;
+  PropertyTracker(const char *name) : name(name)
+  {
+  }
+  inline void add(const std::string &name) { counter[name]++; }
+  ~PropertyTracker()
+  {
+    for (std::map<std::string,int>::const_iterator it=counter.begin();
+         it!=counter.end(); ++it)
+      std::cerr << "prop:" << name << "\t" << it->first << "\t" << it->second << std::endl;
+  }
+};
+extern PropertyTracker setpropcounter;
+extern PropertyTracker haspropcounter;
+extern PropertyTracker getpropcounter;
+extern PropertyTracker clearpropcounter;
+extern PropertyTracker getpropifpresentcounter;
+#define SETVAL(key) setpropcounter.add(key)
+#define HASVAL(key) haspropcounter.add(key)
+#define GETVAL(key) getpropcounter.add(key)
+#define CLEARVAL(key) clearpropcounter.add(key)
+#define GETVALIFPRESENT(key) getpropifpresentcounter.add(key)
+
+#else
+
+#define SETVAL(key) 
+#define HASVAL(key) 
+#define GETVAL(key) 
+#define CLEARVAL(key) 
+#define GETVALIFPRESENT(key) 
+
+#endif
+
 namespace RDKit{
   typedef std::vector<std::string> STR_VECT;
 
@@ -45,6 +88,14 @@ namespace RDKit{
     };
 
     //----------------------------------------------------------
+    //! \brief Updates the contents of this dictionary using the
+    //!        values of the other
+
+    void update(const Dict &other)
+    {
+      _data = other._data;
+    }
+    //----------------------------------------------------------
     //! \brief Returns whether or not the dictionary contains a particular
     //!        key.
     bool hasVal(const char *what) const{
@@ -52,6 +103,7 @@ namespace RDKit{
       return hasVal(key);
     };
     bool hasVal(const std::string &what) const {
+      HASVAL(what);
       return _data.find(what)!=_data.end();
     };
 
@@ -89,6 +141,7 @@ namespace RDKit{
     //! \overload
     template <typename T>
     T getVal(const std::string &what) const {
+      GETVAL(what);
       DataType::const_iterator pos=_data.find(what);
       if(pos==_data.end())
 	throw KeyErrorException(what);
@@ -132,6 +185,7 @@ namespace RDKit{
 
     template <typename T>
     bool getValIfPresent(const std::string &what,T &res) const {
+      GETVALIFPRESENT(what);
       DataType::const_iterator pos=_data.find(what);
       if(pos==_data.end())
 	return false;
@@ -168,6 +222,7 @@ namespace RDKit{
     */
     template <typename T>
     void setVal(const std::string &what, T &val){
+      SETVAL(what);
       _data[what] = toany(val);
     };
     //! \overload
@@ -196,6 +251,7 @@ namespace RDKit{
           a KeyErrorException will be thrown.
     */
     void clearVal(const std::string &what) {
+      CLEARVAL(what);
       if(! this->hasVal(what) ) throw KeyErrorException(what);
       _data.erase(what);
     };

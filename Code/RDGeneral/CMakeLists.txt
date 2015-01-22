@@ -8,6 +8,7 @@ rdkit_headers(BadFileException.h
               Dict.h
               FileParseException.h
               Invariant.h
+              Properties.h
               RDLog.h
               StreamOps.h
               types.h

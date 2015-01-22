@@ -178,3 +178,11 @@ namespace RDKit{
   template double_tuple Dict::fromany<double_tuple>(const boost::any& arg) const;
   template boost::any Dict::toany<double_tuple>(double_tuple arg) const;
 }
+
+#ifdef TRACK_PROPERTIES
+  PropertyTracker setpropcounter("setProp");
+  PropertyTracker haspropcounter("hasProp");
+  PropertyTracker getpropcounter("getProp");
+  PropertyTracker clearpropcounter("clearProp");
+  PropertyTracker getpropifpresentcounter("maybegetProp");
+#endif

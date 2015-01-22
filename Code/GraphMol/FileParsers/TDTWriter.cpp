@@ -133,15 +133,12 @@ namespace RDKit {
       // if use did not specify any properties, write all non computed properties
       // out to the file
       STR_VECT properties = mol.getPropList();
-      STR_VECT compLst;
-      mol.getPropIfPresent(detail::computedPropName, compLst);
 
       STR_VECT_CI pi;
       for (pi = properties.begin(); pi != properties.end(); pi++) {
 
 	// ignore any of the following properties
-	if ( ((*pi) == detail::computedPropName) || 
-	     ((*pi) == common_properties::_Name) ||
+	if ( ((*pi) == common_properties::_Name) ||
 	     ((*pi) == "_MolFileInfo") ||
 	     ((*pi) == "_MolFileComments") ||
              ((*pi) == common_properties::_MolFileChiralFlag)) {
@@ -149,7 +146,7 @@ namespace RDKit {
 	}
 
 	// check if this property is not computed
-	if (std::find(compLst.begin(), compLst.end(), (*pi)) == compLst.end()) {
+	if (!mol.isComputedProp(*pi)) {
 	  writeProperty(mol, (*pi));
 	}
       }

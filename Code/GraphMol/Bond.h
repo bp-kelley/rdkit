@@ -17,8 +17,9 @@
 // FIX: grn...
 #include <Query/QueryObjects.h>
 #include <RDGeneral/types.h>
+#include <RDGeneral/Properties.h>
 #include <GraphMol/details.h>
-#include <boost/foreach.hpp>
+
 
 namespace RDKit{
   class ROMol;
@@ -43,7 +44,7 @@ namespace RDKit{
 	    clients who need to store extra data on Bond objects.
 
   */
-  class Bond {
+  class Bond : public Properties {
     friend class RWMol;
     friend class ROMol;
   public:
@@ -103,7 +104,7 @@ namespace RDKit{
     //! construct with a particular BondType
     explicit Bond(BondType bT);
     Bond(const Bond &other);
-    virtual ~Bond();
+    virtual ~Bond() {}
     Bond &operator=(const Bond &other);
 
     //! returns a copy
@@ -278,106 +279,6 @@ namespace RDKit{
     //! \overload
     INT_VECT &getStereoAtoms() { return d_stereoAtoms; };
   
-    // ------------------------------------
-    //  Local Property Dict functionality
-    //  FIX: at some point this stuff should go in a mixin class
-    // ------------------------------------
-    //! returns a list with the names of our \c properties
-    STR_VECT getPropList() const {
-      return dp_props->keys();
-    }
-
-    //! sets a \c property value
-    /*!
-       \param key the name under which the \c property should be stored.
-           If a \c property is already stored under this name, it will be
-	   replaced.
-       \param val the value to be stored
-       \param computed (optional) allows the \c property to be flagged
-           \c computed.
-     */
-    template <typename T>
-    void setProp(const char *key,T val, bool computed=false) const{
-      //if(!dp_props) dp_props = new Dict();
-      std::string what(key);
-      setProp(what,val, computed);
-    }
-    //! \overload
-    template <typename T>
-    void setProp(const std::string &key,T val, bool computed=false ) const{
-      //setProp(key.c_str(),val);
-      if (computed) {
-          STR_VECT compLst;
-          getPropIfPresent(detail::computedPropName, compLst);
-          if (std::find(compLst.begin(), compLst.end(), key) == compLst.end()) {
-              compLst.push_back(key);
-              dp_props->setVal(detail::computedPropName, compLst);
-          }
-      }
-      dp_props->setVal(key,val);
-    }
-
-    //! allows retrieval of a particular property value
-    /*!
-
-       \param key the name under which the \c property should be stored.
-           If a \c property is already stored under this name, it will be
-	   replaced.
-       \param res a reference to the storage location for the value.
-
-       <b>Notes:</b>
-         - if no \c property with name \c key exists, a KeyErrorException will be thrown.
-	 - the \c boost::lexical_cast machinery is used to attempt type conversions.
-	   If this fails, a \c boost::bad_lexical_cast exception will be thrown.
-
-    */
-    template <typename T>
-    void getProp(const char *key,T &res) const {
-      PRECONDITION(dp_props,"getProp called on empty property dict");
-      dp_props->getVal(key,res);
-    }
-    //! \overload
-    template <typename T>
-    void getProp(const std::string &key,T &res) const {
-      PRECONDITION(dp_props,"getProp called on empty property dict");
-      dp_props->getVal(key,res);
-    }
-
-    //! \Overload
-    template <typename T>
-    T getProp(const char *key) const {
-      return dp_props->getVal<T>(key);
-    }
-    //! \overload
-    template <typename T>
-    T getProp(const std::string &key) const {
-      return dp_props->getVal<T>(key);
-    }
-
-    //! returns whether or not we have a \c property with name \c key
-    //!  and assigns the value if we do
-
-    template <typename T>
-    bool getPropIfPresent(const char *key,T &res) const {
-        return dp_props->getValIfPresent(key,res);
-    }
-    //! \overload
-    template <typename T>
-    bool getPropIfPresent(const std::string &key,T &res) const {
-        return dp_props->getValIfPresent(key,res);
-    }
-
-    //! returns whether or not we have a \c property with name \c key
-    bool hasProp(const char *key) const {
-      if(!dp_props) return false;
-      return dp_props->hasVal(key);
-    };
-    //! \overload
-    bool hasProp(const std::string &key) const {
-      if(!dp_props) return false;
-      return dp_props->hasVal(key);
-    };
-
     //! clears the value of a \c property
     /*!
        <b>Notes:</b>
@@ -386,35 +287,6 @@ namespace RDKit{
 	 - if the \c property is marked as \c computed, it will also be removed
 	   from our list of \c computedProperties
     */
-    void clearProp(const char *key) const {
-      std::string what(key);
-      clearProp(what);
-    };
-    //! \overload
-    void clearProp(const std::string &key) const {
-      STR_VECT compLst;
-      if (getPropIfPresent(detail::computedPropName, compLst)) {
-	STR_VECT_I svi = std::find(compLst.begin(), compLst.end(), key);
-	if (svi != compLst.end()) {
-	  compLst.erase(svi);
-	  dp_props->setVal(detail::computedPropName, compLst);
-	}
-      }
-      dp_props->clearVal(key);
-    }
-
-    //! clears all of our \c computed \c properties
-    void clearComputedProps() const {
-      STR_VECT compLst;
-      if(getPropIfPresent(detail::computedPropName, compLst)) {
-	BOOST_FOREACH(const std::string &sv,compLst){
-	  dp_props->clearVal(sv);
-	}
-	compLst.clear();
-	dp_props->setVal(detail::computedPropName, compLst);
-      }
-    }
-
     //! calculates any of our lazy \c properties
     /*!
       <b>Notes:</b>
