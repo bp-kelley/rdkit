@@ -42,32 +42,33 @@ namespace RDKit
   {
     //! \brief The \c Properties class can be used to extend objects
     //!        with properties
-    mutable Dict dp_props;  // not a very good solution...
+    Dict *dp_props; // Note not deep-const here....
     mutable STR_VECT *compLst;
     
   public:
-  Properties() : dp_props(), compLst(0) {
-    }
+  Properties() : dp_props(new Dict()), compLst(0) {
+  }
 
   Properties(const Properties &rhs) :
-    dp_props(rhs.dp_props),
+    dp_props( rhs.dp_props ? new Dict(*rhs.dp_props) : new Dict()),
     compLst(rhs.compLst ? new STR_VECT(*rhs.compLst) : 0)
   {
   }
 
   ~Properties()
   {
+    delete dp_props;
     delete compLst;
   }
 
   void clear()
   {
-    dp_props.reset();
+    dp_props->reset();
   }
 
   void update(const Properties &other)
   {
-    dp_props.update(other.dp_props);
+    dp_props->update(*other.dp_props);
     if(compLst)
     {
       if(other.compLst)
@@ -89,7 +90,7 @@ namespace RDKit
     // ------------------------------------
     //! returns a list with the names of our \c properties
     STR_VECT getPropList() const {
-      return dp_props.keys();
+      return dp_props->keys();
     }
 
     //! sets a \c property value
@@ -122,7 +123,7 @@ namespace RDKit
             compLst->push_back(key);
         }
       }
-      dp_props.setVal(key, val);
+      dp_props->setVal(key, val);
     }
 
     //! allows retrieval of a particular property value
@@ -141,44 +142,44 @@ namespace RDKit
     */
     template <typename T>
     void getProp(const char *key,T &res) const {
-      dp_props.getVal(key,res);
+      dp_props->getVal(key,res);
     }
     //! \overload
     template <typename T>
     void getProp(const std::string &key,T &res) const {
-      dp_props.getVal(key,res);
+      dp_props->getVal(key,res);
     }
 
     //! \overload
     template <typename T>
     T getProp(const char *key) const {
-      return dp_props.getVal<T>(key);
+      return dp_props->getVal<T>(key);
     }
     //! \overload
     template <typename T>
     T getProp(const std::string &key) const {
-      return dp_props.getVal<T>(key);
+      return dp_props->getVal<T>(key);
     }
 
     //! returns whether or not we have a \c property with name \c key
     //!  and assigns the value if we do
     template <typename T>
     bool getPropIfPresent(const char *key,T &res) const {
-        return dp_props.getValIfPresent(key,res);
+        return dp_props->getValIfPresent(key,res);
     }
     //! \overload
     template <typename T>
     bool getPropIfPresent(const std::string &key,T &res) const {
-        return dp_props.getValIfPresent(key,res);
+        return dp_props->getValIfPresent(key,res);
     }
 
     //! returns whether or not we have a \c property with name \c key
     bool hasProp(const char *key) const {
-      return dp_props.hasVal(key);
+      return dp_props->hasVal(key);
     };
     //! \overload
     bool hasProp(const std::string &key) const {
-      return dp_props.hasVal(key);
+      return dp_props->hasVal(key);
     };
 
     
@@ -203,7 +204,7 @@ namespace RDKit
 	  compLst->erase(svi);
 	}
       }
-      dp_props.clearVal(key);
+      dp_props->clearVal(key);
     };
 
     //! clears all of our \c computed \c properties
@@ -211,7 +212,7 @@ namespace RDKit
       if (compLst)
       {
 	BOOST_FOREACH(const std::string &sv,*compLst){
-	  dp_props.clearVal(sv);
+	  dp_props->clearVal(sv);
 	}
 	compLst->clear();
       }
