@@ -78,6 +78,7 @@ namespace RDKit {
 
   template <typename T>
   PyObject* RunReactants(ChemicalReaction *self,T reactants){
+    NOGIL gil;    
     if(!self->isInitialized()){
       self->initReactantMatchers();
     }
