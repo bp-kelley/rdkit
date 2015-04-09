@@ -10,6 +10,7 @@
 //
 #define NO_IMPORT_ARRAY
 #include "rdmolops.h"
+#include "rdchem.h"
 #include <boost/python.hpp>
 #include <numpy/arrayobject.h>
 #include <string>
@@ -275,6 +276,12 @@ namespace RDKit{
   ROMol *addHs(const ROMol &orig,bool explicitOnly=false,bool addCoords=false){
     return MolOps::addHs(orig,explicitOnly,addCoords);
   }
+
+  void MergeQueryHs(ReadWriteMol &rw, bool merge_unmapped)
+  {
+    MolOps::mergeQueryHs((RWMol&)rw, merge_unmapped);
+  }
+  
   int getSSSR(ROMol &mol) {
     VECT_INT_VECT rings;
     int nr = MolOps::findSSSR(mol, rings);
@@ -772,11 +779,16 @@ namespace RDKit{
                   docString.c_str(),
                   python::return_value_policy<python::manage_new_object>());
 
-      python::def("MergeQueryHs", (ROMol *(*)(const ROMol &))&MolOps::mergeQueryHs,
-                  (python::arg("mol")),
+      python::def("MergeQueryHs", (ROMol *(*)(const ROMol &,bool))&MolOps::mergeQueryHs,
+                  (python::arg("mol"),python::arg("merge_unmapped_only")=false),
                   "merges hydrogens into their neighboring atoms as queries",
                   python::return_value_policy<python::manage_new_object>());
 
+      python::def("MergeQueryHs", (void(*)(ReadWriteMol &,bool))&MergeQueryHs,
+                  (python::arg("rwmol"),python::arg("merge_unmapped_only")=false),
+                  "merges hydrogens into their neighboring atoms as queries");
+
+      
       // ------------------------------------------------------------------------
       docString="Removes atoms matching a substructure query from a molecule\n\
 \n\

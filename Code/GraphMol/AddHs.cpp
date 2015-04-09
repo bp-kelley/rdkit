@@ -506,7 +506,10 @@ namespace RDKit{
     //     removed.  This prevents molecules like "[H][H]" from having
     //     all atoms removed.
     //
-    void mergeQueryHs(RWMol &mol){
+    //   - By default all hydrogens are removed, however if
+    //     merge_unmapped_only is true, any hydrogen participating
+    //     in an atom map will be retained
+    void mergeQueryHs(RWMol &mol, bool merge_unmapped_only){
       std::vector<unsigned int> atomsToRemove;
       
       unsigned int currIdx=0,stopIdx=mol.getNumAtoms();
@@ -518,7 +521,9 @@ namespace RDKit{
           boost::tie(begin,end) = mol.getAtomNeighbors(atom);
           while(begin!=end){
             if(mol.getAtomWithIdx(*begin)->getAtomicNum() == 1 &&
-               mol.getAtomWithIdx(*begin)->getDegree() == 1 ){
+               mol.getAtomWithIdx(*begin)->getDegree() == 1 &&
+               (!merge_unmapped_only || !atom->hasProp(common_properties::molAtomMapNumber))
+               ){
               atomsToRemove.push_back(*begin);
               ++numHsToRemove;
             }
@@ -589,9 +594,9 @@ namespace RDKit{
       }
 
     };
-    ROMol *mergeQueryHs(const ROMol &mol){
+    ROMol *mergeQueryHs(const ROMol &mol, bool merge_unmapped_only){
       RWMol *res = new RWMol(mol);
-      mergeQueryHs(*res);
+      mergeQueryHs(*res, merge_unmapped_only);
       return static_cast<ROMol *>(res);
     };
 

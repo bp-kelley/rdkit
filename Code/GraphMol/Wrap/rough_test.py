@@ -389,9 +389,18 @@ class TestCase(unittest.TestCase):
     m = Chem.MolFromSmiles('CC[H]',False)
     self.assertEqual(m.GetNumAtoms(),3)
     m2 = Chem.MergeQueryHs(m)
+    self.assertTrue(m2 is not None)
     self.assertEqual(m2.GetNumAtoms(),2)
     self.assertTrue(m2.GetAtomWithIdx(1).HasQuery())
-    
+
+    # rwmol test
+    m = Chem.RWMol(Chem.MolFromSmiles('CC[H]',False))
+    self.assertEqual(m.GetNumAtoms(),3)
+    res = Chem.MergeQueryHs(m)
+    self.assertTrue(res is None)
+    self.assertEqual(m.GetNumAtoms(),2)
+    self.assertTrue(m.GetAtomWithIdx(1).HasQuery())
+
     m = Chem.MolFromSmiles('CC[H]',False)
     self.assertEqual(m.GetNumAtoms(),3)
     m1 = Chem.RemoveHs(m)
@@ -400,6 +409,24 @@ class TestCase(unittest.TestCase):
     m1 = Chem.RemoveHs(m,updateExplicitCount=True)
     self.assertEqual(m1.GetNumAtoms(),2)
     self.assertEqual(m1.GetAtomWithIdx(1).GetNumExplicitHs(),1)    
+
+    # test merging of unmapped atoms
+    m = Chem.MolFromSmiles('CC[H]',False)
+    m.GetAtomWithIdx(1).SetProp("molAtomMapNumber", "1")
+    self.assertEqual(m.GetNumAtoms(),3)
+    m2 = Chem.MergeQueryHs(m, merge_unmapped_only=True)
+    self.assertTrue(m2 is not None)
+    self.assertEqual(m2.GetNumAtoms(),3)
+    self.assertFalse(m2.GetAtomWithIdx(1).HasQuery())
+
+    # rwmol test
+    m = Chem.RWMol(Chem.MolFromSmiles('CC[H]',False))
+    m.GetAtomWithIdx(1).SetProp("molAtomMapNumber", "1")
+    self.assertEqual(m.GetNumAtoms(),3)
+    res = Chem.MergeQueryHs(m, merge_unmapped_only=True)
+    self.assertTrue(res is None)
+    self.assertEqual(m.GetNumAtoms(),3)
+    self.assertFalse(m.GetAtomWithIdx(1).HasQuery())
 
   def test15Neighbors(self):
     m = Chem.MolFromSmiles('CC(=O)[OH]')
