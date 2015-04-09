@@ -199,35 +199,6 @@ namespace RDKit {
     return mol.getNumAtoms(onlyExplicit);
   }
 
-  class ReadWriteMol : public RWMol {
-  public:
-    ReadWriteMol(const ROMol &m,bool quickCopy=false,int confId=-1) : RWMol(m,quickCopy,confId){
-    };
-
-    void RemoveAtom(unsigned int idx){
-      removeAtom(idx);
-    };
-    void RemoveBond(unsigned int idx1,unsigned int idx2){
-      removeBond(idx1,idx2);
-    };
-    int AddBond(unsigned int begAtomIdx,
-                 unsigned int endAtomIdx,
-                 Bond::BondType order=Bond::UNSPECIFIED)
-    {
-      return addBond(begAtomIdx,endAtomIdx,order);
-    };
-    int AddAtom(Atom *atom){
-      PRECONDITION(atom,"bad atom");
-      return addAtom(atom,true,false);
-    };
-    void ReplaceAtom(unsigned int idx,Atom *atom){
-      replaceAtom(idx,atom);
-    };
-    ROMol *GetMol() const{
-      ROMol *res=new ROMol(*this);
-      return res;
-    }
-  };
 
   std::string molClassDoc = "The Molecule class.\n\n\
   In addition to the expected Atoms and Bonds, molecules contain:\n\
@@ -485,8 +456,36 @@ struct mol_wrapper {
                 "    - useQueryQueryMatches: use query-query matching logic\n\n"
 		"  RETURNS: True or False\n");
 
-
-    python::class_<ReadWriteMol, python::bases<ROMol> >("RWMol",
+    // Declaring the RWMol as an RWMolBase below  is required to allow the
+    //  ReadWriteMol to be sent to functions that
+    //  take RWMol's OR ROMol's.  The better way would be to add
+    //  the RemoveBond etc functions as opposed to making a seperate class...
+    //
+    //  Why have a ReadWriteMol?  This is now required to fix method lookup
+    //  resolution in boost:
+    //  ==> There is a major caveat for method lookup, for overloaded functions such as:
+    //    RDKit::Foo1(const ROMol&,...)
+    //    RDKit::Foo1(RWMol&,...)
+    //
+    //  While C++ resolves them correctly, boost python does not and they will
+    //   need to be wrapped as:
+    // 
+    //    RDKit::Foo1(const ROMol&) // as normal
+    //    MyWrapFoo1(ReadWriteMol&arg ) { Foo1( (RWMol&)arg); }
+    //
+    //  This is because(?) the following implicit conversion is valid in C++
+    //   RDKit::Foo1(RWMol &arg = (ROMol) f)
+    //
+    //  Boost will call the wrong function, i.e. convert an ROMol into a temporary RWMol
+    //  which is absolutely not what we want.  Changing the signature to ReadWriteMol
+    //  fixes this for unknown reasons.
+    //     Blech.
+    //  Also, don't forget to put the RWMol definition AFTER the ROMol in the boost wrapper
+    //   as boost does reverse registration lookup to find the best match.
+    python::class_<RWMol, python::bases<ROMol>, boost::noncopyable >("RWMolBase", "Required for boost::python");
+    
+      
+    python::class_<ReadWriteMol, python::bases<RWMol> >("RWMol",
                                                         rwmolClassDoc.c_str(),
         python::init<const ROMol &>("Construct from a Mol"))
       .def(python::init<const ROMol &,bool>())
