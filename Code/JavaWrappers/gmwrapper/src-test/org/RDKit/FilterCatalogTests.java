@@ -137,6 +137,25 @@ public class FilterCatalogTests extends GraphMolTest {
             assertTrue(matcher.hasMatch(mol));
         }
 
+        @Test
+	public void testLogic() {
+            SmartsMatcher smarts = new SmartsMatcher("Aromatic Carbon Chain",
+                                                     RWMol.MolFromSmarts("c:c:c:c:c"),
+                                                     1);
+            FilterMatcherBase not_smart = new Not(smarts);
+            
+            FilterCatalogEntry entry = new FilterCatalogEntry("Bar", not_smart);
+
+            assertEquals(entry.getDescription(), "Bar");
+            assertEquals(smarts.getMinCount(), 1);
+            entry.setDescription("Foo");
+            assertEquals(entry.getDescription(), "Foo");
+
+            ROMol mol = RWMol.MolFromSmiles("c1ccccc1");
+            assertTrue(smarts.hasMatch(mol));
+            assertFalse(not_smart.hasMatch(mol));
+        }
+    
 	public static void main(String args[]) {
 		org.junit.runner.JUnitCore.main("org.RDKit.FilterCatalogTests");
 	}
