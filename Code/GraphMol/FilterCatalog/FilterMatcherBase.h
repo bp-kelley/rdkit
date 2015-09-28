@@ -47,6 +47,9 @@ namespace RDKit
   {
     boost::shared_ptr<FilterMatcherBase> filterMatch;
     MatchVectType                        atomPairs;
+
+  FilterMatch() : filterMatch(), atomPairs() {
+  }
     
   FilterMatch(boost::shared_ptr<FilterMatcherBase> filter,
               MatchVectType atomPairs) :
@@ -58,9 +61,12 @@ namespace RDKit
       atomPairs(rhs.atomPairs) {
     }
 
-    bool operator==(const FilterMatch&rhs) {
+    bool operator==(const FilterMatch&rhs) const {
       return (filterMatch.get() == rhs.filterMatch.get() &&
               atomPairs == rhs.atomPairs);
+    }
+    bool operator!=(const FilterMatch&rhs) const {
+      return !(*this==rhs);
     }
   };
   
