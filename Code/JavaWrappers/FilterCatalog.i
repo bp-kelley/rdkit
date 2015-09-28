@@ -52,6 +52,7 @@
 %template(FilterCatalogEntry_Vect) std::vector< boost::shared_ptr<RDKit::FilterCatalogEntry> >;
 %template(FilterCatalogEntryVect) std::vector< const RDKit::FilterCatalogEntry* >;
 %template(UChar_Vect) std::vector<unsigned char>;
+%template(FilterMatch_Vect) std::vector<RDKit::FilterMatch>;
 
 %include "enums.swg"
 
@@ -139,8 +140,70 @@
 %ignore RDKit::FilterCatalog::getIdxForEntry;
 %ignore RDKit::FilterCatalog::getEntryWithIdx;
 
+%extend RDKit::FilterMatchOps::And {
+  And(boost::shared_ptr<RDKit::FilterMatcherBase> arg1,
+      boost::shared_ptr<RDKit::FilterMatcherBase> arg2) {
+    return new RDKit::FilterMatchOps::And(arg1, arg2);
+  }
+ }
 
-//%ignore RDKit::FilterCatalogEntry::getPropList;
+%ignore RDKit::FilterMatchOps::And::And;
+
+%extend RDKit::FilterMatchOps::Or {
+  Or(boost::shared_ptr<RDKit::FilterMatcherBase> arg1,
+     boost::shared_ptr<RDKit::FilterMatcherBase> arg2) {
+    return new RDKit::FilterMatchOps::Or(arg1, arg2);
+  }
+ }
+
+%ignore RDKit::FilterMatchOps::Or::Or;
+
+%extend RDKit::FilterMatchOps::Not {
+  Not(boost::shared_ptr<RDKit::FilterMatcherBase> arg1) {
+    return new RDKit::FilterMatchOps::Not(arg1);
+  }
+ }
+
+%ignore RDKit::FilterMatchOps::Not::Not;
+
+%extend RDKit::SmartsMatcher {
+  SmartsMatcher(const ROMol &pattern,
+                unsigned int minCount=1, unsigned int maxCount=UINT_MAX) {
+    return new RDKit::SmartsMatcher(pattern, minCount, maxCount);
+  }
+  
+  SmartsMatcher(const std::string &name, const ROMol &pattern,
+                unsigned int minCount=1, unsigned int maxCount=UINT_MAX) {
+    return new RDKit::SmartsMatcher(name, pattern, minCount, maxCount);
+  }
+  
+  SmartsMatcher(const std::string &name,
+                const std::string &smarts,
+                unsigned int minCount=1, unsigned int maxCount=UINT_MAX) {
+    return new RDKit::SmartsMatcher(name, smarts, minCount, maxCount);
+  }
+
+  void setPattern(const RDKit::ROMol &mol) {
+    return self->setPattern(mol);
+  }
+ }
+%ignore RDKit::SmartsMatcher::SmartsMatcher;
+%ignore RDKit::SmartsMatcher::setPattern;
+
+%extend RDKit::FilterCatalogEntry {
+  FilterCatalogEntry(const std::string &name,
+                     boost::shared_ptr<FilterMatcherBase> matcher) {
+    return new RDKit::FilterCatalogEntry(name, matcher);
+  }
+  
+  // add copy constructor
+  FilterCatalogEntry(const RDKit::FilterCatalogEntry&rhs) {
+    return new RDKit::FilterCatalogEntry(rhs);
+  }
+ }
+
+%ignore RDKit::FilterCatalogEntry::FilterCatalogEntry;
+
 %ignore RDKit::Dict::getPropList;
 
 
@@ -156,6 +219,7 @@
 }
 
 %include <GraphMol/FilterCatalog/FilterMatcherBase.h>
+%include <GraphMol/FilterCatalog/FilterMatchers.h>
 %include <GraphMol/FilterCatalog/FilterCatalogEntry.h>
 %include <GraphMol/FilterCatalog/FilterCatalog.h>
 
@@ -171,3 +235,10 @@
      return new FilterCatalog(vec);
    }
 %}
+
+%ignore RDKit::FilterCatalogEntry(const std::string &, const FilterMatcherBase &);
+
+%ignore RDKit::SmartsMatcher(const std::string &, const RDKit::ROMol &,
+                             unsigned int, unsigned int);
+%ignore RDKit::SmartsMatcher::setPattern(const RDKit::ROMol&);
+

@@ -113,6 +113,12 @@ typedef unsigned long long int	uintmax_t;
 %shared_ptr(ForceFields::UFF::TorsionAngleContrib);
 %shared_ptr(ForceFields::UFF::InversionContrib);
 %shared_ptr(RDKit::FilterCatalogEntry);
+%shared_ptr(RDKit::FilterMatcherBase);
+%shared_ptr(RDKit::FilterMatchOps::And);
+%shared_ptr(RDKit::FilterMatchOps::Or);
+%shared_ptr(RDKit::FilterMatchOps::Not);
+%shared_ptr(RDKit::SmartsMatcher);
+%shared_ptr(RDKit::ExclusionList);
 
 /* Some utility classes for passing arrays in and out */
 %array_class(double, Double_Array);

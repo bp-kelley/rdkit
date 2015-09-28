@@ -115,14 +115,31 @@ public class FilterCatalogTests extends GraphMolTest {
             assertTrue(catalog.removeEntry(entry));
             FilterCatalogEntry entry_removed = catalog.getFirstMatch(mol);
             assertEquals(entry_removed, null);
-
+            
             catalog.addEntry(entry);
             entry = catalog.getFirstMatch(mol);
             assertEquals(entry.getDescription(),"hzone_phenol_A(479)");
+        }
+
+        @Test
+	public void testFilterCatalogEntry() {
+            SmartsMatcher matcher = new SmartsMatcher("Aromatic Carbon Chain",
+                                                      RWMol.MolFromSmarts("c:c:c:c:c"),
+                                                      1);
+            FilterCatalogEntry entry = new FilterCatalogEntry("Bar", matcher);
+
+            assertEquals(entry.getDescription(), "Bar");
+            assertEquals(matcher.getMinCount(), 1);
+            entry.setDescription("Foo");
+            assertEquals(entry.getDescription(), "Foo");
+
+            ROMol mol = RWMol.MolFromSmiles("c1ccccc1");
+            assertTrue(matcher.hasMatch(mol));
         }
 
 	public static void main(String args[]) {
 		org.junit.runner.JUnitCore.main("org.RDKit.FilterCatalogTests");
 	}
 
+    
 }
