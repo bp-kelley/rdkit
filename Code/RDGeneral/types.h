@@ -17,7 +17,7 @@
 
 #include <cmath>
 
-#include <RDGeneral/Invariant.h>
+#include "Invariant.h"
 #include "Dict.h"
 
 namespace detail {
