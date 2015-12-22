@@ -31,9 +31,14 @@
 #ifndef RDKIT_RDANY_H
 #define RDKIT_RDANY_H
 #include <boost/any.hpp>
+#include <boost/utility.hpp>
+#include <boost/lexical_cast.hpp>
+#include "LocaleSwitcher.h"
+
 #include <string>
 #include <vector>
-
+#include <iostream>
+#include <sstream>
 namespace RDKit {
 
 // RDValue does not dynamically create POD types (kind of like
@@ -65,7 +70,8 @@ namespace RDValueTypes {
   const short Float       = 3;
   const short Int         = 4;
   const short UnsignedInt = 5;
-
+  // missing long, unsigned long
+  
   // Memory Managed
   const short String = 100;
   const short Any    = 101;
@@ -128,7 +134,7 @@ union RDValue {
 };
 
 // Given a type and an RDAnyValue - delete the appropriate structure
-void cleanup_rdany(const RDValue &any, short type) {
+inline void cleanup_rdvalue(RDValue &any, short type) {
   switch (type) {
     case RDValueTypes::String:
       delete any.s;
@@ -155,9 +161,9 @@ void cleanup_rdany(const RDValue &any, short type) {
 }
 
 // Given two RDValues - copy the appropriate structure
-void copy_rdany(RDValue &dest, short desttype,
-                const RDValue &src, short srctype) {
-  cleanup_rdany(dest, desttype);
+inline void copy_rdany(RDValue &dest, short desttype,
+                       const RDValue &src, short srctype) {
+  cleanup_rdvalue(dest, desttype);
   switch (srctype) {
     case RDValueTypes::String:
       dest.s = new std::string(*src.s);
@@ -229,96 +235,102 @@ struct RDAny {
       : m_value(new boost::any(d)), type(RDValueTypes::Any) {}
 
   RDAny(const RDAny &rhs) {
-    copy_rdany(m_value, type, rhs.m_value, rhs.type);
+    copy_rdany(m_value, RDValueTypes::Empty, rhs.m_value, rhs.type);
     type = rhs.type; // can't set before cleaning up
   }
 
-  ~RDAny() { cleanup_rdany(m_value, type); }
+  ~RDAny() { cleanup_rdvalue(m_value, type); type=RDValueTypes::Empty; }
 
   // For easy of use:
   //   RDAny v;
   //   v = 2.0;
   //   v = std::string("foo...");
 
+  RDAny &operator=(const RDAny &rhs) {
+    copy_rdany(m_value, type, rhs.m_value, rhs.type);
+    type = rhs.type;
+    return *this;
+  }
+    
   RDAny &operator=(double d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value = d;
     type = RDValueTypes::Double;
     return *this;
   }
 
   RDAny &operator=(float d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value = d;
     type = RDValueTypes::Float;
     return *this;
   }
 
   RDAny &operator=(int d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value = d;
     type = RDValueTypes::Int;
     return *this;
   }
 
   RDAny &operator=(unsigned int d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value = d;
     type = RDValueTypes::UnsignedInt;
     return *this;
   }
 
   RDAny &operator=(bool d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value = d;
     type = RDValueTypes::Bool;
     return *this;
   }
 
   RDAny &operator=(const std::string &d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value = d;
     type = RDValueTypes::String;
     return *this;
   }
 
   RDAny &operator=(const std::vector<double> &d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value = d;
     type = RDValueTypes::VectDouble;
     return *this;
   }
 
   RDAny &operator=(const std::vector<float> &d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value = d;
     type = RDValueTypes::VectFloat;
     return *this;
   }
 
   RDAny &operator=(const std::vector<int> &d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value = d;
     type = RDValueTypes::VectInt;
     return *this;
   }
 
   RDAny &operator=(const std::vector<unsigned int> &d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value = d;
-    type = RDValueTypes::VectDouble;
+    type = RDValueTypes::VectUnsignedInt;
     return *this;
   }
 
   RDAny &operator=(const std::vector<std::string> &d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value = d;
     type = RDValueTypes::VectString;
     return *this;
   }
 
   RDAny &operator=(const boost::any &d) {
-    cleanup_rdany(m_value, type);
+    cleanup_rdvalue(m_value, type);
     m_value.a = new boost::any(d);
     type = RDValueTypes::Any;
     return *this;
@@ -371,7 +383,9 @@ struct RDAny {
   }
   
   const std::vector<int> &asVectInt() const {
-    if (type == RDValueTypes::VectInt) return *m_value.vi;
+    if (type == RDValueTypes::VectInt) {
+      return *m_value.vi;
+    }
     throw boost::bad_any_cast();
   }
   
@@ -432,7 +446,9 @@ struct RDAny {
   }
   
   std::vector<int> &asVectInt() {
-    if (type == RDValueTypes::VectInt) return *m_value.vi;
+    if (type == RDValueTypes::VectInt) {
+      return *m_value.vi;
+    }
     throw boost::bad_any_cast();
   }
   
@@ -457,53 +473,53 @@ const T &rdany_cast(const RDAny &d) {
 }
 
 template <>
-const double &rdany_cast<double>(const RDAny &d) {
+inline const double &rdany_cast<double>(const RDAny &d) {
   return d.asDouble();
 }
 
 template <>
-const float &rdany_cast<float>(const RDAny &d) {
+inline const float &rdany_cast<float>(const RDAny &d) {
   return d.asFloat();
 }
 
 template <>
-const int &rdany_cast<int>(const RDAny &d) {
+inline const int &rdany_cast<int>(const RDAny &d) {
   return d.asInt();
 }
 
 template <>
-const unsigned int &rdany_cast<unsigned int>(const RDAny &d) {
+inline const unsigned int &rdany_cast<unsigned int>(const RDAny &d) {
   return d.asUnsignedInt();
 }
 
 template <>
-const std::string &rdany_cast<std::string>(const RDAny &d) {
+inline const std::string &rdany_cast<std::string>(const RDAny &d) {
   return d.asString();
 }
 
 template <>
-const std::vector<double> &rdany_cast<std::vector<double> >(const RDAny &d) {
+inline const std::vector<double> &rdany_cast<std::vector<double> >(const RDAny &d) {
   return d.asVectDouble();
 }
 
 template <>
-const std::vector<float> &rdany_cast<std::vector<float> >(const RDAny &d) {
+inline const std::vector<float> &rdany_cast<std::vector<float> >(const RDAny &d) {
   return d.asVectFloat();
 }
 
 template <>
-const std::vector<int> &rdany_cast<std::vector<int> >(const RDAny &d) {
+inline const std::vector<int> &rdany_cast<std::vector<int> >(const RDAny &d) {
   return d.asVectInt();
 }
 
 template <>
-const std::vector<unsigned int> &rdany_cast<std::vector<unsigned int> >(
+inline const std::vector<unsigned int> &rdany_cast<std::vector<unsigned int> >(
     const RDAny &d) {
   return d.asVectUnsignedInt();
 }
 
 template <>
-const std::vector<std::string> &rdany_cast<std::vector<std::string> >(
+inline const std::vector<std::string> &rdany_cast<std::vector<std::string> >(
     const RDAny &d) {
   return d.asVectString();
 }
@@ -516,55 +532,83 @@ T &rdany_cast(RDAny &d) {
 }
 
 template <>
-double &rdany_cast<double>(RDAny &d) {
+inline double &rdany_cast<double>(RDAny &d) {
   return d.asDouble();
 }
 
 template <>
-float &rdany_cast<float>(RDAny &d) {
+inline float &rdany_cast<float>(RDAny &d) {
   return d.asFloat();
 }
 
 template <>
-int &rdany_cast<int>(RDAny &d) {
+inline int &rdany_cast<int>(RDAny &d) {
   return d.asInt();
 }
 
 template <>
-unsigned int &rdany_cast<unsigned int>(RDAny &d) {
+inline unsigned int &rdany_cast<unsigned int>(RDAny &d) {
   return d.asUnsignedInt();
 }
 
 template <>
-std::string &rdany_cast<std::string>(RDAny &d) {
+inline std::string &rdany_cast<std::string>(RDAny &d) {
   return d.asString();
 }
 
 template <>
-std::vector<double> &rdany_cast<std::vector<double> >(RDAny &d) {
+inline std::vector<double> &rdany_cast<std::vector<double> >(RDAny &d) {
   return d.asVectDouble();
 }
 
 template <>
-std::vector<float> &rdany_cast<std::vector<float> >(RDAny &d) {
+inline std::vector<float> &rdany_cast<std::vector<float> >(RDAny &d) {
   return d.asVectFloat();
 }
 
 template <>
-std::vector<int> &rdany_cast<std::vector<int> >(RDAny &d) {
+inline std::vector<int> &rdany_cast<std::vector<int> >(RDAny &d) {
   return d.asVectInt();
 }
 
 template <>
-std::vector<unsigned int> &rdany_cast<std::vector<unsigned int> >(
+inline std::vector<unsigned int> &rdany_cast<std::vector<unsigned int> >(
     RDAny &d) {
   return d.asVectUnsignedInt();
 }
 
 template <>
-std::vector<std::string> &rdany_cast<std::vector<std::string> >(
+inline std::vector<std::string> &rdany_cast<std::vector<std::string> >(
     RDAny &d) {
   return d.asVectString();
 }
+
+template <class T>
+typename boost::enable_if<boost::is_arithmetic<T>, T>::type fromrdany(
+    const RDAny &arg) {
+  T res;
+  if (arg.type == RDValueTypes::String) {
+    Utils::LocaleSwitcher ls;
+    try {
+      res = rdany_cast<T>(arg);
+    } catch (const boost::bad_any_cast &exc) {
+      try {
+        res = boost::lexical_cast<T>(rdany_cast<std::string>(arg));
+      } catch (...) {
+        throw exc;
+      }
+    }
+  } else {
+    res = rdany_cast<T>(arg);
+  }
+  return res;
+}
+
+template <class T>
+typename boost::disable_if<boost::is_arithmetic<T>, T>::type fromrdany(
+    const RDAny &arg) {
+  return rdany_cast<T>(arg);
+}
+
 }
 #endif

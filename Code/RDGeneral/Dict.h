@@ -18,8 +18,8 @@
 #include <map>
 #include <string>
 #include <vector>
-#include <boost/any.hpp>
-#include <RDGeneral/Exceptions.h>
+#include "RDAny.h"
+#include "Exceptions.h"
 #include <boost/lexical_cast.hpp>
 
 namespace RDKit {
@@ -28,11 +28,11 @@ typedef std::vector<std::string> STR_VECT;
 //! \brief The \c Dict class can be used to store objects of arbitrary
 //!        type keyed by \c strings.
 //!
-//!  The actual storage is done using \c boost::any objects.
+//!  The actual storage is done using \c RDAny objects.
 //!
 class Dict {
  public:
-  typedef std::map<std::string, boost::any> DataType;
+  typedef std::map<std::string, RDAny> DataType;
   Dict() { _data.clear(); };
 
   Dict(const Dict &other) : _data(other._data){};
@@ -89,7 +89,7 @@ class Dict {
   T getVal(const std::string &what) const {
     DataType::const_iterator pos = _data.find(what);
     if (pos == _data.end()) throw KeyErrorException(what);
-    const boost::any &val = pos->second;
+    const RDAny &val = pos->second;
     return fromany<T>(val);
   }
 
@@ -134,7 +134,7 @@ class Dict {
   bool getValIfPresent(const std::string &what, T &res) const {
     DataType::const_iterator pos = _data.find(what);
     if (pos == _data.end()) return false;
-    const boost::any &val = pos->second;
+    const RDAny &val = pos->second;
     res = fromany<T>(val);
     return true;
   };
@@ -167,7 +167,7 @@ class Dict {
   */
   template <typename T>
   void setVal(const std::string &what, T &val) {
-    _data[what] = toany(val);
+    _data[what] = RDAny(val);
   };
   //! \overload
   template <typename T>
@@ -209,24 +209,30 @@ class Dict {
   void reset() { _data.clear(); };
 
   //----------------------------------------------------------
-  //! Converts a \c boost::any to type \c T
+  //! Converts a \c RDAny to type \c T
   /*!
-     \param arg a \c boost::any reference
+     \param arg a \c RDAny reference
 
      \returns the converted object of type \c T
   */
   template <typename T>
-  T fromany(const boost::any &arg) const;
+      T fromany(const RDAny &arg) const {
+    return fromrdany<T>(arg);
+  }
 
   //----------------------------------------------------------
-  //! Converts an instance of type \c T to \c boost::any
+  //! Converts an instance of type \c T to \c RDAny
   /*!
      \param arg the object to be converted
 
-     \returns a \c boost::any instance
+     \returns a \c RDAny instance
   */
+
   template <typename T>
-  boost::any toany(T arg) const;
+      RDAny toany(T arg) const {
+    return RDAny(arg);
+  };
+
 
  private:
   DataType _data;  //!< the actual dictionary
