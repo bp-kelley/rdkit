@@ -11,6 +11,7 @@ rdkit_headers(Exceptions.h
               Dict.h
               FileParseException.h
               Invariant.h
+              RDAny.h
               RDLog.h
               StreamOps.h
               types.h
