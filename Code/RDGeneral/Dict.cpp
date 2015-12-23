@@ -53,7 +53,7 @@ bool toString(const RDAny &val, std::string &res) {
       res = boost::lexical_cast<std::string>(val.m_value.b);
       break;
     case RDValueTypes::Float:
-      res = boost::lexical_cast<std::string>(val.m_value.b);
+      res = boost::lexical_cast<std::string>(val.m_value.f);
       break;
     case RDValueTypes::VectDouble:
       res = vectToString<double>(*val.m_value.vd);
