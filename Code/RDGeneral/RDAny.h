@@ -336,6 +336,15 @@ struct RDAny {
     return *this;
   }
 
+  template<class T>
+  RDAny &operator=(const T &d) {
+    cleanup_rdvalue(m_value, type);
+    boost::any *v = new boost::any(d);
+    m_value.a = v;
+    type = RDValueTypes::Any;
+    return *this;
+  }
+    
   // Const access
   const double &asDouble() const {
     if (type == RDValueTypes::Double) return m_value.d;

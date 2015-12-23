@@ -167,7 +167,7 @@ class Dict {
   */
   template <typename T>
   void setVal(const std::string &what, T &val) {
-    _data[what] = RDAny(val);
+    _data[what].operator=(val);// = RDAny(val);
   };
   //! \overload
   template <typename T>
