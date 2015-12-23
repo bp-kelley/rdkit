@@ -304,7 +304,7 @@ struct bond_wrapper {
         .def("GetPropNames", &Bond::getPropList, (python::arg("self")),
              "Returns a list of the properties set on the Bond.\n\n")
 
-        .def("GetPropsAsDict", GetPropsAsDict<Bond>, (python::arg("self")),
+        .def("GetPropsAsDict", GetObjectPropsAsDict<Bond>, (python::arg("self")),
              "Returns a dictionary of the properties set on the Bond.\n"
              " n.b. some properties cannot be converted to python types.\n")
         
