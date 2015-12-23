@@ -27,7 +27,6 @@ struct Foo {
 };
 
 void testRDAny() {
-  /*
   std::cerr << "Testing RDAny" << std::endl;
   {
     RDAny a(1);
@@ -49,7 +48,14 @@ void testRDAny() {
     CHECK_INVARIANT(rdany_cast<int>(foo["foo"]) == rdany_cast<int>(a), "Bad Any");
     CHECK_INVARIANT(rdany_cast<std::string>(foo["bar"]) == "This is a test", "Bad Any");
   }
-  */
+
+  {
+    Dict d;
+    bool a=true;
+    d.setVal("foo", a);
+    d.getVal<bool>("foo");
+  }
+  
   {
     Dict d;
     //int v=1;

@@ -473,6 +473,11 @@ const T &rdany_cast(const RDAny &d) {
 }
 
 template <>
+inline const bool &rdany_cast<bool>(const RDAny &d) {
+  return d.asBool();
+}
+
+template <>
 inline const double &rdany_cast<double>(const RDAny &d) {
   return d.asDouble();
 }
@@ -529,6 +534,11 @@ inline const std::vector<std::string> &rdany_cast<std::vector<std::string> >(
 template <class T>
 T &rdany_cast(RDAny &d) {
   return boost::any_cast<T &>(d.asAny());
+}
+
+template <>
+inline bool &rdany_cast<bool>(RDAny &d) {
+  return d.asBool();
 }
 
 template <>
