@@ -160,7 +160,7 @@ void testRDAny() {
     std::clock_t clock1 = std::clock();
     RDAny *v=0, *vv;
     for(int i=0;i<loops;++i) {
-      vv = new RDAny(v ?v->m_value.i + i : i);
+      vv = new RDAny(v ?v->m_value.value.i + i : i);
       delete v;
       v = vv;
     }
@@ -196,7 +196,7 @@ void testRDAny() {
     boost::any_cast<const std::vector<std::pair<int,int> > &>(any1);
     
     RDAny vv(pvect);
-    boost::any &any = vv.asAny();
+    boost::any &any = rdany_cast<boost::any>(vv);
     boost::any_cast<std::vector<std::pair<int,int> > >(any);
     boost::any_cast<std::vector<std::pair<int,int> > &>(any);    
     boost::any_cast<const std::vector<std::pair<int,int> > &>(any);
@@ -257,7 +257,7 @@ void testRDAny() {
                     "Bad cast");
 
     RDAny any3(boost::shared_ptr<Foo>( new Foo ));
-    CHECK_INVARIANT(any3.type == RDValueTypes::Any, "Wrong type");
+    CHECK_INVARIANT(any3.m_value.type == RDValue::Any, "Wrong type");
   }
 }
 

@@ -23,6 +23,7 @@
 namespace RDKit {
 
 namespace {
+/*
 template <class T>
 std::string vectToString(const std::vector<T> &tv) {
   std::ostringstream sstr;
@@ -33,42 +34,48 @@ std::string vectToString(const std::vector<T> &tv) {
   sstr << "]";
   return sstr.str();
 }
-
-bool toString(const RDAny &val, std::string &res) {
+*/
+bool rdany_tostring(const RDAny &val, std::string &res) {
   Utils::LocaleSwitcher ls; // for lexical cast...
-  switch (val.type) {
-    case RDValueTypes::String:
-      res = *val.m_value.s;
+  switch (val.m_value.type) {
+    case RDValue::String:
+      res = *val.m_value.value.s;
       break;
-    case RDValueTypes::Int:
-      res = boost::lexical_cast<std::string>(val.m_value.i);
+    case RDValue::Int:
+      res = boost::lexical_cast<std::string>(val.m_value.value.i);
       break;
-    case RDValueTypes::Double:
-      res = boost::lexical_cast<std::string>(val.m_value.d);
+    case RDValue::Double:
+      res = boost::lexical_cast<std::string>(val.m_value.value.d);
       break;
-    case RDValueTypes::UnsignedInt:
-      res = boost::lexical_cast<std::string>(val.m_value.u);
+    case RDValue::UnsignedInt:
+      res = boost::lexical_cast<std::string>(val.m_value.value.u);
       break;
-    case RDValueTypes::Bool:
-      res = boost::lexical_cast<std::string>(val.m_value.b);
+    case RDValue::Bool:
+      res = boost::lexical_cast<std::string>(val.m_value.value.b);
       break;
-    case RDValueTypes::Float:
-      res = boost::lexical_cast<std::string>(val.m_value.f);
+    case RDValue::Float:
+      res = boost::lexical_cast<std::string>(val.m_value.value.f);
       break;
-    case RDValueTypes::VectDouble:
-      res = vectToString<double>(*val.m_value.vd);
+    case RDValue::VectDouble:
+      res = vectToString<double>(*val.m_value.value.vd);
       break;
-    case RDValueTypes::VectFloat:
-      res = vectToString<float>(*val.m_value.vf);
+    case RDValue::VectFloat:
+      res = vectToString<float>(*val.m_value.value.vf);
       break;
-    case RDValueTypes::VectInt:
-      res = vectToString<int>(*val.m_value.vi);
+    case RDValue::VectInt:
+      res = vectToString<int>(*val.m_value.value.vi);
       break;
-    case RDValueTypes::VectUnsignedInt:
-      res = vectToString<unsigned int>(*val.m_value.vu);
+    case RDValue::VectUnsignedInt:
+      res = vectToString<unsigned int>(*val.m_value.value.vu);
       break;
-    case RDValueTypes::Any:
-      const boost::any &any = val.asAny();
+    case RDValue::VectString:
+      res = vectToString<std::string>(*val.m_value.value.vs);
+      break;
+    case RDValue::Empty:
+      res = "";
+      break;
+    case RDValue::Any:
+      const boost::any &any = *val.m_value.value.a;
       try {
         res = boost::any_cast<std::string>(val);
       } catch (const boost::bad_any_cast &) {
@@ -82,6 +89,7 @@ bool toString(const RDAny &val, std::string &res) {
           return false;
         }
       }
+      break;
   }
   return true;
 }
@@ -102,7 +110,7 @@ void Dict::getVal(const std::string &what, std::string &res) const {
   if (pos == _data.end())
     throw KeyErrorException(what);    
   const RDAny &val = pos->second;
-  toString(val, res);
+  rdany_tostring(val.m_value, res);
 }
 
 bool Dict::getValIfPresent(const std::string &what, std::string &res) const {
@@ -119,84 +127,7 @@ bool Dict::getValIfPresent(const std::string &what, std::string &res) const {
   DataType::const_iterator pos = _data.find(what);
   if (pos == _data.end()) return false;
   const RDAny  &val = pos->second;
-  return toString(val, res);
+  return rdany_tostring(val, res);
 }
 
-/*
-namespace {
-template <class T>
-typename boost::enable_if<boost::is_arithmetic<T>, T>::type _fromany(
-    const RDAny &arg) {
-  std::cerr << "enable if is aritmetic " << arg.type << std::endl;
-  T res;
-  if (arg.type == RDValueTypes::String) {
-    Utils::LocaleSwitcher ls;
-    try {
-      res = rdany_cast<T>(arg);
-    } catch (const boost::bad_any_cast &exc) {
-      try {
-        res = boost::lexical_cast<T>(rdany_cast<std::string>(arg));
-      } catch (...) {
-        throw exc;
-      }
-    }
-  } else {
-    res = rdany_cast<T>(arg);
-  }
-  return res;
-}
-template <class T>
-typename boost::disable_if<boost::is_arithmetic<T>, T>::type _fromany(
-    const RDAny &arg) {
-  std::cerr << "disable if is aritmetic " << arg.type << std::endl;
-  return rdany_cast<T>(arg);
-}
-}
-
-template <typename T>
-T Dict::fromany(const RDAny &arg) const {
-  std::cerr << "calling from any" << std::endl;
-  return _fromany<T>(arg);
-};
-template <typename T>
-RDAny Dict::toany(T arg) const {
-  return RDAny(arg);
-};
-
-#define ANY_FORCE(T)                                        \
-  template T Dict::fromany<T>(const RDAny &arg) const; \
-  template RDAny Dict::toany<T>(T arg) const;
-
-ANY_FORCE(bool);
-ANY_FORCE(boost::shared_array<double>);
-ANY_FORCE(boost::shared_array<int>);
-ANY_FORCE(double);
-ANY_FORCE(int);
-ANY_FORCE(std::list<int>);
-ANY_FORCE(std::string);
-ANY_FORCE(std::vector<boost::shared_array<double> >);
-ANY_FORCE(std::vector<boost::shared_array<int> >);
-ANY_FORCE(std::vector<double>);
-ANY_FORCE(std::vector<int>);
-ANY_FORCE(std::vector<std::list<int> >);
-ANY_FORCE(std::vector<std::string>);
-ANY_FORCE(std::vector<std::vector<double> >);
-ANY_FORCE(std::vector<std::vector<int> >);
-ANY_FORCE(std::vector<unsigned int>);
-ANY_FORCE(std::vector<unsigned long long>);
-ANY_FORCE(unsigned int);
-
-template const std::string &Dict::fromany<const std::string &>(
-    const RDAny &arg) const;
-
-typedef boost::tuples::tuple<boost::uint32_t, boost::uint32_t, boost::uint32_t>
-    uint32_t_tuple;
-typedef boost::tuples::tuple<double, double, double> double_tuple;
-
-template uint32_t_tuple Dict::fromany<uint32_t_tuple>(
-    const RDAny &arg) const;
-template RDAny Dict::toany<uint32_t_tuple>(uint32_t_tuple arg) const;
-template double_tuple Dict::fromany<double_tuple>(const RDAny &arg) const;
-template RDAny Dict::toany<double_tuple>(double_tuple arg) const;
-*/
 }

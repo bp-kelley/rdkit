@@ -217,7 +217,7 @@ class Dict {
   */
   template <typename T>
       T fromany(const RDAny &arg) const {
-    return fromrdany<T>(arg);
+    return from_rdany<T>(arg);
   }
 
   //----------------------------------------------------------
