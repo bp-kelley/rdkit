@@ -179,28 +179,34 @@ struct RDValue {
     type = Bool;
     return *this;
   }
+  RDValue& operator=(const std::string & v) {
+    cleanup_rdvalue(*this);
+    value = new std::string(v);
+    type = String;
+    return *this;
+  }
   RDValue& operator=(const std::vector<double> &v) {
     cleanup_rdvalue(*this);
     value = new std::vector<double>(v);
-    type = Double;
+    type = VectDouble;
     return *this;
   }
   RDValue& operator=(const std::vector<float> &v) {
     cleanup_rdvalue(*this);
     value = new std::vector<float>(v);
-    type = Float;
+    type = VectFloat;
     return *this;
   }
   RDValue& operator=(const std::vector<int>  &v) {
     cleanup_rdvalue(*this);
     value = new std::vector<int>(v);
-    type = Int;
+    type = VectInt;
     return *this;
   }
   RDValue& operator=(const std::vector<unsigned int>  &v) {
     cleanup_rdvalue(*this);
     value = new std::vector<unsigned int>(v);
-    type = UnsignedInt;
+    type = VectUnsignedInt;
     return *this;
   }
   RDValue& operator=(const std::vector<std::string>  &v) {
