@@ -8,6 +8,9 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <boost/utility.hpp>
+#include <boost/lexical_cast.hpp>
+#include "LocaleSwitcher.h"
 
 #define SAFE_RDVALUE
 
@@ -78,11 +81,11 @@ struct RDValue {
 
  RDValue(): type(Empty) {}
   // Pod Style (Direct storage)
- explicit RDValue(double v)   : value(v), type(Double) {}
- explicit RDValue(float v)    : value(v), type(Float) {}
- explicit RDValue(int v)      : value(v), type(Int) {}
- explicit RDValue(unsigned v) : value(v), type(UnsignedInt) {}
- explicit RDValue(bool v)     : value(v), type(Bool) {}
+ RDValue(double v)   : value(v), type(Double) {}
+ RDValue(float v)    : value(v), type(Float) {}
+ RDValue(int v)      : value(v), type(Int) {}
+ RDValue(unsigned v) : value(v), type(UnsignedInt) {}
+ RDValue(bool v)     : value(v), type(Bool) {}
 
  RDValue(boost::any *v)  : value(v),type(Any) {}
 
@@ -98,9 +101,10 @@ struct RDValue {
   */
   
   // Copies passed in pointers
- explicit RDValue(const boost::any &v)  : value(new boost::any(v)),type(Any) {}
- explicit RDValue(const std::string &v) : value(new std::string(v)),type(String){};
- template <class T> RDValue(const T &v) : value(new boost::any(v)),type(Any) {}
+ RDValue(const boost::any &v)  : value(new boost::any(v)),type(Any) {}
+ RDValue(const std::string &v) : value(new std::string(v)),type(String){};
+ template <class T>
+ RDValue(const T &v) : value(new boost::any(v)),type(Any) {}
 
  RDValue(const std::vector<double> &v) : value(new std::vector<double>(v)),
     type(VectDouble) {}
@@ -108,45 +112,117 @@ struct RDValue {
     type(VectFloat) {}
  RDValue(const std::vector<int> &v)    : value(new std::vector<int>(v)),
     type(VectInt) {}
- RDValue(const std::vector<unsigned int> &v) : value(new std::vector<unsigned int>(v)),
+ RDValue(const std::vector<unsigned int> &v) :
+  value(new std::vector<unsigned int>(v)),
     type(VectUnsignedInt) {}
- RDValue(const std::vector<std::string> &v) : value(new std::vector<std::string>(v)),
+ RDValue(const std::vector<std::string> &v) :
+  value(new std::vector<std::string>(v)),
     type(VectString) {}
-};
 
-// Given a type and an RDAnyValue - delete the appropriate structure
-inline void cleanup_rdvalue(RDValue &any) {
-  switch (any.type) {
-    case RDValue::String:
-      delete any.value.s;
-      break;
-    case RDValue::Any:
-      delete any.value.a;
-      break;
-    case RDValue::VectDouble:
-      delete any.value.vd;
-      break;
-    case RDValue::VectFloat:
-      delete any.value.vf;
-      break;
-    case RDValue::VectInt:
-      delete any.value.vi;
-      break;
-    case RDValue::VectUnsignedInt:
-      delete any.value.vu;
-      break;
-    case RDValue::VectString:
-      delete any.value.vs;
-      break;
-    default:
-      break;
+  static // Given a type and an RDAnyValue - delete the appropriate structure
+  inline void cleanup_rdvalue(RDValue &rdvalue) {
+    switch (rdvalue.type) {
+      case RDValue::String:
+        delete rdvalue.value.s;
+        break;
+      case RDValue::Any:
+        delete rdvalue.value.a;
+        break;
+      case RDValue::VectDouble:
+        delete rdvalue.value.vd;
+        break;
+      case RDValue::VectFloat:
+        delete rdvalue.value.vf;
+        break;
+      case RDValue::VectInt:
+        delete rdvalue.value.vi;
+        break;
+      case RDValue::VectUnsignedInt:
+        delete rdvalue.value.vu;
+        break;
+      case RDValue::VectString:
+        delete rdvalue.value.vs;
+        break;
+      default:
+        break;
+    }
+    rdvalue.type = Empty;
   }
-}
+
+  RDValue& operator=(double v) {
+    cleanup_rdvalue(*this);
+    value = v;
+    type = Double;
+    return *this;
+  }
+  RDValue& operator=(float v) {
+    cleanup_rdvalue(*this);
+    value = v;
+    type = Float;
+    return *this;
+  }
+  RDValue& operator=(int  v) {
+    cleanup_rdvalue(*this);
+    value = v;
+    type = Int;
+    return *this;
+  }
+  RDValue& operator=(unsigned int  v) {
+    cleanup_rdvalue(*this);
+    value = v;
+    type = UnsignedInt;
+    return *this;
+  }
+  RDValue& operator=(bool v) {
+    cleanup_rdvalue(*this);
+    value = v;
+    type = Bool;
+    return *this;
+  }
+  RDValue& operator=(const std::vector<double> &v) {
+    cleanup_rdvalue(*this);
+    value = new std::vector<double>(v);
+    type = Double;
+    return *this;
+  }
+  RDValue& operator=(const std::vector<float> &v) {
+    cleanup_rdvalue(*this);
+    value = new std::vector<float>(v);
+    type = Float;
+    return *this;
+  }
+  RDValue& operator=(const std::vector<int>  &v) {
+    cleanup_rdvalue(*this);
+    value = new std::vector<int>(v);
+    type = Int;
+    return *this;
+  }
+  RDValue& operator=(const std::vector<unsigned int>  &v) {
+    cleanup_rdvalue(*this);
+    value = new std::vector<unsigned int>(v);
+    type = UnsignedInt;
+    return *this;
+  }
+  RDValue& operator=(const std::vector<std::string>  &v) {
+    cleanup_rdvalue(*this);
+    value = new std::vector<std::string>(v);
+    type = VectString;
+    return *this;
+  }
+  template<class T>
+  RDValue& operator=(const T&v) {
+    cleanup_rdvalue(*this);
+    value = new boost::any(v);
+    type = Any;
+    return *this;
+  }
+    
+};
 
 // Given two RDValue::Values - copy the appropriate structure
 inline void copy_rdvalue(RDValue &dest,
                          const RDValue &src) {
-  cleanup_rdvalue(dest);
+  RDValue::cleanup_rdvalue(dest);
   dest.type = src.type;
   switch (src.type) {
     case RDValue::String:
@@ -324,6 +400,13 @@ std::string vectToString(const std::vector<T> &tv) {
   return sstr.str();
 }
 
+template<>
+inline std::string &rdvalue_cast<std::string>(RDValue &v) {
+  if (v.type == RDValue::String) return *v.value.s;
+  throw boost::bad_any_cast();
+}
+
+
 inline bool rdvalue_tostring(const RDValue &val, std::string &res) {
   Utils::LocaleSwitcher ls; // for lexical cast...
   switch (val.type) {
@@ -383,10 +466,32 @@ inline bool rdvalue_tostring(const RDValue &val, std::string &res) {
   return true;
 }
 
-template<>
-inline std::string &rdvalue_cast<std::string>(RDValue &v) {
-  if (v.type == RDValue::String) return *v.value.s;
-  throw boost::bad_any_cast();
+// from_rdvalue -> converts string values to appropriate types
+template <class T>
+typename boost::enable_if<boost::is_arithmetic<T>, T>::type from_rdvalue(
+    const RDValue &arg) {
+  T res;
+  if (arg.type == RDValue::String) {
+    Utils::LocaleSwitcher ls;
+    try {
+      res = rdvalue_cast<T>(arg);
+    } catch (const boost::bad_any_cast &exc) {
+      try {
+        res = boost::lexical_cast<T>(rdvalue_cast<std::string>(arg));
+      } catch (...) {
+        throw exc;
+      }
+    }
+  } else {
+    res = rdvalue_cast<T>(arg);
+  }
+  return res;
+}
+
+template <class T>
+typename boost::disable_if<boost::is_arithmetic<T>, T>::type from_rdvalue(
+    const RDValue &arg) {
+  return rdvalue_cast<T>(arg);
 }
 
 

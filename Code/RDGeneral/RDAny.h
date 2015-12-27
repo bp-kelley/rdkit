@@ -80,7 +80,7 @@ struct RDAny {
     copy_rdvalue(m_value, rhs.m_value);
   }
 
-  ~RDAny() { cleanup_rdvalue(m_value); }
+  ~RDAny() { RDValue::cleanup_rdvalue(m_value); }
 
   // For easy of use:
   //   RDAny v;
@@ -93,74 +93,74 @@ struct RDAny {
   }
 
   RDAny &operator=(float d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     m_value = RDValue(d);
     return *this;
   }
 
   RDAny &operator=(int d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     m_value = RDValue(d);
     return *this;
   }
 
   RDAny &operator=(unsigned int d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     m_value = RDValue(d);
     return *this;
   }
 
   RDAny &operator=(bool d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     m_value = RDValue(d);
     return *this;
   }
 
   RDAny &operator=(const std::string &d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     m_value = RDValue(d);
     return *this;
   }
 
   RDAny &operator=(const std::vector<double> &d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     m_value = RDValue(d);
     return *this;
   }
 
   RDAny &operator=(const std::vector<float> &d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     m_value = RDValue(d);
     return *this;
   }
 
   RDAny &operator=(const std::vector<int> &d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     m_value = RDValue(d);
     return *this;
   }
 
   RDAny &operator=(const std::vector<unsigned int> &d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     m_value = d;
     return *this;
   }
 
   RDAny &operator=(const std::vector<std::string> &d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     m_value = RDValue(d);
     return *this;
   }
 
   RDAny &operator=(const boost::any &d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     m_value = RDValue(d);//new boost::any(d);
     return *this;
   }
 
   template<class T>
   RDAny &operator=(const T &d) {
-    cleanup_rdvalue(m_value);
+    RDValue::cleanup_rdvalue(m_value);
     boost::any *v = new boost::any(d);
     m_value = RDValue(v);
     return *this;
