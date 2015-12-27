@@ -475,7 +475,7 @@ void testConstReturns() {
     BOOST_LOG(rdErrorLog) << "copy" << std::endl;
     start = std::clock();
     for (int i = 0; i < nreps; ++i) {
-      std::string nv = d.fromany<std::string>(anyv);
+      std::string nv = rdany_cast<std::string>(anyv);
       ls += nv.size();
     }
     end = std::clock();
@@ -487,7 +487,7 @@ void testConstReturns() {
     BOOST_LOG(rdErrorLog) << "ref" << std::endl;
     start = std::clock();
     for (int i = 0; i < nreps; ++i) {
-      const std::string &nv = d.fromany<std::string>(anyv);
+      const std::string &nv = rdany_cast<std::string>(anyv);
       ls += nv.size();
     }
     end = std::clock();
@@ -513,7 +513,7 @@ void testConstReturns() {
     std::string k = "foo";
     for (int i = 0; i < nreps; ++i) {
       if (d.hasVal(k)) {
-        const std::string &nv = d.fromany<std::string>(anyv);
+        const std::string &nv = rdany_cast<std::string>(anyv);
         ls += nv.size();
       }
     }
