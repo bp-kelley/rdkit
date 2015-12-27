@@ -18,7 +18,7 @@
 #include <map>
 #include <string>
 #include <vector>
-#include "RDAny.h"
+#include "RDValue.h"
 #include "Exceptions.h"
 #include <boost/lexical_cast.hpp>
 
@@ -32,13 +32,44 @@ typedef std::vector<std::string> STR_VECT;
 //!
 class Dict {
  public:
-  typedef std::map<std::string, RDAny> DataType;
-  Dict() { _data.clear(); };
+  struct Pair {
+    std::string key;
+    RDValue val;
 
-  Dict(const Dict &other) : _data(other._data){};
+   Pair() : key(), val() {}
+   Pair(const std::string &s, const RDValue &v) : key(s), val(v) {
+   }
+  };
+  
+  typedef std::vector<Pair> DataType;
+  Dict() : _hasNonPodData(false) {  };
+
+  Dict(const Dict &other) : _data(other._data) {
+    _hasNonPodData = other._hasNonPodData;
+    if (_hasNonPodData) {
+      std::vector<Pair> data(other._data.size());
+      _data.swap(data);
+      for (size_t i=0; i< _data.size(); ++i) {
+        _data[i].key = other._data[i].key;
+        copy_rdvalue(_data[i].val, other._data[i].val);
+      }
+    } else {
+      _data = other._data;      
+    }    
+  }
 
   Dict &operator=(const Dict &other) {
-    _data = other._data;
+    _hasNonPodData = other._hasNonPodData;
+    if (_hasNonPodData) {
+      std::vector<Pair> data(other._data.size());
+      _data.swap(data);
+      for (size_t i=0; i< _data.size(); ++i) {
+        _data[i].key = other._data[i].key;
+        copy_rdvalue(_data[i].val, other._data[i].val);
+      }
+    } else {
+      _data = other._data;      
+    }    
     return *this;
   };
 
@@ -50,7 +81,10 @@ class Dict {
     return hasVal(key);
   };
   bool hasVal(const std::string &what) const {
-    return _data.find(what) != _data.end();
+    for(size_t i=0 ; i< _data.size(); ++i) {
+      if (_data[i].key == what ) return true;
+    }
+    return false;
   };
 
   //----------------------------------------------------------
@@ -62,7 +96,7 @@ class Dict {
     STR_VECT res;
     DataType::const_iterator item;
     for (item = _data.begin(); item != _data.end(); item++) {
-      res.push_back(item->first);
+      res.push_back(item->key);
     }
     return res;
   }
@@ -87,10 +121,12 @@ class Dict {
   //! \overload
   template <typename T>
   T getVal(const std::string &what) const {
-    DataType::const_iterator pos = _data.find(what);
-    if (pos == _data.end()) throw KeyErrorException(what);
-    const RDAny &val = pos->second;
-    return fromany<T>(val);
+    for(size_t i=0; i< _data.size(); ++i) {
+      if (_data[i].key == what) {
+        return from_rdvalue<T>(_data[i].val);
+      }
+    }
+    throw KeyErrorException(what);
   }
 
   //! \overload
@@ -132,11 +168,13 @@ class Dict {
 
   template <typename T>
   bool getValIfPresent(const std::string &what, T &res) const {
-    DataType::const_iterator pos = _data.find(what);
-    if (pos == _data.end()) return false;
-    const RDAny &val = pos->second;
-    res = fromany<T>(val);
-    return true;
+    for(size_t i=0; i< _data.size(); ++i) {
+      if (_data[i].key == what) {
+        res = from_rdvalue<T>(_data[i].val);
+        return true;
+      }
+    }
+    return false;
   };
 
   template <typename T>
@@ -167,8 +205,67 @@ class Dict {
   */
   template <typename T>
   void setVal(const std::string &what, T &val) {
-    _data[what].operator=(val);// = RDAny(val);
+    _hasNonPodData = true;
+    for(size_t i=0; i< _data.size(); ++i) {
+      if (_data[i].key == what) {
+        _data[i].val = val;
+        return;
+      }
+    }
+    _data.push_back(Pair(what, val));
   };
+#ifdef SAFE_RDVALUE
+  void setVal(const std::string &what, bool val) {
+    for(size_t i=0; i< _data.size(); ++i) {
+      if (_data[i].key == what) {
+        _data[i].val = val;
+        return;
+      }
+    }
+    _data.push_back(Pair(what, val));
+  }
+
+  void setVal(const std::string &what, double val) {
+    for(size_t i=0; i< _data.size(); ++i) {
+      if (_data[i].key == what) {
+        _data[i].val = val;
+        return;
+      }
+    }
+    _data.push_back(Pair(what, val));
+  }
+  
+  void setVal(const std::string &what, float val) {
+    for(size_t i=0; i< _data.size(); ++i) {
+      if (_data[i].key == what) {
+        _data[i].val = val;
+        return;
+      }
+    }
+    _data.push_back(Pair(what, val));
+  }
+  
+  void setVal(const std::string &what, int val) {
+    for(size_t i=0; i< _data.size(); ++i) {
+      if (_data[i].key == what) {
+        _data[i].val = val;
+        return;
+      }
+    }
+    _data.push_back(Pair(what, val));    
+  }
+  
+  void setVal(const std::string &what, unsigned int val) {
+    for(size_t i=0; i< _data.size(); ++i) {
+      if (_data[i].key == what) {
+        _data[i].val = val;
+        return;
+      }
+    }
+    _data.push_back(Pair(what, val));
+  }
+#endif
+  
   //! \overload
   template <typename T>
   void setVal(const char *what, T &val) {
@@ -193,8 +290,13 @@ class Dict {
         a KeyErrorException will be thrown.
   */
   void clearVal(const std::string &what) {
-    if (!this->hasVal(what)) throw KeyErrorException(what);
-    _data.erase(what);
+    for(DataType::iterator it = _data.begin(); it < _data.end() ; ++it) {
+      if (it->key == what) {
+        _data.erase(it);
+        return;
+      }
+    }
+    throw KeyErrorException(what);
   };
 
   //! \overload
@@ -215,11 +317,12 @@ class Dict {
 
      \returns the converted object of type \c T
   */
+  /*
   template <typename T>
       T fromany(const RDAny &arg) const {
     return from_rdany<T>(arg);
   }
-
+  */
   //----------------------------------------------------------
   //! Converts an instance of type \c T to \c RDAny
   /*!
@@ -227,15 +330,15 @@ class Dict {
 
      \returns a \c RDAny instance
   */
-
+  /*
   template <typename T>
       RDAny toany(T arg) const {
     return RDAny(arg);
   };
-
-
+  */
  private:
   DataType _data;  //!< the actual dictionary
+  bool     _hasNonPodData;
 };
 }
 #endif
