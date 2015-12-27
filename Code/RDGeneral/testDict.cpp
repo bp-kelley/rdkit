@@ -13,6 +13,7 @@
 #include "types.h"
 #include <RDGeneral/Invariant.h>
 #include <RDGeneral/RDAny.h>
+#include <RDGeneral/Dict.h>
 #include <RDGeneral/RDLog.h>
 #include <RDGeneral/utils.h>
 #include <ctime>
@@ -50,10 +51,31 @@ void testRDAny() {
   }
 
   {
+    bool a = true;
+    RDValue v(a);
+    CHECK_INVARIANT(rdvalue_cast<bool>(v) == true, "bad value cast");
+    v = (int) 10;
+    CHECK_INVARIANT(rdvalue_cast<int>(v) == 10, "bad value cast");
+  }
+  
+  {
     Dict d;
     bool a=true;
     d.setVal("foo", a);
     d.getVal<bool>("foo");
+  }
+
+  { // tests computed props
+    STR_VECT computed;
+    Dict d;
+    d.setVal(detail::computedPropName, computed);
+    computed.push_back("foo");
+    d.setVal(detail::computedPropName, computed);
+    STR_VECT computed2 = d.getVal<STR_VECT>(detail::computedPropName);
+    CHECK_INVARIANT(computed2[0] == "foo", "bad STR_VECT");
+    Dict d2(d);
+    computed2 = d2.getVal<STR_VECT>(detail::computedPropName);
+    CHECK_INVARIANT(computed2[0] == "foo", "bad STR_VECT");
   }
   
   {
@@ -170,6 +192,31 @@ void testRDAny() {
     std::cout << "dynamic RDAny:" << (double)(clock2-clock1)/CLOCKS_PER_SEC << " s" << std::endl;
   }
 
+  {
+    std::clock_t clock1 = std::clock();
+    RDValue v;
+    for(int i=0;i<loops;++i) {
+      v = i;
+    }
+    std::clock_t clock2 = std::clock();
+
+    std::cout << "static RDValue:" << (double)(clock2-clock1)/CLOCKS_PER_SEC << " s" << std::endl;
+  }
+
+  {
+    std::clock_t clock1 = std::clock();
+    RDValue *v=0, *vv;
+    for(int i=0;i<loops;++i) {
+      vv = new RDValue(v ?v->value.i + i : i);
+      delete v;
+      v = vv;
+    }
+    delete vv;
+    std::clock_t clock2 = std::clock();
+
+    std::cout << "dynamic RDValue:" << (double)(clock2-clock1)/CLOCKS_PER_SEC << " s" << std::endl;
+  }
+  
   { // checks replacement with vector
     RDAny vv(2.0);
     CHECK_INVARIANT(rdany_cast<double>(vv) == 2.0, "Bad double");
