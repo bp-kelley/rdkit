@@ -76,10 +76,6 @@ class Dict {
   //----------------------------------------------------------
   //! \brief Returns whether or not the dictionary contains a particular
   //!        key.
-  bool hasVal(const char *what) const {
-    std::string key(what);
-    return hasVal(key);
-  };
   bool hasVal(const std::string &what) const {
     for(size_t i=0 ; i< _data.size(); ++i) {
       if (_data[i].key == what ) return true;
@@ -130,26 +126,7 @@ class Dict {
   }
 
   //! \overload
-  template <typename T>
-  T getVal(const char *what,
-           T &res) const {  // FIX: it doesn't really fit that this returns T
-    std::string key(what);
-    res = getVal<T>(key);
-    return res;
-  };
-  //! \overload
-  template <typename T>
-  T getVal(const char *what) const {
-    std::string key(what);
-    return getVal<T>(key);
-  };
-
-  //! \overload
   void getVal(const std::string &what, std::string &res) const;
-  //! \overload
-  void getVal(const char *what, std::string &res) const {
-    getVal(std::string(what), res);
-  };
 
   //----------------------------------------------------------
   //! \brief Potentially gets the value associated with a particular key
@@ -177,18 +154,9 @@ class Dict {
     return false;
   };
 
-  template <typename T>
-  bool getValIfPresent(const char *what, T &res) const {
-    std::string key(what);
-    return getValIfPresent<T>(key, res);
-  };
 
   //! \overload
   bool getValIfPresent(const std::string &what, std::string &res) const;
-  //! \overload
-  bool getValIfPresent(const char *what, std::string &res) const {
-    return getValIfPresent(std::string(what), res);
-  };
 
   //----------------------------------------------------------
   //! \brief Sets the value associated with a key
@@ -214,7 +182,7 @@ class Dict {
     }
     _data.push_back(Pair(what, val));
   };
-#ifdef SAFE_RDVALUE
+
   void setVal(const std::string &what, bool val) {
     for(size_t i=0; i< _data.size(); ++i) {
       if (_data[i].key == what) {
@@ -264,14 +232,7 @@ class Dict {
     }
     _data.push_back(Pair(what, val));
   }
-#endif
   
-  //! \overload
-  template <typename T>
-  void setVal(const char *what, T &val) {
-    std::string key = what;
-    setVal(key, val);
-  };
   //! \overload
   void setVal(const std::string &what, const char *val) {
     std::string h(val);
@@ -297,12 +258,6 @@ class Dict {
       }
     }
     throw KeyErrorException(what);
-  };
-
-  //! \overload
-  void clearVal(const char *what) {
-    std::string key = what;
-    clearVal(key);
   };
 
   //----------------------------------------------------------
