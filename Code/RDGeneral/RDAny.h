@@ -185,12 +185,11 @@ T &rdany_cast(RDAny &d) {
   return rdvalue_cast<T>(d.m_value);
 }
 
-
 template <class T>
 typename boost::enable_if<boost::is_arithmetic<T>, T>::type from_rdany(
     const RDAny &arg) {
   T res;
-  if (arg.m_value.type == RDValue::String) {
+  if (arg.m_value.getTag() == RDValue::StringTag) {
     Utils::LocaleSwitcher ls;
     try {
       res = rdany_cast<T>(arg);

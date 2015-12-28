@@ -13,6 +13,8 @@ rdkit_headers(Exceptions.h
               Invariant.h
               RDAny.h
               RDValue.h
+              RDValue-doublemagic.h
+              RDValue-taggedunion.h
               RDLog.h
               StreamOps.h
               types.h

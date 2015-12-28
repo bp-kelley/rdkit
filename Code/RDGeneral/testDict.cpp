@@ -28,6 +28,21 @@ struct Foo {
 };
 
 void testRDAny() {
+  std::cerr << "Testing RDValue" << std::endl;
+  {
+    RDAny v(-2147450880);
+  }
+  
+  {
+    int vi = 0;
+    RDValue v(0);
+    for (int i=0; i<100; ++i) {
+        vi += i;
+        v = rdvalue_cast<int>(v) + i;
+        CHECK_INVARIANT(vi == rdvalue_cast<int>(v), "Opps, bad variant");
+      }
+               
+  }
   std::cerr << "Testing RDAny" << std::endl;
   {
     RDAny a(1);
@@ -182,7 +197,7 @@ void testRDAny() {
     std::clock_t clock1 = std::clock();
     RDAny *v=0, *vv;
     for(int i=0;i<loops;++i) {
-      vv = new RDAny(v ?v->m_value.value.i + i : i);
+      vv = new RDAny(v ?rdany_cast<int>(*v) + i : i);
       delete v;
       v = vv;
     }
@@ -207,7 +222,7 @@ void testRDAny() {
     std::clock_t clock1 = std::clock();
     RDValue *v=0, *vv;
     for(int i=0;i<loops;++i) {
-      vv = new RDValue(v ?v->value.i + i : i);
+      vv = new RDValue(v ?rdvalue_cast<int>(*v) + i : i);
       delete v;
       v = vv;
     }
@@ -248,7 +263,7 @@ void testRDAny() {
     boost::any_cast<std::vector<std::pair<int,int> > &>(any);    
     boost::any_cast<const std::vector<std::pair<int,int> > &>(any);
     
-    std::vector<std::pair<int,int> > &pv = rdany_cast<std::vector<std::pair<int, int> > >(vv);
+    const std::vector<std::pair<int,int> > &pv = rdany_cast<std::vector<std::pair<int, int> > >(vv);
     CHECK_INVARIANT(pv[0].first == 2,
                     "Bad cast");
     RDAny vvv(vv);
@@ -265,7 +280,9 @@ void testRDAny() {
     RDAny vv(v);
     try {
       rdany_cast<std::vector<int> >(v);
+#ifndef UNSAFE_RDVALUE
       PRECONDITION(0, "Should throw bad cast");
+#endif
     } catch (boost::bad_any_cast &e) {
     }
     
@@ -304,7 +321,7 @@ void testRDAny() {
                     "Bad cast");
 
     RDAny any3(boost::shared_ptr<Foo>( new Foo ));
-    CHECK_INVARIANT(any3.m_value.type == RDValue::Any, "Wrong type");
+    CHECK_INVARIANT(any3.m_value.getTag() == RDValue::AnyTag, "Wrong type");
   }
 }
 
