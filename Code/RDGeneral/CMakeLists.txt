@@ -16,6 +16,7 @@ rdkit_headers(Exceptions.h
               RDValue-doublemagic.h
               RDValue-taggedunion.h
               RDLog.h
+              RDProps.h
               StreamOps.h
               types.h
               utils.h
