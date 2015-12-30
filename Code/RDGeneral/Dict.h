@@ -31,7 +31,6 @@ typedef std::vector<std::string> STR_VECT;
 //!  The actual storage is done using \c RDAny objects.
 //!
 class Dict {
- public:
   struct Pair {
     std::string key;
     RDValue val;
@@ -42,7 +41,8 @@ class Dict {
   };
   
   typedef std::vector<Pair> DataType;
-  Dict() : _hasNonPodData(false) {  };
+public:
+  Dict() : _data(), _hasNonPodData(false) {  };
 
   Dict(const Dict &other) : _data(other._data) {
     _hasNonPodData = other._hasNonPodData;
@@ -53,11 +53,13 @@ class Dict {
         _data[i].key = other._data[i].key;
         copy_rdvalue(_data[i].val, other._data[i].val);
       }
-    } else {
-      _data = other._data;      
-    }    
+    }   
   }
-
+  
+  ~Dict() {
+    reset(); // to clear pointers if necessary
+  }
+  
   Dict &operator=(const Dict &other) {
     _hasNonPodData = other._hasNonPodData;
     if (_hasNonPodData) {
@@ -263,7 +265,15 @@ class Dict {
   //----------------------------------------------------------
   //! \brief Clears all keys (and values) from the dictionary.
   //!
-  void reset() { _data.clear(); };
+  void reset() {
+    if (_hasNonPodData) {
+      for (size_t i=0; i< _data.size(); ++i) {
+        RDValue::cleanup_rdvalue(_data[i].val);
+      }
+    }
+    DataType data;
+    _data.swap(data);
+  };
 
   //----------------------------------------------------------
   //! Converts a \c RDAny to type \c T
