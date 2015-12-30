@@ -187,7 +187,7 @@ class ROMol : public RDProps {
     only
          the specified conformer from \c other.
   */
-  ROMol(const ROMol &other, bool quickCopy = false, int confId = -1) {
+  ROMol(const ROMol &other, bool quickCopy = false, int confId = -1) : RDProps() {
     dp_ringInfo = 0;
     initFromOther(other, quickCopy, confId);
   };
