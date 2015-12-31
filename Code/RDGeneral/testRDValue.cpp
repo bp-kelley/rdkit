@@ -109,9 +109,17 @@ void testMapsAndLists() {
   }
 }
 
+void testNaN() {
+  // make a NaN
+  double nan=sqrt(-1.0);
+  RDValue v(nan);
+  CHECK_INVARIANT(boost::math::isnan(rdvalue_cast<double>(v)), "Oops, can't store NaNs!");
+}
+
 int main() {
   std::cerr << "-- running tests -- " << std::endl;
   testPOD();
   testPODVectors();
   testStringVect();
+  testNaN();
 }
