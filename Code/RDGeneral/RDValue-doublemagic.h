@@ -42,10 +42,14 @@
 #include <string>
 #include <boost/utility.hpp>
 #include <boost/lexical_cast.hpp>
+#include <cmath>
+
 #include "LocaleSwitcher.h"
 
 namespace RDKit {
 
+  // Inspired by
+  // https://nikic.github.io/2012/02/02/Pointer-magic-for-efficient-dynamic-value-representations.html
 // 16 bit storage for value types using Quiet NaN spaces in
 //  doubles
 // Won't work on Solaris and some other os's as mmaping maps from
@@ -60,24 +64,23 @@ namespace RDKit {
   Encoding for storing other things as a double.  Use
   Quiet NaN
   Quiet NaN: // used to encode types
-  F   F    F   1XXX < - type byte (first bit is set to one)
+   F   F    F   1XXX < - X = type bits (first bit is set to one)
 
   seeeeeee|eeeemmmm|mmmmmmmm|mmmmmmmm|mmmmmmmm|mmmmmmmm|mmmmmmmm|mmmmmmmm
   s1111111|11111ppp|pppppppp|pppppppp|pppppppp|pppppppp|pppppppp|pppppppp
-  ^- first mantissa bit 1    everything else is "payload" -^
-  ^- exponent bits all 1                 and mustn't be all-zero (as it
+               ^- first mantissa bit 1    everything else is "payload" -^
+   ^- exponent bits all 1                 and mustn't be all-zero (as it
   ^- any sign bit                         would be INF then)
 
   Available 
-  8 = 1000 MaxDouble // also float
-  9 = 1001 Int32 // also uint32
-  b = 1010 bool
-  a = 1011 String
-  C = 1100 vec<double>
-  D = 1101 vec<float>
-  E = 1110 vec<String>
-  F = 1111 Any
-
+  8 = 1000 MaxDouble // Not really a tag, is a sentinel
+  9 = 1001 Float
+  b = 1010 Int32
+  a = 1011 Uint32
+  C = 1100 <none>
+  D = 1101 <none>
+  E = 1110 <none>
+  F = 1111 PtrTag (look at lower 3 bits for type)
 */ 
 
       
@@ -88,6 +91,7 @@ private:
     uint64_t otherBits;
   };
 public:
+  static const uint64_t NaN       = 0xfff7FFFFFFFFFFFF; // signalling NaN
   static const uint64_t MaxDouble = 0xfff8000000000000; // 
   static const uint64_t FloatTag  = 0xfff9000000000000; // 
   static const uint64_t Int32Tag  = 0xfffa000000000000; // 
@@ -112,7 +116,12 @@ public:
   inline RDValue() : doubleBits(0.0) {}
   
   inline RDValue(double number) {
-    doubleBits = number;
+    if (boost::math::isnan(number)) {
+      otherBits = NaN;
+      assert(boost::math::isnan(doubleBits));
+    }
+    else
+      doubleBits = number;
   }
 
   inline RDValue(float number) {
@@ -220,7 +229,7 @@ public:
   }
   
   inline bool isDouble() const {
-    return otherBits < MaxDouble;
+    return otherBits < MaxDouble || otherBits & NaN;
   }
 
   inline bool isFloat() const { // check size?  rdcast?
@@ -485,8 +494,9 @@ public:
   }
 
   RDValue& operator=(double v) {
-    cleanup_rdvalue(*this);
-    doubleBits = v;
+    cleanup_rdvalue(*this);    
+    if (boost::math::isnan(v)) otherBits = NaN;
+    else doubleBits = v;
     return *this;
   }
     
