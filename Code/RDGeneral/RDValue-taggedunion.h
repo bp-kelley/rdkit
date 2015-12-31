@@ -38,6 +38,7 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <vector>
 #include <boost/utility.hpp>
 #include <boost/lexical_cast.hpp>
 #include "LocaleSwitcher.h"

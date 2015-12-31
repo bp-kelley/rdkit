@@ -2,6 +2,8 @@
 #include "Invariant.h"
 #include <limits>
 #include <vector>
+#include <list>
+#include <map>
 #include <string>
 
 using namespace RDKit;
@@ -87,7 +89,28 @@ void testStringVect() {
   RDValue::cleanup_rdvalue(vvc); // desctructor...
 }
 
+void testMapsAndLists() {
+  {
+    typedef std::map<std::string, int> listtype;
+    listtype m;
+    m["foo"] = 1;
+    m["bar"] = 2;
+    RDValue v(m);
+    CHECK_INVARIANT(rdvalue_cast<listtype>(v) == m, "bad map cast");
+    RDValue::cleanup_rdvalue(v);
+  }
+  {
+    std::list<std::string> m;
+    m.push_back("foo");
+    m.push_back("bar");
+    RDValue v(m);
+    CHECK_INVARIANT(rdvalue_cast<std::list<std::string> >(v) == m, "bad map cast");
+    RDValue::cleanup_rdvalue(v);
+  }
+}
+
 int main() {
+  std::cerr << "-- running tests -- " << std::endl;
   testPOD();
   testPODVectors();
   testStringVect();
