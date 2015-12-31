@@ -229,7 +229,7 @@ public:
   }
   
   inline bool isDouble() const {
-    return otherBits < MaxDouble || otherBits & NaN;
+    return otherBits < MaxDouble || (otherBits & NaN) == NaN;
   }
 
   inline bool isFloat() const { // check size?  rdcast?
