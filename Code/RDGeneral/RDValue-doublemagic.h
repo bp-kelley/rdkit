@@ -38,6 +38,8 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <vector>
+#include <string>
 #include <boost/utility.hpp>
 #include <boost/lexical_cast.hpp>
 #include "LocaleSwitcher.h"
@@ -85,19 +87,27 @@ private:
     double doubleBits;
     uint64_t otherBits;
   };
-
 public:
-  static const uint64_t MaxDouble = 0xfff8000000000000; // also float
-  static const uint64_t Int32Tag  = 0xfff9000000000000; // doubles as bool/unsigned?
-  static const uint64_t UInt32Tag = 0xfffa000000000000;
+  static const uint64_t MaxDouble = 0xfff8000000000000; // 
+  static const uint64_t FloatTag  = 0xfff9000000000000; // 
+  static const uint64_t Int32Tag  = 0xfffa000000000000; // 
+  static const uint64_t UInt32Tag = 0xfffb000000000000;
+
+  // PTR Tags use the last 3 bits for typing info
+  static const uint64_t PtrTag            = 0xffff000000000000;
+  static const uint64_t StringTag         = 0xffff000000000001; //001
+  static const uint64_t VecDoubleTag      = 0xffff000000000002; //010
+  static const uint64_t VecFloatTag       = 0xffff000000000003; //011
+  static const uint64_t VecIntTag         = 0xffff000000000004; //100
+  static const uint64_t VecUnsignedIntTag = 0xffff000000000005; //101
+  static const uint64_t VecStringTag      = 0xffff000000000006; //110
+  static const uint64_t AnyTag            = 0xffff000000000007; //111
   
-  static const uint64_t StringTag    = 0xfffb000000000000;
-  static const uint64_t VecDoubleTag = 0xfffc000000000000;
-  static const uint64_t VecIntTag    = 0xfffd000000000000;
-  static const uint64_t VecStringTag = 0xfffe000000000000;
-  static const uint64_t AnyTag       = 0xffff000000000000;
   static const uint64_t TagMask      = 0xFFFF000000000000;
-  static const uint64_t ApplyMask    = 0x0000FFFFFFFFFFFF;
+
+  static const uint64_t PointerTagMask   = 0xFFFF000000000007;
+  static const uint64_t ApplyMask        = 0x0000FFFFFFFFFFFF;
+  static const uint64_t ApplyPtrMask     = 0x0000FFFFFFFFFFF8;
 
   inline RDValue() : doubleBits(0.0) {}
   
@@ -105,12 +115,14 @@ public:
     doubleBits = number;
   }
 
-  inline RDValue(float number) { // store floats as doubles
-    doubleBits = static_cast<float>(number);
+  inline RDValue(float number) {
+    union { int i; float f; } fu;
+    fu.f = number;
+    otherBits = (((uint64_t)fu.i) & ApplyMask ) | FloatTag;
   }
     
   inline RDValue(int32_t number) {
-    otherBits = (((uint64_t)number) & ApplyMask )| Int32Tag;
+    otherBits = (((uint64_t)number) & ApplyMask ) | Int32Tag;
     uint64_t tag = getTag();
     assert(tag   == Int32Tag);
     assert(tag  != StringTag);
@@ -129,7 +141,7 @@ public:
     // ensure that the pointer really is only 48 bit
     assert((reinterpret_cast<uint64_t>(pointer) & AnyTag) == 0);
 
-    otherBits = (reinterpret_cast<uint64_t>(pointer) & ApplyMask) | AnyTag;
+    otherBits = reinterpret_cast<uint64_t>(pointer) | AnyTag;
   }
   
   inline RDValue(const boost::any &any) {
@@ -137,7 +149,7 @@ public:
     boost::any *pointer = new boost::any(any);
     assert((reinterpret_cast<uint64_t>(pointer) & AnyTag) == 0);
 
-    otherBits = (reinterpret_cast<uint64_t>(pointer) & ApplyMask) | AnyTag;
+    otherBits = reinterpret_cast<uint64_t>(pointer) | AnyTag;
   }
 
   template <class T>
@@ -145,7 +157,7 @@ public:
     boost::any *pointer = new boost::any(v);
     assert((reinterpret_cast<uint64_t>(pointer) & AnyTag) == 0);
 
-    otherBits = (reinterpret_cast<uint64_t>(pointer) & ApplyMask) | AnyTag;
+    otherBits = reinterpret_cast<uint64_t>(pointer) | AnyTag;
     uint64_t tag = getTag();
     assert(tag  != Int32Tag);
     assert(tag  != StringTag);
@@ -157,7 +169,7 @@ public:
     std::string *pointer = new std::string(v);
     assert((reinterpret_cast<uint64_t>(pointer) & StringTag) == 0);
 
-    otherBits = (reinterpret_cast<uint64_t>(pointer) & ApplyMask) | StringTag;
+    otherBits = reinterpret_cast<uint64_t>(pointer) | StringTag;
     uint64_t tag = getTag();
     assert(tag  != Int32Tag);
     assert(tag  == StringTag);
@@ -169,25 +181,42 @@ public:
     std::vector<double> *pointer = new std::vector<double>(v);
     assert((reinterpret_cast<uint64_t>(pointer) & VecDoubleTag) == 0);
 
-    otherBits = (reinterpret_cast<uint64_t>(pointer) & ApplyMask) | VecDoubleTag;
+    otherBits = reinterpret_cast<uint64_t>(pointer) | VecDoubleTag;
   }
 
+  inline RDValue(const std::vector<float> &v) {
+    std::vector<float> *pointer = new std::vector<float>(v);
+    assert((reinterpret_cast<uint64_t>(pointer) & VecFloatTag) == 0);
+
+    otherBits = reinterpret_cast<uint64_t>(pointer) | VecFloatTag;
+  }
+  
   inline RDValue(const std::vector<int> &v) {
     std::vector<int> *pointer = new std::vector<int>(v);
     assert((reinterpret_cast<uint64_t>(pointer) & VecIntTag) == 0);
 
-    otherBits = (reinterpret_cast<uint64_t>(pointer) & ApplyMask) | VecIntTag;    
+    otherBits = reinterpret_cast<uint64_t>(pointer) | VecIntTag;    
   }
 
+  inline RDValue(const std::vector<unsigned int> &v) {
+    std::vector<unsigned int> *pointer = new std::vector<unsigned int>(v);
+    assert((reinterpret_cast<uint64_t>(pointer) & VecIntTag) == 0);
+
+    otherBits = reinterpret_cast<uint64_t>(pointer) | VecUnsignedIntTag;    
+  }
+  
   inline RDValue(const std::vector<std::string> &v) {
     std::vector<std::string> *pointer = new std::vector<std::string>(v);
     assert((reinterpret_cast<uint64_t>(pointer) & VecStringTag) == 0);
 
-    otherBits = (reinterpret_cast<uint64_t>(pointer) & ApplyMask) | VecStringTag;        
+    otherBits = reinterpret_cast<uint64_t>(pointer) | VecStringTag;        
   }
   
   uint64_t getTag() const {
-    return otherBits & TagMask;
+    uint64_t tag = otherBits & TagMask;
+    if (tag == PtrTag)
+      return otherBits & PointerTagMask;
+    return tag;
   }
   
   inline bool isDouble() const {
@@ -195,7 +224,7 @@ public:
   }
 
   inline bool isFloat() const { // check size?  rdcast?
-    return otherBits < MaxDouble;
+    return getTag() == FloatTag;
   }
     
   inline bool isInt32() const {
@@ -219,9 +248,17 @@ public:
   inline bool isVecDouble() const {
     return getTag() == VecDoubleTag;
   }
+
+  inline bool isVecFloat() const {
+    return getTag() == VecFloatTag;
+  }
   
   inline bool isVecInt() const {
     return getTag() == VecIntTag;
+  }
+
+  inline bool isVecUnsignedInt() const {
+    return getTag() == VecUnsignedIntTag;
   }
   
   inline bool isVecString() const {
@@ -268,6 +305,11 @@ public:
     assert(isDouble());
     return doubleBits;
   }
+
+  inline const float & asFloat() const {
+    assert(isFloat());
+    return reinterpret_cast<const float&>(otherBits);// little endian
+  }
   
   inline const int32_t & asInt32() const {
     assert(isInt32());
@@ -298,12 +340,25 @@ public:
     return *reinterpret_cast<std::vector<double> *>(otherBits & ~VecDoubleTag);
   }
 
+  inline const std::vector<float> & asVecFloat() const {
+    assert(isVecFloat());
+
+    return *reinterpret_cast<std::vector<float> *>(otherBits & ~VecFloatTag);
+  }
+  
   inline const std::vector<int> & asVecInt() const {
     assert(isVecInt());
     
     return *reinterpret_cast<std::vector<int> *>(otherBits & ~VecIntTag);
   }
 
+  inline const std::vector<unsigned int> & asVecUnsignedInt() const {
+    assert(isVecUnsignedInt());
+    
+    return *reinterpret_cast<std::vector<unsigned int> *>(otherBits &
+                                                          ~VecUnsignedIntTag);
+  }
+  
   inline const std::vector<std::string> & asVecString() const {
     assert(isVecString());
     
@@ -328,7 +383,12 @@ public:
     assert(isDouble());
     return doubleBits;
   }
-  
+
+  inline float & asFloat()  {
+    assert(isFloat());
+    return *(float*)&otherBits; // little endian
+  }
+
   inline int32_t & asInt32()  {
     assert(isInt32());
     return *(int32_t*)&otherBits;// little endian
@@ -358,10 +418,23 @@ public:
     return *reinterpret_cast<std::vector<double> *>(otherBits & ~VecDoubleTag);
   }
 
+  inline  std::vector<float> & asVecFloat()  {
+    assert(isVecFloat());
+
+    return *reinterpret_cast<std::vector<float> *>(otherBits & ~VecFloatTag);
+  }
+
   inline  std::vector<int> & asVecInt()  {
     assert(isVecInt());
     
     return *reinterpret_cast<std::vector<int> *>(otherBits & ~VecIntTag);
+  }
+
+  inline  std::vector<unsigned int> & asVecUnsignedInt()  {
+    assert(isVecUnsignedInt());
+    
+    return *reinterpret_cast<std::vector<unsigned int> *>(
+        otherBits & ~VecUnsignedIntTag);
   }
 
   inline  std::vector<std::string> & asVecString()  {
@@ -391,8 +464,14 @@ public:
       case RDValue::VecDoubleTag:
         delete &val.asVecDouble();
         break;
+      case RDValue::VecFloatTag:
+        delete &val.asVecFloat();
+        break;
       case RDValue::VecIntTag:
         delete &val.asVecInt();
+        break;
+      case RDValue::VecUnsignedIntTag:
+        delete &val.asVecUnsignedInt();
         break;
       case RDValue::VecStringTag:
         delete &val.asVecString();
@@ -413,25 +492,27 @@ public:
     
   RDValue& operator=(float v) {
     cleanup_rdvalue(*this);
-    doubleBits = rdcast<double>(v);
+    union { int i; float f; } fu;
+    fu.f = v;
+    otherBits = (((uint64_t)fu.i) & ApplyMask ) | FloatTag;
     return *this;
   }
     
   RDValue& operator=(int v) {
     cleanup_rdvalue(*this);
-    otherBits = rdcast<int32_t>(v) | Int32Tag;
+    otherBits = (static_cast<int32_t>(v) & ApplyMask) | Int32Tag;
     return *this;
   }
 
   RDValue& operator=(unsigned int v) {
     cleanup_rdvalue(*this);
-    otherBits = rdcast<uint32_t>(v) | UInt32Tag;
+    otherBits = (static_cast<uint32_t>(v) & ApplyMask) | UInt32Tag;
     return *this;
   }
   
   RDValue& operator=(bool v) {
     cleanup_rdvalue(*this);
-    otherBits = rdcast<int32_t>(v) | Int32Tag;
+    otherBits = (static_cast<int32_t>(v) & ApplyMask) | Int32Tag;
     return *this;
   }
     
@@ -448,14 +529,28 @@ public:
     otherBits = reinterpret_cast<uint64_t>(pointer) | VecDoubleTag;
     return *this;
   }
-    
+
+  RDValue& operator=(const std::vector<float> & v) {
+    cleanup_rdvalue(*this);
+    std::vector<float> * pointer = new std::vector<float>(v);
+    otherBits = reinterpret_cast<uint64_t>(pointer) | VecFloatTag;
+    return *this;
+  }
+  
   RDValue& operator=(const std::vector<int> & v) {
     cleanup_rdvalue(*this);
     std::vector<int> * pointer = new std::vector<int>(v);
     otherBits = reinterpret_cast<uint64_t>(pointer) | VecIntTag;
     return *this;
   }
-    
+
+  RDValue& operator=(const std::vector<unsigned int> & v) {
+    cleanup_rdvalue(*this);
+    std::vector<unsigned int> * pointer = new std::vector<unsigned int>(v);
+    otherBits = reinterpret_cast<uint64_t>(pointer) | VecUnsignedIntTag;
+    return *this;
+  }
+  
   RDValue& operator=(const std::vector<std::string> & v) {
     cleanup_rdvalue(*this);
     std::vector<std::string> * pointer = new std::vector<std::string>(v);
@@ -492,8 +587,14 @@ inline void copy_rdvalue(RDValue &dest,
     case RDValue::VecDoubleTag:
       dest = src.asVecDouble();
       break;
+    case RDValue::VecFloatTag:
+      dest = src.asVecFloat();
+      break;
     case RDValue::VecIntTag:
       dest = src.asVecInt();
+      break;
+    case RDValue::VecUnsignedIntTag:
+      dest = src.asVecUnsignedInt();
       break;
     case RDValue::VecStringTag:
       dest = src.asVecString();
@@ -529,6 +630,12 @@ inline const double &rdvalue_cast<double>(const RDValue &v) {
 }
 
 template<>
+inline const float &rdvalue_cast<float>(const RDValue &v) {
+  if (v.isFloat()) return v.asFloat();
+  throw boost::bad_any_cast();
+}
+
+template<>
 inline const int &rdvalue_cast<int>(const RDValue &v) {
   if (v.isInt32()) return v.asInt32();
   throw boost::bad_any_cast();
@@ -558,8 +665,21 @@ inline const std::vector<double> &rdvalue_cast<std::vector<double> >(const RDVal
 }
 
 template<>
+inline const std::vector<float> &rdvalue_cast<std::vector<float> >(const RDValue &v) {
+  if (v.isVecFloat()) return v.asVecFloat();
+  throw boost::bad_any_cast();
+}
+
+template<>
 inline const std::vector<int> &rdvalue_cast<std::vector<int> >(const RDValue &v) {
   if (v.isVecInt()) return v.asVecInt();
+  throw boost::bad_any_cast();
+}
+
+template<>
+inline const std::vector<unsigned int> &rdvalue_cast<std::vector<unsigned int> >(
+    const RDValue &v) {
+  if (v.isVecUnsignedInt()) return v.asVecUnsignedInt();
   throw boost::bad_any_cast();
 }
 
@@ -588,6 +708,12 @@ inline boost::any &rdvalue_cast<boost::any>(RDValue &v) {
 template<>
 inline  double &rdvalue_cast<double>( RDValue &v) {
   if (v.isDouble()) return v.asDouble();
+  throw boost::bad_any_cast();
+}
+
+template<>
+inline  float &rdvalue_cast<float>( RDValue &v) {
+  if (v.isFloat()) return v.asFloat();
   throw boost::bad_any_cast();
 }
 
@@ -621,8 +747,21 @@ inline  std::vector<double> &rdvalue_cast<std::vector<double> >( RDValue &v) {
 }
 
 template<>
+inline  std::vector<float> &rdvalue_cast<std::vector<float> >( RDValue &v) {
+  if (v.isVecFloat()) return v.asVecFloat();
+  throw boost::bad_any_cast();
+}
+
+template<>
 inline  std::vector<int> &rdvalue_cast<std::vector<int> >( RDValue &v) {
   if (v.isVecInt()) return v.asVecInt();
+  throw boost::bad_any_cast();
+}
+
+template<>
+inline  std::vector<unsigned int> &rdvalue_cast<std::vector<unsigned int> >(
+    RDValue &v) {
+  if (v.isVecUnsignedInt()) return v.asVecUnsignedInt();
   throw boost::bad_any_cast();
 }
 
@@ -661,8 +800,14 @@ inline bool rdvalue_tostring(const RDValue &val, std::string &res) {
     case RDValue::VecDoubleTag:
       res = vectToString<double>(val.asVecDouble());
       break;
+    case RDValue::VecFloatTag:
+      res = vectToString<float>(val.asVecFloat());
+      break;
     case RDValue::VecIntTag:
       res = vectToString<int>(val.asVecInt());
+      break;
+    case RDValue::VecUnsignedIntTag:
+      res = vectToString<unsigned int>(val.asVecUnsignedInt());
       break;
     case RDValue::VecStringTag:
       res = vectToString<std::string>(val.asVecString());
@@ -676,13 +821,7 @@ inline bool rdvalue_tostring(const RDValue &val, std::string &res) {
           res =
               boost::lexical_cast<std::string>(
                   boost::any_cast<unsigned long>(val.asAny()));
-        } else if (val.asAny().type() == typeid(std::vector<unsigned int>)) {
-            res = vectToString<unsigned int>(boost::any_cast<std::vector<unsigned int> >(
-                val.asAny()));
-        } else if (val.asAny().type() == typeid(std::vector<float>)) {
-            res = vectToString<float>(boost::any_cast<std::vector<float> >(
-                val.asAny()));
-        }else {
+        } else {
           throw;
           return false;
         }
