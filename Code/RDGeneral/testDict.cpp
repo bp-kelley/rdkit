@@ -220,13 +220,12 @@ void testRDAny() {
 
   {
     std::clock_t clock1 = std::clock();
-    RDValue *v=0, *vv;
+    RDValue v(0);
     for(int i=0;i<loops;++i) {
-      vv = new RDValue(v ?rdvalue_cast<int>(*v) + i : i);
-      delete v;
-      v = vv;
+      v.destroy();
+      v = RDValue(rdvalue_cast<int>(v) + i);
     }
-    delete vv;
+
     std::clock_t clock2 = std::clock();
 
     std::cout << "dynamic RDValue:" << (double)(clock2-clock1)/CLOCKS_PER_SEC << " s" << std::endl;
@@ -258,7 +257,7 @@ void testRDAny() {
     boost::any_cast<const std::vector<std::pair<int,int> > &>(any1);
     
     RDAny vv(pvect);
-    boost::any &any = rdany_cast<boost::any>(vv);
+    boost::any &any = rdany_cast<boost::any&>(vv);
     boost::any_cast<std::vector<std::pair<int,int> > >(any);
     boost::any_cast<std::vector<std::pair<int,int> > &>(any);    
     boost::any_cast<const std::vector<std::pair<int,int> > &>(any);
@@ -321,7 +320,7 @@ void testRDAny() {
                     "Bad cast");
 
     RDAny any3(boost::shared_ptr<Foo>( new Foo ));
-    CHECK_INVARIANT(any3.m_value.getTag() == RDValue::AnyTag, "Wrong type");
+    CHECK_INVARIANT(any3.m_value.getTag() == RDTypeTag::AnyTag, "Wrong type");
   }
 }
 

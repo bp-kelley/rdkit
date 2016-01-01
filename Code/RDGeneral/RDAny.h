@@ -175,13 +175,13 @@ struct RDAny {
 
 // Const Access
 template <class T>
-const T &rdany_cast(const RDAny &d) {
+const T rdany_cast(const RDAny &d) {
   return rdvalue_cast<T>(d.m_value);
 }
 
 // Direct access
 template <class T>
-T &rdany_cast(RDAny &d) {
+T rdany_cast(RDAny &d) {
   return rdvalue_cast<T>(d.m_value);
 }
 
@@ -189,7 +189,7 @@ template <class T>
 typename boost::enable_if<boost::is_arithmetic<T>, T>::type from_rdany(
     const RDAny &arg) {
   T res;
-  if (arg.m_value.getTag() == RDValue::StringTag) {
+  if (arg.m_value.getTag() == RDTypeTag::StringTag) {
     Utils::LocaleSwitcher ls;
     try {
       res = rdany_cast<T>(arg);

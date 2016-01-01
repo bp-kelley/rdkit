@@ -13,6 +13,8 @@ void testLimits() {
   // check numeric limits
   {
     RDValue v(std::numeric_limits<T>::min());
+    std::cerr << "min: " << std::numeric_limits<T>::min() << " " << rdvalue_cast<T>(v) <<
+        std::endl;
     CHECK_INVARIANT(rdvalue_cast<T>(v) == std::numeric_limits<T>::min(), "bad min");
     CHECK_INVARIANT(rdvalue_cast<T>(RDValue(v)) == std::numeric_limits<T>::min(), "bad min");
     v = std::numeric_limits<T>::max();
@@ -113,6 +115,7 @@ void testNaN() {
   // make a NaN
   double nan=sqrt(-1.0);
   RDValue v(nan);
+
   CHECK_INVARIANT(boost::math::isnan(rdvalue_cast<double>(v)), "Oops, can't store NaNs!");
 }
 
