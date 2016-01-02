@@ -92,10 +92,11 @@ namespace RDKit {
 
 namespace RDTypeTag {
   static const uint64_t NaN       = 0xfff7FFFFFFFFFFFF; // signalling NaN
-  static const uint64_t MaxDouble = 0xfff8000000000000; // 
+  static const uint64_t MaxDouble = 0xfff8000000000000; //
+  static const uint64_t DoubleTag = 0xfff8000000000000; // 
   static const uint64_t FloatTag  = 0xfff9000000000000; // 
-  static const uint64_t Int32Tag  = 0xfffa000000000000; // 
-  static const uint64_t UInt32Tag = 0xfffb000000000000;
+  static const uint64_t IntTag  = 0xfffa000000000000; // 
+  static const uint64_t UnsignedIntTag = 0xfffb000000000000;
   
   // PTR Tags use the last 3 bits for typing info
   static const uint64_t PtrTag            = 0xffff000000000000;
@@ -111,8 +112,8 @@ namespace RDTypeTag {
   template<class T> inline uint64_t GetTag() { return AnyTag; }
   template<> inline uint64_t GetTag<double>() { return MaxDouble; }
   template<> inline uint64_t GetTag<float>() { return FloatTag; }
-  template<> inline uint64_t GetTag<int>() { return Int32Tag; }
-  template<> inline uint64_t GetTag<unsigned int>() { return UInt32Tag; }
+  template<> inline uint64_t GetTag<int>() { return IntTag; }
+  template<> inline uint64_t GetTag<unsigned int>() { return UnsignedIntTag; }
   template<> inline uint64_t GetTag<std::string>() { return StringTag; }
   template<> inline uint64_t GetTag<std::vector<double> >() { return VecDoubleTag; }
   template<> inline uint64_t GetTag<std::vector<float> >() { return VecFloatTag; }
@@ -154,15 +155,15 @@ struct RDValue {
   }
     
   inline RDValue(int32_t number) {
-    otherBits = (((uint64_t)number) & ApplyMask ) | RDTypeTag::Int32Tag;
+    otherBits = (((uint64_t)number) & ApplyMask ) | RDTypeTag::IntTag;
   }
 
   inline RDValue(unsigned int number) {
-    otherBits = (((uint64_t)number) & ApplyMask ) | RDTypeTag::UInt32Tag;
+    otherBits = (((uint64_t)number) & ApplyMask ) | RDTypeTag::UnsignedIntTag;
   }
   
   inline RDValue(bool number) {
-    otherBits = (static_cast<uint64_t>(number) & ApplyMask) | RDTypeTag::Int32Tag;
+    otherBits = (static_cast<uint64_t>(number) & ApplyMask) | RDTypeTag::IntTag;
   }
 
   inline RDValue(boost::any *pointer) {
@@ -328,9 +329,9 @@ inline bool rdvalue_is<const double &>(RDValue v) {
 
 template<>
 inline bool rdvalue_is<bool>(RDValue v) {
-  return (v.getTag() == RDTypeTag::Int32Tag &&
-          (static_cast<int32_t>(v.otherBits & ~RDTypeTag::Int32Tag) == 1 ||
-           static_cast<int32_t>(v.otherBits & ~RDTypeTag::Int32Tag) == 0 ));
+  return (v.getTag() == RDTypeTag::IntTag &&
+          (static_cast<int32_t>(v.otherBits & ~RDTypeTag::IntTag) == 1 ||
+           static_cast<int32_t>(v.otherBits & ~RDTypeTag::IntTag) == 0 ));
 }
 
 template<>
@@ -345,6 +346,7 @@ inline bool rdvalue_is<const bool&>(RDValue v) {
 // rdvalue_cast<const std::vector<double> &>(RDValue);  // ok
 // rdvalue_cast<const float &>(RDValue); // bad_any_cast
 
+ typedef RDValue RDValue_cast_t;
 // Get stuff stored in boost any
 template<class T>
 inline T rdvalue_cast(RDValue v) {
@@ -386,222 +388,22 @@ inline float rdvalue_cast<float>(RDValue v) {
 template<>
 inline int rdvalue_cast<int>(RDValue v) {
   if (rdvalue_is<int>(v)) return static_cast<int32_t>(v.otherBits &
-                                                      ~RDTypeTag::Int32Tag);
+                                                      ~RDTypeTag::IntTag);
   throw boost::bad_any_cast();
 }
 template<>
 inline unsigned int rdvalue_cast<unsigned int>(RDValue v) {
   if (rdvalue_is<unsigned int>(v)) return static_cast<uint32_t>(
-          v.otherBits & ~RDTypeTag::UInt32Tag);
+          v.otherBits & ~RDTypeTag::UnsignedIntTag);
   throw boost::bad_any_cast();
 }
 
 template<>
 inline bool rdvalue_cast<bool>(RDValue v) {
   if (rdvalue_is<bool>(v)) return static_cast<int32_t>(
-          v.otherBits & ~RDTypeTag::Int32Tag);
+          v.otherBits & ~RDTypeTag::IntTag);
   throw boost::bad_any_cast();
 }
-
-// string casts
-template<>
-inline std::string rdvalue_cast<std::string>(RDValue v) {
-  if (rdvalue_is<std::string>(v)) return *v.ptrCast<std::string>();
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline std::string & rdvalue_cast<std::string&>(RDValue v) {
-  if (rdvalue_is<std::string>(v)) return *v.ptrCast<std::string>();
-  throw boost::bad_any_cast();
-}
-
-// Special Vector Casts
-template<>
-inline std::vector<double> rdvalue_cast<std::vector<double> >(RDValue v) {
-  if(rdvalue_is<std::vector<double> >(v))
-    return *v.ptrCast<std::vector<double> >();
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline std::vector<double> &rdvalue_cast<std::vector<double> &>(RDValue v) {
-  if(rdvalue_is<std::vector<double> >(v))
-    return *v.ptrCast<std::vector<double> >();
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline std::vector<float> rdvalue_cast<std::vector<float> >(RDValue v) {
-  if(rdvalue_is<std::vector<float> >(v))
-    return *v.ptrCast<std::vector<float> >();
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline std::vector<float> &rdvalue_cast<std::vector<float> &>(RDValue v) {
-  if(rdvalue_is<std::vector<float> >(v))
-    return *v.ptrCast<std::vector<float> >();
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline std::vector<std::string> rdvalue_cast<std::vector<std::string> >(RDValue v) {
-  if(rdvalue_is<std::vector<std::string> >(v))
-    return *v.ptrCast<std::vector<std::string> >();
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline std::vector<std::string> &rdvalue_cast<std::vector<std::string> &>(RDValue v) {
-  if(rdvalue_is<std::vector<std::string> >(v))
-    return *v.ptrCast<std::vector<std::string> >();
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline std::vector<int> rdvalue_cast<std::vector<int> >(RDValue v) {
-  if(rdvalue_is<std::vector<int> >(v))
-    return *v.ptrCast<std::vector<int> >();
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline std::vector<int> &rdvalue_cast<std::vector<int> &>(RDValue v) {
-  if(rdvalue_is<std::vector<int> >(v))
-    return *v.ptrCast<std::vector<int> >();
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline std::vector<unsigned int> rdvalue_cast<std::vector<unsigned int> >(RDValue v) {
-  if(rdvalue_is<std::vector<unsigned int> >(v))
-    return *v.ptrCast<std::vector<unsigned int> >();
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline std::vector<unsigned int> &rdvalue_cast<std::vector<unsigned int> &>(RDValue v) {
-  if(rdvalue_is<std::vector<unsigned int> >(v))
-    return *v.ptrCast<std::vector<unsigned int> >();
-  throw boost::bad_any_cast();
-}
-
-// Get boost any
-template<>
-inline boost::any rdvalue_cast<boost::any>(RDValue v) {
-  if (rdvalue_is<boost::any>(v)) {
-    return *v.ptrCast<boost::any>();
-  }
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline boost::any &rdvalue_cast<boost::any&>(RDValue v) {
-  if (rdvalue_is<boost::any>(v)) {
-    return *v.ptrCast<boost::any>();
-  }
-  throw boost::bad_any_cast();
-}
-
-template<>
-inline const boost::any &rdvalue_cast<const boost::any&>(RDValue v) {
-  if (rdvalue_is<boost::any>(v)) {
-    return *v.ptrCast<boost::any>();
-  }
-  throw boost::bad_any_cast();
-}
-
-/////////////////////////////////////////////////////////////////////////////////////
-// lexical casts...
-template <class T>
-std::string vectToString(const std::vector<T> &tv) {
-  std::ostringstream sstr;
-  sstr.imbue(std::locale("C"));
-  sstr << std::setprecision(17);
-  sstr << "[";
-  std::copy(tv.begin(), tv.end(), std::ostream_iterator<T>(sstr, ","));
-  sstr << "]";
-  return sstr.str();
-}
-
-inline bool rdvalue_tostring(RDValue val, std::string &res) {
-  Utils::LocaleSwitcher ls; // for lexical cast...
-  switch (val.getTag() ) {
-    case RDTypeTag::Int32Tag:
-      res = boost::lexical_cast<std::string>(rdvalue_cast<int>(val));
-      break;
-    case RDTypeTag::UInt32Tag: 
-      res = boost::lexical_cast<std::string>(rdvalue_cast<unsigned int>(val));
-      break;
-    case RDTypeTag::StringTag:
-      res = rdvalue_cast<std::string &>(val);
-      break;
-    case RDTypeTag::VecDoubleTag:
-      res = vectToString<double>(rdvalue_cast<std::vector<double>&>(val));
-      break;
-    case RDTypeTag::VecFloatTag:
-      res = vectToString<float>(rdvalue_cast<std::vector<float>&>(val));
-      break;
-    case RDTypeTag::VecIntTag:
-      res = vectToString<int>(rdvalue_cast<std::vector<int>&>(val));
-      break;
-    case RDTypeTag::VecUnsignedIntTag:
-      res = vectToString<unsigned int>(rdvalue_cast<std::vector<unsigned int>&>(val));
-      break;
-    case RDTypeTag::VecStringTag:
-      res = vectToString<std::string>(rdvalue_cast<std::vector<std::string>&>(val));
-    case RDTypeTag::AnyTag:
-      try {
-        res = boost::any_cast<std::string>(rdvalue_cast<boost::any&>(val));
-      } catch (const boost::bad_any_cast &) {
-        if (rdvalue_cast<boost::any&>(val).type() == typeid(long)) {
-          res = boost::lexical_cast<std::string>(
-              boost::any_cast<long>(rdvalue_cast<boost::any&>(val)));
-        } else if (rdvalue_cast<boost::any&>(val).type() == typeid(unsigned long)) {
-          res =
-              boost::lexical_cast<std::string>(
-                  boost::any_cast<unsigned long>(rdvalue_cast<boost::any&>(val)));
-        } else {
-          throw;
-          return false;
-        }
-      }
-      break;
-    default:
-      res = boost::lexical_cast<std::string>(val.doubleBits);
-  }
-  return true;
-}
-
-// from_rdvalue -> converts string values to appropriate types
-template <class T>
-typename boost::enable_if<boost::is_arithmetic<T>, T>::type from_rdvalue(
-    RDValue arg) {
-  T res;
-  if (arg.getTag() == RDTypeTag::StringTag) {
-    Utils::LocaleSwitcher ls;
-    try {
-      res = rdvalue_cast<T>(arg);
-    } catch (const boost::bad_any_cast &exc) {
-      try {
-        res = boost::lexical_cast<T>(rdvalue_cast<std::string>(arg));
-      } catch (...) {
-        throw exc;
-      }
-    }
-  } else {
-    res = rdvalue_cast<T>(arg);
-  }
-  return res;
-}
-
-template <class T>
-typename boost::disable_if<boost::is_arithmetic<T>, T>::type from_rdvalue(
-    RDValue arg) {
-  return rdvalue_cast<T>(arg);
-}
-
 
 } // namespace rdkit
 #endif
