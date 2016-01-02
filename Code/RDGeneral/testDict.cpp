@@ -222,7 +222,6 @@ void testRDAny() {
     std::clock_t clock1 = std::clock();
     RDValue v(0);
     for(int i=0;i<loops;++i) {
-      v.destroy();
       v = RDValue(rdvalue_cast<int>(v) + i);
     }
 
