@@ -525,7 +525,7 @@ std::string vectToString(const std::vector<T> &tv) {
   return sstr.str();
 }
 
-inline bool rdvalue_tostring(const RDValue &val, std::string &res) {
+inline bool rdvalue_tostring(RDValue val, std::string &res) {
   Utils::LocaleSwitcher ls; // for lexical cast...
   switch (val.getTag() ) {
     case RDTypeTag::Int32Tag:
@@ -577,7 +577,7 @@ inline bool rdvalue_tostring(const RDValue &val, std::string &res) {
 // from_rdvalue -> converts string values to appropriate types
 template <class T>
 typename boost::enable_if<boost::is_arithmetic<T>, T>::type from_rdvalue(
-    const RDValue &arg) {
+    RDValue arg) {
   T res;
   if (arg.getTag() == RDTypeTag::StringTag) {
     Utils::LocaleSwitcher ls;
@@ -598,7 +598,7 @@ typename boost::enable_if<boost::is_arithmetic<T>, T>::type from_rdvalue(
 
 template <class T>
 typename boost::disable_if<boost::is_arithmetic<T>, T>::type from_rdvalue(
-    const RDValue &arg) {
+    RDValue arg) {
   return rdvalue_cast<T>(arg);
 }
 
