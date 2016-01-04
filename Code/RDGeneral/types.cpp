@@ -93,7 +93,7 @@ const char * propnames[] = {
   "BalanbanJ",
   "Discrims",
   "DistanceMatrix_Paths",
-  "__computedProps"
+  //"__computedProps"
 };
 
 }  // end common_properties

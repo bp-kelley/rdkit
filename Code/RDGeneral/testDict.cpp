@@ -79,7 +79,7 @@ void testRDAny() {
     d.setVal("foo", a);
     d.getVal<bool>("foo");
   }
-
+  /*
   { // tests computed props
     STR_VECT computed;
     Dict d;
@@ -92,7 +92,7 @@ void testRDAny() {
     computed2 = d2.getVal<STR_VECT>(detail::computedPropName);
     CHECK_INVARIANT(computed2[0] == "foo", "bad STR_VECT");
   }
-  
+  */
   {
     Dict d;
     //int v=1;

@@ -20,11 +20,6 @@
 #include "Invariant.h"
 
 
-namespace detail {
-// used in various places for computed properties
-const int computedPropName = 77;
-}
-
 #include <vector>
 #include <deque>
 #include <map>
@@ -157,7 +152,7 @@ const int Discrims = 75; // FragCatalog Entry
 const int DistanceMatrix_Paths = 76; // boost::shared_array<double>
                                       //  - note, confusing creation of names in
                                       //  - getDistanceMat
-const int MAX =77;
+const int MAX =76;
 
 extern const char * propnames[];
 
