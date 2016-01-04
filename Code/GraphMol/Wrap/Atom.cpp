@@ -80,6 +80,10 @@ T AtomGetProp(const Atom *atom, const char *key) {
   return res;
 }
 
+bool AtomIsComputedProp(const Atom *atom, const std::string &key) {
+  return atom->isComputedProp(key);
+}
+
 void AtomClearProp(const Atom *atom, const char *key) {
   if (!atom->hasProp(key)) {
     return;
@@ -291,6 +295,13 @@ struct atom_wrapper {
              "  NOTE:\n"
              "    - If the property has not been set, a KeyError exception "
              "will be raised.\n")
+        
+        .def("IsComputedProp", &AtomIsComputedProp,
+             (python::arg("self"), python::arg("key")),
+             "Returns true if the property is a computed property\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to return (a string).\n\n"
+              "  RETURNS: True or False\n\n")
 
         .def("SetIntProp", AtomSetProp<int>,
              (python::arg("self"), python::arg("key"), python::arg("val")),

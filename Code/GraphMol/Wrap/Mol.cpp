@@ -155,6 +155,10 @@ int MolHasProp(const ROMol &mol, const char *key) {
   return res;
 }
 
+bool MolIsComputedProp(const ROMol &mol, const std::string &key) {
+  return mol.isComputedProp(key);
+}
+
 template<class T>
 void MolSetProp(const ROMol &mol, const char *key, const T &val,
                 bool computed = false) {
@@ -493,6 +497,12 @@ struct mol_wrapper {
              "  NOTE:\n"
              "    - If the property has not been set, a KeyError exception "
              "will be raised.\n")
+        .def("IsComputedProp", &MolIsComputedProp,
+             (python::arg("self"), python::arg("key")),
+             "Returns true if the property is a computed property\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to return (a string).\n\n"
+              "  RETURNS: True or False\n\n")
         .def("GetDoubleProp", MolGetProp<double>,
              "Returns the double value of the property if possible.\n\n"
              "  ARGUMENTS:\n"

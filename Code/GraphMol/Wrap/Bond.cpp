@@ -84,6 +84,10 @@ T BondGetProp(const Bond *bond, const char *key) {
   return res;
 }
 
+bool BondIsComputedProp(const Bond *bond, const std::string &key) {
+  return bond->isComputedProp(key);
+}
+
 bool BondIsInRing(const Bond *bond) {
   if (!bond->getOwningMol().getRingInfo()->isInitialized()) {
     MolOps::findSSSR(bond->getOwningMol());
@@ -225,6 +229,13 @@ struct bond_wrapper {
              "    - If the property has not been set, a KeyError exception "
              "will be raised.\n")
 
+        .def("IsComputedProp", &BondIsComputedProp,
+             (python::arg("self"), python::arg("key")),
+             "Returns true if the property is a computed property\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to return (a string).\n\n"
+              "  RETURNS: True or False\n\n")
+        
         .def("SetIntProp", BondSetProp<int>,
              (python::arg("self"), python::arg("key"), python::arg("val")),
              "Sets a bond property\n\n"
