@@ -36,18 +36,20 @@ typedef std::vector<std::string> STR_VECT;
 //!  The actual storage is done using \c RDAny objects.
 //!
 class Dict {
-  struct Pair {
+public:
+  struct KeyValuePair {
     int     key;
     RDValue val;
 
-   Pair() : key(), val() {}
-   Pair(int k, RDValue_cast_t v) : key(k), val(v) {}
-   Pair(const std::string &s, RDValue_cast_t v) : key(tagmap.get(s)), val(v) {}
+   KeyValuePair() : key(), val() {}
+   KeyValuePair(int k, RDValue_cast_t v) : key(k), val(v) {}
+   KeyValuePair(const std::string &s, RDValue_cast_t v) :
+    key(tagmap.get(s)), val(v) {}
 
   };
   
-  typedef std::vector<Pair> DataType;
-public:
+  typedef std::vector<KeyValuePair> DataType;
+
   static RDTags tagmap;
   
   Dict() : _data(), _hasNonPodData(false) {  };
@@ -55,7 +57,7 @@ public:
   Dict(const Dict &other) : _data(other._data) {
     _hasNonPodData = other._hasNonPodData;
     if (_hasNonPodData) {
-      std::vector<Pair> data(other._data.size());
+      std::vector<KeyValuePair> data(other._data.size());
       _data.swap(data);
       for (size_t i=0; i< _data.size(); ++i) {
         _data[i].key = other._data[i].key;
@@ -71,7 +73,7 @@ public:
   Dict &operator=(const Dict &other) {
     _hasNonPodData = other._hasNonPodData;
     if (_hasNonPodData) {
-      std::vector<Pair> data(other._data.size());
+      std::vector<KeyValuePair> data(other._data.size());
       _data.swap(data);
       for (size_t i=0; i< _data.size(); ++i) {
         _data[i].key = other._data[i].key;
@@ -223,7 +225,7 @@ public:
         return;
       }
     }
-    _data.push_back(Pair(tag, val));
+    _data.push_back(KeyValuePair(tag, val));
   };
 
   void setVal(const std::string &what, bool val) {
@@ -237,7 +239,7 @@ public:
         return;
       }
     }
-    _data.push_back(Pair(tag, val));
+    _data.push_back(KeyValuePair(tag, val));
   }
 
   void setVal(const std::string &what, double val) {
@@ -251,7 +253,7 @@ public:
         return;
       }
     }
-    _data.push_back(Pair(tag, val));
+    _data.push_back(KeyValuePair(tag, val));
   }
   
   void setVal(const std::string &what, float val) {
@@ -265,7 +267,7 @@ public:
         return;
       }
     }
-    _data.push_back(Pair(tag, val));
+    _data.push_back(KeyValuePair(tag, val));
   }
   
   void setVal(const std::string &what, int val) {
@@ -279,7 +281,7 @@ public:
         return;
       }
     }
-    _data.push_back(Pair(tag, val));    
+    _data.push_back(KeyValuePair(tag, val));    
   }
   
   void setVal(const std::string &what, unsigned int val) {
@@ -293,7 +295,8 @@ public:
         return;
       }
     }
-    _data.push_back(Pair(tag, val));
+    // C++11 use emplace
+    _data.push_back(KeyValuePair(tag, val));
   }
   
   //! \overload
@@ -345,35 +348,20 @@ public:
     _data.swap(data);
   };
 
-  //----------------------------------------------------------
-  //! Converts a \c RDAny to type \c T
-  /*!
-     \param arg a \c RDAny reference
-
-     \returns the converted object of type \c T
-  */
-  /*
-  template <typename T>
-      T fromany(const RDAny &arg) const {
-    return from_rdany<T>(arg);
-  }
-  */
-  //----------------------------------------------------------
-  //! Converts an instance of type \c T to \c RDAny
-  /*!
-     \param arg the object to be converted
-
-     \returns a \c RDAny instance
-  */
-  /*
-  template <typename T>
-      RDAny toany(T arg) const {
-    return RDAny(arg);
-  };
-  */
  private:
   DataType _data;  //!< the actual dictionary
   bool     _hasNonPodData;
+
+ public:
+  // Iteration API (over KeyValuePair)
+  typedef DataType::iterator iterator;
+  typedef DataType::const_iterator const_iterator;
+
+  iterator begin() { return _data.begin(); }
+  iterator end() { return _data.end(); }
+  const_iterator begin() const { return _data.begin(); }
+  const_iterator end()   const { return _data.end(); }
+
 };
 }
 #endif
