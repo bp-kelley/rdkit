@@ -35,7 +35,8 @@ protected:
     STR_VECT res, computed;
     if (!includeComputed &&
         getPropIfPresent(detail::computedPropName, computed)) {
-      computed.push_back(detail::computedPropName);
+      computed.push_back(common_properties::GetPropName(
+          detail::computedPropName));
     }
 
     STR_VECT::const_iterator pos = tmp.begin();
@@ -61,19 +62,24 @@ protected:
 
   //! \overload
   template <typename T>
-  void setProp(const std::string &key, T val, bool computed = false) const {
+  void setProp(int tag, T val, bool computed = false) const {
     if (computed) {
       STR_VECT compLst;
       getPropIfPresent(detail::computedPropName, compLst);
-      if (std::find(compLst.begin(), compLst.end(), key) == compLst.end()) {
-        compLst.push_back(key);
+      if (std::find(compLst.begin(), compLst.end(),
+                    common_properties::GetPropName(tag)) == compLst.end()) {
+        compLst.push_back(common_properties::GetPropName(tag));
         dp_props.setVal(detail::computedPropName, compLst);
       }
     }
     // setProp(key.c_str(),val);
-    dp_props.setVal(key, val);
+    dp_props.setVal(tag, val);
   }
-
+  
+  template <typename T>
+  void setProp(const std::string &key, T val, bool computed = false) const {
+    setProp(Dict::tagmap.get(key), val, computed);
+  }
   //! allows retrieval of a particular property value
   /*!
 
@@ -92,25 +98,40 @@ protected:
   */
   //! \overload
   template <typename T>
-  void getProp(const std::string &key, T &res) const {
-    dp_props.getVal(key, res);
+  void getProp(int tag, T &res) const {
+    dp_props.getVal(tag, res);
   }
-
+  template <typename T>
+  void getProp(const std::string &key, T &res) const {
+    return getProp(Dict::tagmap.get(key), res);
+  }
+  
   //! \overload
   template <typename T>
-  T getProp(const std::string &key) const {
-    return dp_props.getVal<T>(key);
+  T getProp(int tag) const {
+    return dp_props.getVal<T>(tag);
   }
-
+  template <typename T>
+  T getProp(const std::string &key) const {
+    return getProp<T>(Dict::tagmap.get(key));
+  }
   //! returns whether or not we have a \c property with name \c key
   //!  and assigns the value if we do
   //! \overload
   template <typename T>
-  bool getPropIfPresent(const std::string &key, T &res) const {
-    return dp_props.getValIfPresent(key, res);
+  bool getPropIfPresent(int tag, T &res) const {
+    return dp_props.getValIfPresent(tag, res);
   }
-
+  
+  template <typename T>
+  bool getPropIfPresent(const std::string &key, T &res) const {
+    return getPropIfPresent(Dict::tagmap.get(key), res);
+  }
   //! \overload
+  bool hasProp(int tag) const {
+    return dp_props.hasVal(tag);
+  }
+  
   bool hasProp(const std::string &key) const {
     return dp_props.hasVal(key);
   };
@@ -124,6 +145,19 @@ protected:
     from our list of \c computedProperties
   */
   //! \overload
+  void clearProp(int tag) const {
+    STR_VECT compLst;
+    if (getPropIfPresent(detail::computedPropName, compLst)) {
+      STR_VECT_I svi = std::find(compLst.begin(), compLst.end(),
+                                 common_properties::GetPropName(tag));
+      if (svi != compLst.end()) {
+        compLst.erase(svi);
+        dp_props.setVal(detail::computedPropName, compLst);
+      }
+    }
+    dp_props.clearVal(tag);
+  };
+
   void clearProp(const std::string &key) const {
     STR_VECT compLst;
     if (getPropIfPresent(detail::computedPropName, compLst)) {

@@ -12,6 +12,7 @@
 #include <sstream>
 #include <limits>
 #include <RDGeneral/StreamOps.h>
+#include <RDGeneral/Exceptions.h>
 #include "base64.h"
 #ifdef WIN32
 #include <ios>

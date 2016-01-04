@@ -1,4 +1,5 @@
-rdkit_library(ChemicalFeatures FreeChemicalFeature.cpp)
+rdkit_library(ChemicalFeatures FreeChemicalFeature.cpp
+              LINK_LIBRARIES ${RDKit_THREAD_LIBS})
 
 rdkit_headers(ChemicalFeature.h
               FreeChemicalFeature.h DEST ChemicalFeatures)

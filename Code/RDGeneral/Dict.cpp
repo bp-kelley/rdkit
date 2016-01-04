@@ -19,10 +19,13 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include "Exceptions.h"
 
 namespace RDKit {
 
-void Dict::getVal(const std::string &what, std::string &res) const {
+RDTags RDKit::Dict::tagmap;
+
+void Dict::getVal(int tag, std::string &res) const {
   //
   //  We're going to try and be somewhat crafty about this getVal stuff to make
   //  these
@@ -34,16 +37,16 @@ void Dict::getVal(const std::string &what, std::string &res) const {
   //  other casts, which will then be lexically cast to type T.
   //
   for(size_t i=0; i< _data.size(); ++i) {
-    if (_data[i].key == what) {
+    if (_data[i].key == tag) {
       rdvalue_tostring(_data[i].val, res);
       return;
     }
 
   }
-  throw KeyErrorException(what);    
+  throw KeyErrorException(common_properties::GetPropName(tag));    
 }
 
-bool Dict::getValIfPresent(const std::string &what, std::string &res) const {
+bool Dict::getValIfPresent(int tag, std::string &res) const {
   //
   //  We're going to try and be somewhat crafty about this getVal stuff to make
   //  these
@@ -55,12 +58,27 @@ bool Dict::getValIfPresent(const std::string &what, std::string &res) const {
   //  other casts, which will then be lexically cast to type T.
   //
   for(size_t i=0; i< _data.size(); ++i) {
-    if (_data[i].key == what) {
+    if (_data[i].key == tag) {
       rdvalue_tostring(_data[i].val, res);
       return true;
     }
   }
   return false;
+}
+
+
+namespace common_properties {
+
+const char *GetPropName(int v) {
+  if (v>=0 && v<=MAX) {
+    return common_properties::propnames[v];
+  }
+  if ((size_t)v < RDKit::Dict::tagmap.keys.size())
+    return RDKit::Dict::tagmap.keys[v].c_str();
+
+  throw KeyErrorException("Unknown tag");
+}
+
 }
 
 }

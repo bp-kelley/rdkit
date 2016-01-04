@@ -10,7 +10,8 @@
 
 #include <boost/unordered_map.hpp>
 #include "BoostEndInclude.h"
- 
+#include "types.h"
+
 namespace RDKit
 {
 
@@ -18,7 +19,12 @@ class RDTags
 {
   typedef boost::unordered_map<std::string, int> MAP;
 public:
-  RDTags() {};
+  RDTags() {
+    for(int i=0;i<=common_properties::MAX;++i) {
+      m[common_properties::GetPropName(i)] = i;
+      keys.push_back(common_properties::GetPropName(i));
+    }
+  };
 
   const std::string &get(int tag) const {
     return keys[tag]; // raises exception
@@ -59,7 +65,7 @@ public:
         }
       }
       {
-        int res = m.size() + 1;
+        int res = m.size();
         std::pair<std::string, int> p(k,res);
 #ifdef RDK_TEST_MULTITHREADED        
         instance->insert(p);
@@ -73,6 +79,7 @@ public:
   
 private:
     mutable boost::mutex _m;
+public:
     mutable MAP m;
     mutable std::vector<std::string > keys;
 };

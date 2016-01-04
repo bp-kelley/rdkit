@@ -1127,7 +1127,9 @@ void assignChiralTypesFrom3D(ROMol &mol, int confId, bool replaceExistingTags) {
   const double ZERO_VOLUME_TOL = 0.1;
   if (!mol.getNumConformers()) return;
   const Conformer &conf = mol.getConformer(confId);
-  if (!conf.is3D()) return;
+  if (!conf.is3D()) {
+    return;
+  }
 
   // if the molecule already has stereochemistry
   // perceived, remove the flags that indicate

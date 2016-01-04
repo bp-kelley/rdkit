@@ -2,7 +2,9 @@ CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/versions.h.cmake
                ${CMAKE_CURRENT_SOURCE_DIR}/versions.h )
 
 rdkit_library(RDGeneral
-              Invariant.cpp types.cpp utils.cpp RDLog.cpp Dict.cpp SHARED)
+              Invariant.cpp types.cpp utils.cpp RDLog.cpp Dict.cpp SHARED
+              LINK_LIBRARIES ${RDKit_THREAD_LIBS})
+target_link_libraries(RDGeneral ${RDKit_THREAD_LIBS})
 
 rdkit_headers(Exceptions.h
               BadFileException.h
@@ -18,6 +20,7 @@ rdkit_headers(Exceptions.h
               RDLog.h
               RDProps.h
               StreamOps.h
+              tags.h
               types.h
               utils.h
               versions.h
@@ -25,10 +28,13 @@ rdkit_headers(Exceptions.h
               Ranking.h
               hanoiSort.h
               DEST RDGeneral)
+
+
 if (NOT RDK_INSTALL_INTREE)
   install(DIRECTORY hash DESTINATION ${RDKit_HdrDir}/RDGeneral/hash
         PATTERN ".svn" EXCLUDE)
 endif (NOT RDK_INSTALL_INTREE)
 rdkit_test(testDict testDict.cpp LINK_LIBRARIES RDGeneral)
 rdkit_test(testRDValue testRDValue.cpp LINK_LIBRARIES RDGeneral)
+rdkit_test(testRDTags testRDTags.cpp LINK_LIBRARIES RDGeneral)
 

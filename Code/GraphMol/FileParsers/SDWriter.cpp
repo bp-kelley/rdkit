@@ -93,10 +93,11 @@ void SDWriter::write(const ROMol &mol, int confId) {
     STR_VECT_CI pi;
     for (pi = properties.begin(); pi != properties.end(); pi++) {
       // ignore any of the following properties
-      if (((*pi) == detail::computedPropName) ||
-          ((*pi) == common_properties::_Name) || ((*pi) == "_MolFileInfo") ||
+      if (((*pi) == common_properties::GetPropName(detail::computedPropName)) ||
+          ((*pi) == "_Name") ||
+          ((*pi) == "_MolFileInfo") ||
           ((*pi) == "_MolFileComments") ||
-          ((*pi) == common_properties::_MolFileChiralFlag)) {
+          ((*pi) == "_MolFileChiralFlag")) {
         continue;
       }
 

@@ -12,6 +12,7 @@
 
 #include "FragCatParams.h"
 #include <RDGeneral/utils.h>
+#include <RDGeneral/RDProps.h>
 #include <Catalogs/CatalogEntry.h>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/Subgraphs/Subgraphs.h>
@@ -23,10 +24,9 @@
 
 namespace RDKit {
 
-class FragCatalogEntry : public RDCatalog::CatalogEntry {
+class FragCatalogEntry : public RDCatalog::CatalogEntry, public RDProps {
  public:
-  FragCatalogEntry() : dp_mol(0), d_descrip(""), d_order(0) {
-    dp_props = new Dict();
+  FragCatalogEntry() : RDCatalog::CatalogEntry(), RDProps(), dp_mol(0), d_descrip(""), d_order(0) {
     setBitId(-1);
   }
 
@@ -37,10 +37,6 @@ class FragCatalogEntry : public RDCatalog::CatalogEntry {
   ~FragCatalogEntry() {
     delete dp_mol;
     dp_mol = 0;
-    if (dp_props) {
-      delete dp_props;
-      dp_props = 0;
-    }
   }
 
   std::string getDescription() const { return d_descrip; }
@@ -63,51 +59,6 @@ class FragCatalogEntry : public RDCatalog::CatalogEntry {
   // REVIEW: this should be removed?
   std::string getSmarts() { return ""; }
 
-  // FUnctions on the property dictionary
-  template <typename T>
-  void setProp(const char *key, T &val) const {
-    dp_props->setVal(key, val);
-  }
-
-  template <typename T>
-  void setProp(const std::string &key, T &val) const {
-    setProp(key.c_str(), val);
-  }
-
-  void setProp(const char *key, int val) const { dp_props->setVal(key, val); }
-
-  void setProp(const std::string &key, int val) const {
-    setProp(key.c_str(), val);
-  }
-
-  void setProp(const char *key, float val) const { dp_props->setVal(key, val); }
-
-  void setProp(const std::string &key, float val) const {
-    setProp(key.c_str(), val);
-  }
-
-  void setProp(const std::string &key, std::string &val) const {
-    setProp(key.c_str(), val);
-  }
-
-  template <typename T>
-  void getProp(const char *key, T &res) const {
-    dp_props->getVal(key, res);
-  }
-  template <typename T>
-  void getProp(const std::string &key, T &res) const {
-    getProp(key.c_str(), res);
-  }
-
-  bool hasProp(const char *key) const {
-    if (!dp_props) return false;
-    return dp_props->hasVal(key);
-  }
-  bool hasProp(const std::string &key) const { return hasProp(key.c_str()); }
-
-  void clearProp(const char *key) const { dp_props->clearVal(key); }
-
-  void clearProp(const std::string &key) const { clearProp(key.c_str()); }
 
   void toStream(std::ostream &ss) const;
   std::string Serialize() const;
@@ -116,7 +67,6 @@ class FragCatalogEntry : public RDCatalog::CatalogEntry {
 
  private:
   ROMol *dp_mol;
-  Dict *dp_props;
 
   std::string d_descrip;
 
