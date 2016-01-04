@@ -86,25 +86,12 @@ void SDWriter::write(const ROMol &mol, int confId) {
   } else {
     // if use did not specify any properties, write all non computed properties
     // out to the file
-    STR_VECT properties = mol.getPropList();
-    STR_VECT compLst;
-    mol.getPropIfPresent(detail::computedPropName, compLst);
+    const bool includePrivate  = false;
+    const bool includeComputed = false;
+    STR_VECT properties = mol.getPropList(includePrivate, includeComputed);
 
-    STR_VECT_CI pi;
-    for (pi = properties.begin(); pi != properties.end(); pi++) {
-      // ignore any of the following properties
-      if (((*pi) == common_properties::GetPropName(detail::computedPropName)) ||
-          ((*pi) == "_Name") ||
-          ((*pi) == "_MolFileInfo") ||
-          ((*pi) == "_MolFileComments") ||
-          ((*pi) == "_MolFileChiralFlag")) {
-        continue;
-      }
-
-      // check if this property is not computed
-      if (std::find(compLst.begin(), compLst.end(), (*pi)) == compLst.end()) {
-        writeProperty(mol, (*pi));
-      }
+    for (STR_VECT_CI pi = properties.begin(); pi != properties.end(); pi++) {
+      writeProperty(mol, (*pi));
     }
   }
   // add the $$$$ that marks the end of a molecule
