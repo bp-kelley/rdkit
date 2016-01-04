@@ -47,6 +47,7 @@ Bond::~Bond() {
 }
 
 Bond &Bond::operator=(const Bond &other) {
+  RDProps::operator=((const RDProps&)other);
   dp_mol = other.dp_mol;
   d_bondType = other.d_bondType;
   d_beginAtomIdx = other.d_beginAtomIdx;
@@ -60,8 +61,6 @@ Bond &Bond::operator=(const Bond &other) {
   df_isAromatic = other.df_isAromatic;
   df_isConjugated = other.df_isConjugated;
   d_index = other.d_index;
-  dp_props = other.dp_props;
-
   return *this;
 }
 

@@ -8,20 +8,25 @@ namespace RDKit {
 
 class RDProps {
 protected:
-  mutable Dict dp_props;
-  // It is a quirk of history that this is mutable
+  // It is a quirk of RDKit history that this is mutable
   //  as the RDKit allows properties to be set
   //  on const obects.
+  mutable Dict dp_props;
+  mutable std::vector<int> compLst;
 
  public:
   RDProps() : dp_props() {}
   RDProps(const RDProps &rhs) : dp_props(rhs.dp_props) {}
   RDProps& operator=(const RDProps &rhs) {
-    dp_props = rhs.dp_props;
+    if (this != &rhs) {
+      dp_props = rhs.dp_props;
+      compLst = rhs.compLst;
+    }
     return *this;
   }
   void clear() {
     dp_props.reset();
+    compLst.clear();
   }
   // ------------------------------------
   //  Local Property Dict functionality
@@ -31,25 +36,41 @@ protected:
   //! returns a list with the names of our \c properties
   STR_VECT getPropList(bool includePrivate = true,
                        bool includeComputed = true) const {
-    const STR_VECT &tmp = dp_props.keys();
-    STR_VECT res, computed;
-    if (!includeComputed &&
-        getPropIfPresent(detail::computedPropName, computed)) {
-      computed.push_back(common_properties::GetPropName(
-          detail::computedPropName));
-    }
-
-    STR_VECT::const_iterator pos = tmp.begin();
-    while (pos != tmp.end()) {
-      if ((includePrivate || (*pos)[0] != '_') &&
-          std::find(computed.begin(), computed.end(), *pos) == computed.end()) {
-        res.push_back(*pos);
-      }
-      pos++;
+    STR_VECT res;
+    for(Dict::const_iterator it=dp_props.begin();
+        it != dp_props.end();
+        ++it) {
+      int key = it->key;
+      const char *name = common_properties::GetPropName(key);
+      CHECK_INVARIANT(name, "Bad tag value in dictionary!!!");
+      
+      if (!includePrivate && name[0] == '_') continue;
+      if (!includeComputed && isComputedProp(key))
+        continue;
+      res.push_back(name);
     }
     return res;
   }
   
+  STR_VECT getComputedPropNames() const {
+    STR_VECT res;
+    for(Dict::const_iterator it=dp_props.begin();
+        it != dp_props.end();
+        ++it) {
+      if (isComputedProp(it->key)) {
+        res.push_back(common_properties::GetPropName(it->key));
+      }
+    }
+    return res;
+  }
+
+  bool isComputedProp(int tag) const {
+    return std::find(compLst.begin(), compLst.end(), tag) != compLst.end();
+  }
+  
+  bool isComputedProp(const std::string &prop) const {
+    return isComputedProp(Dict::tagmap.get(prop));
+  }
   //! sets a \c property value
   /*!
     \param key the name under which the \c property should be stored.
@@ -63,16 +84,10 @@ protected:
   //! \overload
   template <typename T>
   void setProp(int tag, T val, bool computed = false) const {
-    if (computed) {
-      STR_VECT compLst;
-      getPropIfPresent(detail::computedPropName, compLst);
-      if (std::find(compLst.begin(), compLst.end(),
-                    common_properties::GetPropName(tag)) == compLst.end()) {
-        compLst.push_back(common_properties::GetPropName(tag));
-        dp_props.setVal(detail::computedPropName, compLst);
-      }
+    if (computed && !isComputedProp(tag)) {
+        compLst.push_back(tag);
     }
-    // setProp(key.c_str(),val);
+
     dp_props.setVal(tag, val);
   }
   
@@ -146,38 +161,23 @@ protected:
   */
   //! \overload
   void clearProp(int tag) const {
-    STR_VECT compLst;
-    if (getPropIfPresent(detail::computedPropName, compLst)) {
-      STR_VECT_I svi = std::find(compLst.begin(), compLst.end(),
-                                 common_properties::GetPropName(tag));
-      if (svi != compLst.end()) {
-        compLst.erase(svi);
-        dp_props.setVal(detail::computedPropName, compLst);
-      }
-    }
+    std::vector<int>::iterator it = std::find(compLst.begin(),
+                                              compLst.end(),
+                                              tag);
+    if (it != compLst.end())
+      compLst.erase(it);
     dp_props.clearVal(tag);
   };
 
   void clearProp(const std::string &key) const {
-    STR_VECT compLst;
-    if (getPropIfPresent(detail::computedPropName, compLst)) {
-      STR_VECT_I svi = std::find(compLst.begin(), compLst.end(), key);
-      if (svi != compLst.end()) {
-        compLst.erase(svi);
-        dp_props.setVal(detail::computedPropName, compLst);
-      }
-    }
-    dp_props.clearVal(key);
+    clearProp(Dict::tagmap.get(key));
   };
 
   //! clears all of our \c computed \c properties
   void clearComputedProps() const {
-    STR_VECT compLst;
-    if (getPropIfPresent(detail::computedPropName, compLst)) {
-      BOOST_FOREACH (const std::string &sv, compLst) { dp_props.clearVal(sv); }
-      compLst.clear();
-      dp_props.setVal(detail::computedPropName, compLst);
-    }
+    for(std::vector<int>::iterator it=compLst.begin(); it!=compLst.end(); ++it)
+      dp_props.clearVal(*it);
+    compLst.clear();
   }
 };
 }
