@@ -613,7 +613,7 @@ const std::string GetMolFileAtomLine(const Atom *atom,
   // the time.
   char dest[128];
 #ifndef WIN32
-  snprintf(dest, 128,
+  snprintf_l(dest, 128, Utils::PosixLocale.c_locale,
            "%10.4f%10.4f%10.4f %3s%2d%3d%3d%3d%3d%3d  0%3d%3d%3d%3d%3d", x, y,
            z, symbol.c_str(), massDiff, chg, parityFlag, hCount, stereoCare,
            totValence, rxnComponentType, rxnComponentNumber, atomMapNumber,

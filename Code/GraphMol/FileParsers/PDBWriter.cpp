@@ -110,15 +110,18 @@ std::string GetPDBAtomLine(const Atom *atom, const Conformer *conf,
     ss << " UNL     1    ";
   }
 
+
   if (conf) {
     const RDGeom::Point3D pos = conf->getAtomPos(atom->getIdx());
-    ss << boost::format("%8.3f%8.3f%8.3f") % pos.x % pos.y % pos.z;
+    ss << boost::format("%8.3f%8.3f%8.3f", Utils::PosixLocale.cpp_locale) %
+        pos.x % pos.y % pos.z;
   } else
     ss << "   0.000   0.000   0.000";
 
   if (info) {
-    ss << boost::format("%6.2f%6.2f") % info->getOccupancy() %
-              info->getTempFactor();
+    ss << boost::format("%6.2f%6.2f", Utils::PosixLocale.cpp_locale) %
+        info->getOccupancy() %
+        info->getTempFactor();
     ss << "          ";
   } else
     ss << "  1.00  0.00          ";

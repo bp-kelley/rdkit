@@ -190,7 +190,6 @@ typename boost::enable_if<boost::is_arithmetic<T>, T>::type from_rdany(
     const RDAny &arg) {
   T res;
   if (arg.m_value.getTag() == RDTypeTag::StringTag) {
-    Utils::LocaleSwitcher ls;
     try {
       res = rdany_cast<T>(arg);
     } catch (const boost::bad_any_cast &exc) {

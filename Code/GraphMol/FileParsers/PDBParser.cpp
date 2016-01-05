@@ -451,7 +451,6 @@ RWMol *PDBBlockToMol(const char *str, bool sanitize, bool removeHs,
   std::map<int, Atom *> amap;
   std::map<Bond *, int> bmap;
   RWMol *mol = 0;
-  Utils::LocaleSwitcher ls;
   bool multi_conformer = false;
   int conformer_atmidx = 0;
   Conformer *conf = 0;

@@ -30,6 +30,7 @@
 //
 #ifndef RDKIT_RDVALUE_H
 #define RDKIT_RDVALUE_H
+#include "LocaleSwitcher.h"
 
 //#define UNSAFE_RDVALUE
 #ifdef UNSAFE_RDVALUE
@@ -155,7 +156,7 @@ template <class T>
     std::string vectToString(RDValue val) {
   const std::vector<T> &tv = rdvalue_cast<std::vector<T>&>(val);
   std::ostringstream sstr;
-  sstr.imbue(std::locale("C"));
+  sstr.imbue(Utils::PosixLocale.cpp_locale);
   sstr << std::setprecision(17);
   sstr << "[";
   std::copy(tv.begin(), tv.end(), std::ostream_iterator<T>(sstr, ","));
@@ -163,8 +164,16 @@ template <class T>
   return sstr.str();
 }
 
+template <class T>
+inline std::string toString(T v) {
+  std::ostringstream sstr;
+  sstr.imbue(Utils::PosixLocale.cpp_locale);
+  sstr << v;
+  return sstr.str();
+}
+
 inline bool rdvalue_tostring(RDValue_cast_t val, std::string &res) {
-  Utils::LocaleSwitcher ls; // for lexical cast...
+
   switch (val.getTag()) {
     case RDTypeTag::StringTag:
       res = rdvalue_cast<std::string>(val);
@@ -173,7 +182,7 @@ inline bool rdvalue_tostring(RDValue_cast_t val, std::string &res) {
       res = boost::lexical_cast<std::string>(rdvalue_cast<int>(val));
       break;
     case RDTypeTag::DoubleTag:
-      res = boost::lexical_cast<std::string>(rdvalue_cast<double>(val));
+      res = toString(rdvalue_cast<double>(val));
       break;
     case RDTypeTag::UnsignedIntTag:
       res = boost::lexical_cast<std::string>(rdvalue_cast<unsigned int>(val));
@@ -184,7 +193,7 @@ inline bool rdvalue_tostring(RDValue_cast_t val, std::string &res) {
       break;
 #endif
     case RDTypeTag::FloatTag:
-      res = boost::lexical_cast<std::string>(rdvalue_cast<float>(val));
+      res = toString(rdvalue_cast<float>(val));
       break;
     case RDTypeTag::VecDoubleTag:
       res = vectToString<double>(val);
@@ -230,7 +239,6 @@ typename boost::enable_if<boost::is_arithmetic<T>, T>::type from_rdvalue(
     RDValue_cast_t arg) {
   T res;
   if (arg.getTag() == RDTypeTag::StringTag) {
-    Utils::LocaleSwitcher ls;
     try {
       res = rdvalue_cast<T>(arg);
     } catch (const boost::bad_any_cast &exc) {

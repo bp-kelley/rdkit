@@ -796,7 +796,6 @@ RWMol *Mol2DataStreamToMol(std::istream *inStream, bool sanitize, bool removeHs,
   std::string tempStr, lineBeg;
   typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
   boost::char_separator<char> sep(" \t\n");
-  Utils::LocaleSwitcher ls;
 
   // all molecules start with a @<TRIPOS>MOLECULE! There is no other way to
   // define an end of

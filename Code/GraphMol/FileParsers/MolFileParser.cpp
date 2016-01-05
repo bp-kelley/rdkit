@@ -60,7 +60,7 @@ int toInt(const std::string &input, bool acceptSpaces) {
 }
 
 double toDouble(const std::string &input, bool acceptSpaces) {
-  double res = atof(input.c_str());
+  double res = Utils::PosixLocale.atof(input.c_str());
   if (res == 0.0 && !acceptSpaces && input[0] == ' ') {
     std::string trimmed = boost::trim_copy(input);
     if (trimmed.length() == 0) throw boost::bad_lexical_cast();
@@ -1860,21 +1860,23 @@ void ParseV3000AtomBlock(std::istream *inStream, unsigned int &line,
       errout << "Bad atom line : '" << tempStr << "' on line " << line;
       throw FileParseException(errout.str());
     }
-    pos.x = atof(token->c_str());
+    pos.x = Utils::PosixLocale.atof(token->c_str());
     ++token;
     if (token == tokens.end()) {
       std::ostringstream errout;
       errout << "Bad atom line : '" << tempStr << "' on line " << line;
       throw FileParseException(errout.str());
     }
-    pos.y = atof(token->c_str());
+    pos.y = Utils::PosixLocale.atof(token->c_str());
+
     ++token;
     if (token == tokens.end()) {
       std::ostringstream errout;
       errout << "Bad atom line : '" << tempStr << "' on line " << line;
       throw FileParseException(errout.str());
     }
-    pos.z = atof(token->c_str());
+    pos.z = Utils::PosixLocale.atof(token->c_str());
+
     // the map number:
     ++token;
     if (token == tokens.end()) {
@@ -2306,7 +2308,6 @@ RWMol *MolDataStreamToMol(std::istream *inStream, unsigned int &line,
   std::string tempStr;
   bool fileComplete = false;
   bool chiralityPossible = false;
-  Utils::LocaleSwitcher ls;
   // mol name
   line++;
   tempStr = getLine(inStream);
