@@ -49,6 +49,7 @@
 #include <GraphMol/MolOps.h>
 %}
 
+%ignore RDKit::Dict::KeyValuePair;
 %ignore RDKit::Atom::Match(const Atom *) const;
 %template(Bond_Vect) std::vector<RDKit::Bond*>;
 

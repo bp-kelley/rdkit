@@ -42,6 +42,7 @@
 #include <GraphMol/FileParsers/MolFileStereochem.h>
 %}
 
+%ignore RDKit::Dict::KeyValuePair;
 %ignore RDKit::Bond::getValenceContrib(const Atom *) const;
 %ignore RDKit::Bond::Match(const Bond *) const;
 %ignore RDKit::Bond::setBeginAtom(Atom *at);

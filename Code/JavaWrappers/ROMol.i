@@ -62,6 +62,7 @@
 #include <sstream>
 %}
 
+%ignore RDKit::Dict::KeyValuePair;
 %template(ROMol_Vect) std::vector< boost::shared_ptr<RDKit::ROMol> >;
 %template(ROMol_Vect_Vect) std::vector< std::vector< boost::shared_ptr<RDKit::ROMol> > >;
 %template(Atom_Vect) std::vector<RDKit::Atom*>;
