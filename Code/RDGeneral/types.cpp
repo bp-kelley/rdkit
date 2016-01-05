@@ -93,9 +93,10 @@ const char * propnames[] = {
   "BalanbanJ",
   "Discrims",
   "DistanceMatrix_Paths",
+  "_rgroupAtomMaps",
+  "_rgroupBonds"
   //"__computedProps"
 };
-
 }  // end common_properties
 
 //  template <typename T>

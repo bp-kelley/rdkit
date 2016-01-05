@@ -152,7 +152,10 @@ const int Discrims = 75; // FragCatalog Entry
 const int DistanceMatrix_Paths = 76; // boost::shared_array<double>
                                       //  - note, confusing creation of names in
                                       //  - getDistanceMat
-const int MAX =76;
+const int _rgroupAtomMaps = 77; // std::vector<int>
+const int _rgroupBonds = 78; // std::vector<int>
+
+const int MAX =78;
 
 extern const char * propnames[];
 
