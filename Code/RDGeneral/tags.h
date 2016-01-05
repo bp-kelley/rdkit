@@ -34,7 +34,7 @@
 
 #include "BoostStartInclude.h"
 
-#ifdef RDK_TEST_MULTITHREADED
+#ifdef RDK_THREADSAFE_SSS
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/tss.hpp>
 #endif
@@ -64,7 +64,7 @@ public:
   
   int get(const std::string &k) const
   {
-#ifdef RDK_TEST_MULTITHREADED
+#ifdef RDK_THREADSAFE_SSS
     static boost::thread_specific_ptr<boost::unordered_map<std::string, int> >
         instance;
 
@@ -90,7 +90,7 @@ public:
         boost::unordered_map<std::string, int>::const_iterator it=m.find(k);
         
         if (it != m.end()) {
-#ifdef RDK_TEST_MULTITHREADED          
+#ifdef RDK_THREADSAFE_SSS          
           // insert into local map        
           instance->insert(*it);
 #endif
@@ -100,7 +100,7 @@ public:
       {
         int res = m.size();
         std::pair<std::string, int> p(k,res);
-#ifdef RDK_TEST_MULTITHREADED        
+#ifdef RDK_THREADSAFE_SSS        
         instance->insert(p);
 #endif        
         m.insert(p);
