@@ -46,10 +46,7 @@
   //     n.b. atof is deprecated, use strold?
 
 #ifndef _WIN32
-# ifdef __APPLE__
 #  include <xlocale.h>
-# else
-#  include <locale.h>
 # endif
 
 namespace RDKit {
