@@ -47,7 +47,6 @@
 
 #ifndef _WIN32
 #  include <xlocale.h>
-# endif
 
 namespace RDKit {
 namespace Utils {
