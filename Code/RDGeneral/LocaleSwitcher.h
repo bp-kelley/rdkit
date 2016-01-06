@@ -24,7 +24,7 @@ namespace Utils {
 // instead of whatever we started in.
 class LocaleSwitcher {
  public:
-#ifdef _MSVC_VER  
+#ifdef _MSC_VER  
 
   LocaleSwitcher() {
 #ifdef RDK_THREADSAFE_SSS
