@@ -5,6 +5,7 @@
 #include <list>
 #include <map>
 #include <string>
+#include <boost/math/special_functions/fpclassify.hpp>
 
 using namespace RDKit;
 

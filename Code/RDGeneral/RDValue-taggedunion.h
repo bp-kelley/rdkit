@@ -41,6 +41,8 @@
 #include <vector>
 #include <boost/utility.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/type_traits.hpp>
+#include <boost/type_traits/remove_reference.hpp>
 #include "LocaleSwitcher.h"
 
 #define RDVALUE_HASBOOL
