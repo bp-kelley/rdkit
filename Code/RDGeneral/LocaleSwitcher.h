@@ -12,7 +12,7 @@
 #define _RD_LOCALESWITCHER_H
 
 #include <clocale>
-#ifndef _MSVC_VER
+#ifndef _MSC_VER
 # include <xlocale.h>
 #else
 # include <locale.h>
