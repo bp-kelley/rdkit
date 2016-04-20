@@ -71,6 +71,18 @@ void ChemicalReaction::initReactantMatchers() {
   }
 }
 
+bool ChemicalReaction::validate() const {
+  if (this->df_needsInit) {
+    unsigned int nWarnings, nErrors;
+    if (!this->validate(nWarnings, nErrors)) {
+      BOOST_LOG(rdErrorLog) << "initialization failed\n";
+    } else {
+      this->df_needsInit = false;
+    }
+  }
+  return !this->df_needsInit;
+};
+
 bool ChemicalReaction::validate(unsigned int &numWarnings,
                                 unsigned int &numErrors, bool silent) const {
   bool res = true;
@@ -296,7 +308,7 @@ bool ChemicalReaction::validate(unsigned int &numWarnings,
 
 bool isMoleculeReactantOfReaction(const ChemicalReaction &rxn, const ROMol &mol,
                                   unsigned int &which) {
-  if (!rxn.isInitialized()) {
+  if (!rxn.validate()) {
     throw ChemicalReactionException("initMatchers() must be called first");
   }
   which = 0;
@@ -317,7 +329,7 @@ bool isMoleculeReactantOfReaction(const ChemicalReaction &rxn,
 
 bool isMoleculeProductOfReaction(const ChemicalReaction &rxn, const ROMol &mol,
                                  unsigned int &which) {
-  if (!rxn.isInitialized()) {
+  if (!rxn.validate()) {
     throw ChemicalReactionException("initMatchers() must be called first");
   }
   which = 0;
@@ -338,7 +350,7 @@ bool isMoleculeProductOfReaction(const ChemicalReaction &rxn,
 
 bool isMoleculeAgentOfReaction(const ChemicalReaction &rxn, const ROMol &mol,
                                unsigned int &which) {
-  if (!rxn.isInitialized()) {
+  if (!rxn.validate()) {
     throw ChemicalReactionException("initMatchers() must be called first");
   }
   which = 0;
@@ -555,7 +567,7 @@ bool getMappedAtoms(T &rIt, std::map<int, const Atom *> &mappedAtoms) {
 
 VECT_INT_VECT getReactingAtoms(const ChemicalReaction &rxn,
                                bool mappedAtomsOnly) {
-  if (!rxn.isInitialized()) {
+  if (!rxn.validate()) {
     throw ChemicalReactionException("initMatchers() must be called first");
   }
   VECT_INT_VECT res;

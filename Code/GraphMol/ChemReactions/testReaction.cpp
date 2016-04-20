@@ -88,8 +88,15 @@ void test1Basics() {
   TEST_ASSERT(mol);
   reacts.push_back(ROMOL_SPTR(mol));
 
+  // Test uninitialized reactions
+  //  should be auto validated
+  ChemicalReaction rxnUninit(rxn);
+  
   rxn.initReactantMatchers();
   prods = rxn.runReactants(reacts);
+  TEST_ASSERT(prods.size() == 1);
+
+  prods = rxnUninit.runReactants(reacts);
   TEST_ASSERT(prods.size() == 1);
 
   reacts.clear();
@@ -106,6 +113,9 @@ void test1Basics() {
   prods = rxn.runReactants(reacts);
   TEST_ASSERT(prods.size() == 2);
 
+  prods = rxnUninit.runReactants(reacts);
+  TEST_ASSERT(prods.size() == 2);
+  
   reacts.clear();
   smi = "CC(C(=O)O)C(=O)O";
   mol = SmilesToMol(smi);
@@ -120,6 +130,9 @@ void test1Basics() {
   prods = rxn.runReactants(reacts);
   TEST_ASSERT(prods.size() == 4);
 
+  prods = rxnUninit.runReactants(reacts);
+  TEST_ASSERT(prods.size() == 4);
+  
   BOOST_LOG(rdInfoLog) << "\tdone" << std::endl;
 }
 

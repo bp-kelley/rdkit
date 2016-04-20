@@ -837,7 +837,7 @@ MOL_SPTR_VECT generateOneProductSet(
 
 std::vector<MOL_SPTR_VECT> run_Reactants(const ChemicalReaction &rxn,
                                          const MOL_SPTR_VECT &reactants) {
-  if (!rxn.isInitialized()) {
+  if (!rxn.validate()) {
     throw ChemicalReactionException(
         "initMatchers() must be called before runReactants()");
   }
@@ -888,7 +888,7 @@ std::vector<MOL_SPTR_VECT> run_Reactants(const ChemicalReaction &rxn,
 std::vector<MOL_SPTR_VECT> run_Reactant(const ChemicalReaction &rxn,
                                         const ROMOL_SPTR &reactant,
                                         unsigned int reactantIdx) {
-  if (!rxn.isInitialized()) {
+  if (!rxn.validate()) {
     throw ChemicalReactionException(
         "initMatchers() must be called before runReactants()");
   }

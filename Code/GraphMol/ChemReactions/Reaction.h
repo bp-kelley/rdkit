@@ -297,6 +297,11 @@ class ChemicalReaction {
   bool validate(unsigned int &numWarnings, unsigned int &numErrors,
                 bool silent = false) const;
 
+  //! validates the reactants and products to make sure the reaction seems
+  //!  returns true if the reactant matchers are in (or are placed in)
+  //!  their validated state
+  bool validate() const;
+  
   //! returns whether or not the reaction uses implicit
   //! properties on the product atoms
   /*!
@@ -323,7 +328,7 @@ class ChemicalReaction {
   void setImplicitPropertiesFlag(bool val) { df_implicitProperties = val; };
 
  private:
-  bool df_needsInit;
+  mutable bool df_needsInit;
   bool df_implicitProperties;
   MOL_SPTR_VECT m_reactantTemplates, m_productTemplates, m_agentTemplates;
   ChemicalReaction &operator=(const ChemicalReaction &);  // disable assignment
