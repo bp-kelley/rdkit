@@ -301,7 +301,8 @@ bool CheckAtoms(const ROMol &mol, const std::vector<AugmentedAtom> &good_atoms) 
     unsigned nmatch = 0;
     if ( ! good_atoms.empty())
      for (unsigned i = 0; i < mol.getNumAtoms(); i++) {
-        for (unsigned j = 0; j < good_atoms.size(); j++)
+       unsigned j = 0;
+        for (; j < good_atoms.size(); j++)
         {
             // check for ring state of central atom. Ring matches to ring only
             if (good_atoms[j].Topology == RING   && 0 == atom_status[i])
@@ -313,6 +314,51 @@ bool CheckAtoms(const ROMol &mol, const std::vector<AugmentedAtom> &good_atoms) 
                 nmatch++;
                 break;
             }
+        }
+        if ( j == good_atoms.size() ) { // failed this atom .. log it
+          std::stringstream oss;
+          // FIX ME turn into utility func?
+          std::string name;
+          mol.getPropIfPresent(common_properties::_Name, name);
+          oss << name << "    atom " << i << "   AA : ";
+          const Atom &atm = *mol.getAtomWithIdx(i);
+          oss << atm.getSymbol();
+          
+          if (atm.getFormalCharge())
+            oss << (atm.getFormalCharge() > 0 ? "+" : "-") <<
+                atm.getFormalCharge();
+          
+          if (atm.getNumRadicalElectrons())
+            oss << atm.getNumRadicalElectrons();
+
+          // XXX FIX ME nbrs not sorted correctly...
+          ROMol::OEDGE_ITER beg,end;
+          boost::tie(beg,end) = mol.getAtomBonds(&atm);
+          while(beg!=end){
+            BOND_SPTR bond=mol[*beg];
+            const Atom &nbr = *mol.getAtomWithIdx(
+                bond->getOtherAtomIdx(atm.getIdx()) );
+            std::string bs = "";
+            switch (bond->getBondType()) {
+              case Bond::SINGLE: bs = "-"; break;
+              case Bond::DOUBLE: bs = "="; break;
+              case Bond::TRIPLE: bs = "#"; break;
+              case Bond::AROMATIC: bs = "~"; break;
+            }
+            if (bs.size())
+              oss << "(" << bs << nbr.getSymbol();
+            else
+              oss << "(" << "?" << (int)bond->getBondType() << "?" << nbr.getSymbol();
+            if (nbr.getFormalCharge())
+              oss << (nbr.getFormalCharge() > 0 ? "+" : "-") <<
+                  nbr.getFormalCharge();
+            
+            if (nbr.getNumRadicalElectrons())
+              oss << nbr.getNumRadicalElectrons();
+            oss << ")";
+            ++beg;
+          }
+          BOOST_LOG(rdWarningLog) << oss.str() << std::endl;
         }
     }
     return (nmatch == mol.getNumAtoms());
