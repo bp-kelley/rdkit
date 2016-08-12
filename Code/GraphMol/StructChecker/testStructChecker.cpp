@@ -200,6 +200,7 @@ void testStereo() // stereochemistry
     };
 
     StructCheckerOptions options;
+    options.CheckStereo = true;
     options.Verbose = true;
     StructChecker chk(options);
     for (int i = 0; i<sizeof(smols) / sizeof(smols[0]); i++) {
