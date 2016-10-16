@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include "../RDKitBase.h"
+#include "StructChecker_details.h"
 
 /* Example of Usage
 1)  StructChecker chk;
@@ -22,7 +23,7 @@
 2)
     StructureCheck::StructCheckerOptions options;   // use defaults
     // To use external data
-    StructureCheck::loadOptionsFromFiles(options, file1, file2, …);
+    StructureCheck::loadOptionsFromFiles(options, file1, file2, ï¿½);
     StructChecker chk(options);
 
     for( mol in mols ) {
@@ -41,90 +42,6 @@
 namespace RDKit {
 namespace StructureCheck {
 
-// Flags for the return values of the StructureChecker
-
-// TypeDefs for translating augmented atom pairs
-static const int ANY_CHARGE = 8;
-enum RadicalType {
-  RT_NONE     = 0,
-  SINGLET     = 1,
-  DOUBLET     = 2,
-  TRIPLET     = 3,
-  ANY_RADICAL = 0xFF
-};
-
-enum AABondType { // MDL CTFile bond types plus extensions 
-  BT_NONE         = 0,      // means REMOVE Bond
-  SINGLE          = 1,
-  DOUBLE          = 2,
-  TRIPLE          = 3,
-  AROMATIC        = 4,
-  SINGLE_DOUBLE   = 5,
-  SINGLE_AROMATIC = 6,
-  DOUBLE_AROMATIC = 7,
-  ANY_BOND        = 8,
-  ALL_BOND_TYPES  = 0xF
-};
-
-enum AATopology {
-  TP_NONE = 0, // Don't care
-  RING    = 1, // Ring
-  CHAIN   = 2  // Chain
-};
-
-struct Ligand {
-  std::string AtomSymbol;
-  int Charge;
-  RadicalType Radical;
-  unsigned SubstitutionCount;  // substitution count 0 = don't care
-  AABondType BondType;
-  Ligand()
-      : Charge(ANY_CHARGE),
-        Radical(ANY_RADICAL),
-        SubstitutionCount(0),
-        BondType(ANY_BOND) {}
-};
-
-struct AugmentedAtom {
-  std::string AtomSymbol;
-  std::string ShortName;
-  int Charge;
-  RadicalType Radical;
-  AATopology Topology;
-  std::vector<Ligand> Ligands;
-  
-  AugmentedAtom()
-      : Charge(ANY_CHARGE), Radical(ANY_RADICAL), Topology(TP_NONE) {}
-  
-  AugmentedAtom(const std::string &symbol, const std::string &name, int charge,
-                RadicalType radical, AATopology topology)
-      : AtomSymbol(symbol),
-        ShortName(name),
-        Charge(charge),
-        Radical(radical),
-        Topology(topology) {}
-};
-
-struct IncEntry {
-  std::string AtomSymbol;
-  double LocalInc;
-  double AlphaInc;
-  double BetaInc;
-  double MultInc;
-  
-  // Used for logging
-  int local_inc_used;
-  int alpha_inc_used;
-  int beta_inc_used; 
-  int mult_inc_used;
-};
-
-struct PathEntry {
-  AugmentedAtom Path;
-  double Cond;
-  // Used for logging
-  int cond_used; 
-};
 //-------------
 
 ////////////////////////////////////////////////////////////////////////////
@@ -133,42 +50,42 @@ struct PathEntry {
 // Can be initialized from factory functions, perhaps serialized
 
 struct StructCheckerOptions {
-  double                     AcidityLimit;
-  bool                       RemoveMinorFragments;
-  int                        DesiredCharge;
-  bool                       CheckCollisions;
-  int                        CollisionLimitPercent;
-  unsigned                   MaxMolSize;
-  bool                       ConvertSText;
-  bool                       SqueezeIdentifiers;
-  bool                       StripZeros;
-  bool                       CheckStereo;
-  bool                       ConvertAtomTexts;
-  bool                       GroupsToSGroups;
-  bool                       Verbose;
-  
+  double AcidityLimit;
+  bool RemoveMinorFragments;
+  int DesiredCharge;
+  bool CheckCollisions;
+  int CollisionLimitPercent;
+  unsigned MaxMolSize;
+  bool ConvertSText;
+  bool SqueezeIdentifiers;
+  bool StripZeros;
+  bool CheckStereo;
+  bool ConvertAtomTexts;
+  bool GroupsToSGroups;
+  bool Verbose;
+
   // Internal data for struchk
   std::vector<std::pair<AugmentedAtom, AugmentedAtom> > AugmentedAtomPairs;
   std::vector<AugmentedAtom> AcidicAtoms;
   std::vector<AugmentedAtom> GoodAtoms;
-  std::vector<ROMOL_SPTR>    Patterns;
-  std::vector<ROMOL_SPTR>    RotatePatterns;
-  std::vector<ROMOL_SPTR>    StereoPatterns;
-  std::vector<ROMOL_SPTR>    FromTautomer;
-  std::vector<ROMOL_SPTR>    ToTautomer;
+  std::vector<ROMOL_SPTR> Patterns;
+  std::vector<ROMOL_SPTR> RotatePatterns;
+  std::vector<ROMOL_SPTR> StereoPatterns;
+  std::vector<ROMOL_SPTR> FromTautomer;
+  std::vector<ROMOL_SPTR> ToTautomer;
 
-  double                     Elneg0;      // elneg_table[0].value;
+  double Elneg0;                          // elneg_table[0].value;
   std::map<unsigned, double> ElnegTable;  // AtomicNumber -> eleng
-  std::vector<IncEntry>      AtomAcidity; // atom_acidity_table[]
-  std::vector<IncEntry>      ChargeIncTable;
+  std::vector<IncEntry> AtomAcidity;      // atom_acidity_table[]
+  std::vector<IncEntry> ChargeIncTable;
   // std::map AtomSymbol(or AtomicNumber) -> IncEntry
-                       /* [ReadTransformation() ]
-                       * The alpha, beta coefficients of the transfomation function used
-                       * to stretch the preliminary pKa values to the actual predictions.
-                       * The function is pKa = 7 + (pKa'-7)*beta + ((pKa'-7)*alpha)^3.
-                       */
-  
-  double                 Alpha, Beta;
+  /* [ReadTransformation() ]
+  * The alpha, beta coefficients of the transfomation function used
+  * to stretch the preliminary pKa values to the actual predictions.
+  * The function is pKa = 7 + (pKa'-7)*beta + ((pKa'-7)*alpha)^3.
+  */
+
+  double Alpha, Beta;
   std::vector<PathEntry> AlphaPathTable, BetaPathTable;
 
  public:
@@ -191,7 +108,8 @@ struct StructCheckerOptions {
       const std::vector<std::string> &smarts);  // can throw RDKit exeptions
   void setPatterns(const std::vector<ROMOL_SPTR> &p);
 
-  bool loadRotatePatterns(const std::string &path);  // file with rotate patterns
+  bool loadRotatePatterns(
+      const std::string &path);  // file with rotate patterns
   void parseRotatePatterns(
       const std::vector<std::string> &smarts);  // can throw RDKit exeptions
   void setRotatePatterns(const std::vector<ROMOL_SPTR> &p);
@@ -260,10 +178,11 @@ class StructChecker {
   inline StructChecker(const StructCheckerOptions &options)
       : Options(options) {}
 
-  const StructCheckerOptions & GetOptions() const { return Options; }
-  void  SetOptions(const StructCheckerOptions &options) { Options = options; }
-  
-  // Check and fix (if need) molecule structure and return a set of StructureFlags 
+  const StructCheckerOptions &GetOptions() const { return Options; }
+  void SetOptions(const StructCheckerOptions &options) { Options = options; }
+
+  // Check and fix (if need) molecule structure and return a set of
+  // StructureFlags
   // that describes what have been done
   unsigned checkMolStructure(RWMol &mol) const;
 
