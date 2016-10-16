@@ -7,48 +7,31 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
+/*! \file
+
+  \brief Functionality for validating and cleaning up chemical structures
+
+   \b Note that this code is still in a beta state. The API may change in future
+   releases.
+*/
 #pragma once
-#ifndef _RD_STRUCTCHECKER_H__
-#define _RD_STRUCTCHECKER_H__
+#ifndef RD_STRUCTCHECKER_H_OCT2016
+#define RD_STRUCTCHECKER_H_OCT2016
 
 #include <string>
 #include <vector>
 #include "../RDKitBase.h"
 #include "StructChecker_details.h"
 
-/* Example of Usage
-1)  StructChecker chk;
-    int flags = StructureCheck::checkMolStructure( mol ); // use defaults
- or
-2)
-    StructureCheck::StructCheckerOptions options;   // use defaults
-    // To use external data
-    StructureCheck::loadOptionsFromFiles(options, file1, file2, �);
-    StructChecker chk(options);
-
-    for( mol in mols ) {
-        int flags = StructureCheck::checkMolStructure( mol, &options);
-        if (0!=(flags & StructureCheck::StructureFlags::BAD_SET)) {
-        // write to error file
-        } else if (0!=(flags & StructureCheck::StructureFlags::TRANSFORMED_SET))
-{
-        // input molecule was transformed
-        } else { // flag == NO_CHANGE
-        // no change
-        }
-    }
-*/
-
 namespace RDKit {
 namespace StructureCheck {
 
 //-------------
 
-////////////////////////////////////////////////////////////////////////////
-// Structure Check Options
-// Holds all the user options for the StructureChecking.
-// Can be initialized from factory functions, perhaps serialized
-
+//! Holds all the user options for the StructChecker.
+/*!
+  Can be initialized from factory functions, perhaps serialized
+*/
 struct StructCheckerOptions {
   double AcidityLimit;
   bool RemoveMinorFragments;
@@ -140,6 +123,31 @@ bool loadOptionsFromFiles(
     const std::string &stereoPatternFile = "",  // file with stereo patterns
     const std::string &tautomerFile = "");
 
+//! A class for checking and cleaning up structures
+/*!
+Example of Usage
+
+1) StructChecker chk;
+  int flags = StructureCheck::checkMolStructure( mol ); // use defaults
+
+ or
+
+2) StructureCheck::StructCheckerOptions options;   // use defaults
+   // To use external data
+   StructureCheck::loadOptionsFromFiles(options, file1, file2, �);
+   StructChecker chk(options);
+
+   for( mol in mols ) {
+        int flags = StructureCheck::checkMolStructure( mol, &options);
+        if (flags & StructureCheck::StructureFlags::BAD_SET) {
+          // write to error file
+        } else if (flags & StructureCheck::StructureFlags::TRANSFORMED_SET) {
+          // input molecule was transformed
+        } else { // flag == NO_CHANGE
+          // no change
+        }
+   }
+*/
 class StructChecker {
  public:
   typedef enum StructureFlags {
