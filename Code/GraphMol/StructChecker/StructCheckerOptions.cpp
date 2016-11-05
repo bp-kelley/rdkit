@@ -30,7 +30,6 @@ bool parseOptionsJSON(const std::string &json, StructCheckerOptions &op) {
   try {
     std::istringstream ss;
     ss.str(json);
-    std::istream &iss = ss;
     boost::property_tree::ptree pt;
     boost::property_tree::read_json(ss, pt);
     op = StructCheckerOptions();  // reset to default values
@@ -87,8 +86,8 @@ bool loadOptionsFromFiles(
 //=====================================================================
 // File parsers helper functions:
 
-static const char *
-    bond_to_string[] =  // ordered in according with BondType values
+static const char
+    *bond_to_string[] =  // ordered in according with BondType values
     {"?", "-", "=", "#", "~", "-=", "-~", "=~", "*"};
 
 // used in unit test
@@ -353,7 +352,8 @@ static bool ReadAAPairs(
   }
   unsigned n = 0;
 
-  unsigned k = fscanf(fp, "%d", &n);
+  int rv = fscanf(fp, "%d", &n);
+  RDUNUSED_PARAM(rv);
 
   char buffer[80];
 
@@ -450,10 +450,11 @@ static void loadDefaultAugmentedAtoms(StructCheckerOptions &struchkOpts) {
   }
 
   std::vector<std::pair<AugmentedAtom, AugmentedAtom> > trans_pairs;
-  trans_pairs.resize(sizeof(DefaultAugmentedAtomTransforms)/
+  trans_pairs.resize(sizeof(DefaultAugmentedAtomTransforms) /
                      sizeof(*DefaultAugmentedAtomTransforms));
-  for(size_t i=0; i< sizeof(DefaultAugmentedAtomTransforms)/
-                     sizeof(*DefaultAugmentedAtomTransforms); ++i) {
+  for (size_t i = 0; i < sizeof(DefaultAugmentedAtomTransforms) /
+                             sizeof(*DefaultAugmentedAtomTransforms);
+       ++i) {
     if (!StringToAugmentedAtom(DefaultAugmentedAtomTransforms[i].from,
                                trans_pairs[i].first)) {
       throw "INTERNAL Error in default augmented atom transforms";
@@ -463,7 +464,7 @@ static void loadDefaultAugmentedAtoms(StructCheckerOptions &struchkOpts) {
       throw "INTERNAL Error in default augmented atom transforms";
     }
   }
-  
+
   struchkOpts.setGoodAugmentedAtoms(good);
   struchkOpts.setAcidicAugmentedAtoms(acidic);
   struchkOpts.setAugmentedAtomTranslations(trans_pairs);
@@ -674,6 +675,7 @@ bool loadChargeDataTables(const std::string &path) {
       double Alpha, Beta;
       std::vector<path_entry_t> alpha_path_table, beta_path_table;
   */
+  RDUNUSED_PARAM(path);
   return true;
 }
 
