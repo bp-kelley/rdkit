@@ -37,6 +37,11 @@ before_install:
  - conda create -q -n tenv python=$CONDA_PYTHON_VERSION pip cmake
  - source activate tenv
 
+ # need to update boost cmake?
+ - export FINDBOOST=`find $HOME/conda/envs/tenv -name FindBoost.cmake`
+ - if [[ "$TRAVIS_OS_NAME" == "osx" && `grep 106300 $FINDBOOST` == "" ]] ; then wget https://github.com/Kitware/CMake/blob/master/Modules/FindBoost.cmake -o $FINDBOOST ; fi
+
+
 # additional .debs we need:
 addons:
  apt:
