@@ -39,7 +39,7 @@ before_install:
 
  # need to update boost cmake?
  - export FINDBOOST=`find $HOME/conda/envs/tenv -name FindBoost.cmake`
- - if [[ "$TRAVIS_OS_NAME" == "osx" && `grep 106300 $FINDBOOST` == "" ]] ; then wget https://github.com/Kitware/CMake/blob/master/Modules/FindBoost.cmake -o $FINDBOOST ; fi
+ - if [[ "$TRAVIS_OS_NAME" == "osx" && `grep 106300 $FINDBOOST` == "" ]] ; then wget https://raw.githubusercontent.com/Kitware/CMake/master/Modules/FindBoost.cmake -O $FINDBOOST ; fi
 
 
 # additional .debs we need:
