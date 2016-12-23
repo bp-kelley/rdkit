@@ -13,7 +13,7 @@ env:
 before_install:
  # download and install miniconda
  # oops, python 3.5 and boost not ready yet
-  - export PYMAJOR="2";
+ - export PYMAJOR="2";
  - if [[ "$TRAVIS_OS_NAME" == "linux" && "$CONDA_PYTHON_VERSION" == "3.5" ]]; then export CONDA_PYTHON_VERSION="3.4" PYMAJOR="" ; fi
  
  - echo "*************************************************"
