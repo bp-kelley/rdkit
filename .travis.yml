@@ -1,5 +1,5 @@
 # adapted from http://conda.pydata.org/docs/travis.html
-language:python
+language: python
 sudo: false
 
 # build matrices
