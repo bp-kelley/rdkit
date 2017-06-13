@@ -20,8 +20,8 @@ before_install:
  - conda info -a
 
  # create and activate the build/test environment
- - conda create -q -n tenv python=$TRAVIS_PYTHON_VERSION pip cmake
- - source activate tenv
+ #- conda create -q -n tenv python=$TRAVIS_PYTHON_VERSION pip cmake
+ #- source activate tenv
 
 # additional .debs we need:
 addons:
@@ -34,12 +34,12 @@ addons:
     - ninja-build
 
 install:
- - conda install -q numpy pillow pandas # matplotlib
+ - conda install -q pip cmake numpy pillow pandas eigen # matplotlib
 
  # install the conda boost packages from the RDKit binstar channel.
  - conda install -q -c rdkit boost=1.55.0
  # install eigen from conda-forge
- - conda install -q -c conda-forge eigen
+ #- conda install -q -c conda-forge eigen
 
 
 before_script:
