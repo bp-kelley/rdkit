@@ -113,7 +113,7 @@ unsigned int RWMol::addAtom(bool updateLabel) {
   Atom *atom_p = new Atom();
   atom_p->setOwningMol(this);
   MolGraph::vertex_descriptor which = boost::add_vertex(d_graph);
-  d_graph[which].reset(atom_p);
+  d_graph[which] = atom_p;//.reset(atom_p);
   atom_p->setIdx(which);
   if (updateLabel) {
     clearAtomBookmark(ci_RIGHTMOST_ATOM);
@@ -138,9 +138,9 @@ void RWMol::replaceAtom(unsigned int idx, Atom *atom_pin, bool updateLabel,
   MolGraph::vertex_descriptor vd = boost::vertex(idx, d_graph);
   if (preserveProps) {
     const bool replaceExistingData = false;
-    atom_p->updateProps(*d_graph[vd].get(), replaceExistingData);
+    atom_p->updateProps(*d_graph[vd]/*.get()*/, replaceExistingData);
   }
-  d_graph[vd].reset(atom_p);
+  d_graph[vd] = atom_p;//.reset(atom_p);
   // FIX: do something about bookmarks
 };
 
@@ -157,10 +157,10 @@ void RWMol::replaceBond(unsigned int idx, Bond *bond_pin, bool preserveProps) {
   bond_p->setEndAtomIdx(obond->getEndAtomIdx());
   if (preserveProps) {
     const bool replaceExistingData = false;
-    bond_p->updateProps( *d_graph[*(bIter.first)].get(), replaceExistingData );
+    bond_p->updateProps( *d_graph[*(bIter.first)]/*.get()*/, replaceExistingData );
   }
 
-  d_graph[*(bIter.first)].reset(bond_p);
+  d_graph[*(bIter.first)] = bond_p;//.reset(bond_p);
   // FIX: do something about bookmarks
 };
 
@@ -293,7 +293,7 @@ unsigned int RWMol::addBond(unsigned int atomIdx1, unsigned int atomIdx2,
   bool ok;
   MolGraph::edge_descriptor which;
   boost::tie(which, ok) = boost::add_edge(atomIdx1, atomIdx2, d_graph);
-  d_graph[which].reset(b);
+  d_graph[which] = b;//.reset(b);
   // unsigned int res = rdcast<unsigned int>(boost::num_edges(d_graph));
   ++numBonds;
   b->setIdx(numBonds - 1);
@@ -316,10 +316,10 @@ unsigned int RWMol::addBond(Atom *atom1, Atom *atom2, Bond::BondType bondType) {
   return addBond(atom1->getIdx(), atom2->getIdx(), bondType);
 }
 
-unsigned int RWMol::addBond(Atom::ATOM_SPTR atom1, Atom::ATOM_SPTR atom2,
-                            Bond::BondType bondType) {
-  return addBond(atom1->getIdx(), atom2->getIdx(), bondType);
-}
+//unsigned int RWMol::addBond(Atom::ATOM_SPTR atom1, Atom::ATOM_SPTR atom2,
+//                            Bond::BondType bondType) {
+//  return addBond(atom1->getIdx(), atom2->getIdx(), bondType);
+//}
 
 void RWMol::removeBond(unsigned int aid1, unsigned int aid2) {
   URANGE_CHECK(aid1, getNumAtoms() - 1);

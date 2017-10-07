@@ -657,7 +657,7 @@ void addRecursiveQueries(
   ROMol::VERTEX_ITER atBegin, atEnd;
   boost::tie(atBegin, atEnd) = mol.getVertices();
   while (atBegin != atEnd) {
-    Atom *at = mol[*atBegin].get();
+    Atom *at = mol[*atBegin]/*.get()*/;
     ++atBegin;
     if (!at->hasProp(propName)) continue;
     std::string pval;

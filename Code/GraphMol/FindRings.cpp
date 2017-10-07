@@ -1225,7 +1225,7 @@ void _DFS(const ROMol &mol, const Atom *atom, INT_VECT &atomColors,
   ROMol::ADJ_ITER nbrIter, endNbrs;
   boost::tie(nbrIter, endNbrs) = mol.getAtomNeighbors(atom);
   while (nbrIter != endNbrs) {
-    const Atom *nbr = mol[*nbrIter].get();
+    const Atom *nbr = mol[*nbrIter];//.get();
     unsigned int nbrIdx = nbr->getIdx();
     // std::cerr<<"   "<<atom->getIdx()<<"       consider: "<<nbrIdx<<"
     // "<<atomColors[nbrIdx]<<std::endl;

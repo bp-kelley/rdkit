@@ -362,7 +362,7 @@ void checkChiralityPostMove(const ROMol &mol, const Atom *oAt, Atom *nAt,
   while (beg != end) {
     const BOND_SPTR obond = mol[*beg];
     ++beg;
-    if (obond.get() == bond) {
+    if (obond/*.get()*/ == bond) {
       continue;
     }
     newOrder.push_back(obond->getIdx());

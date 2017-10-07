@@ -38,16 +38,45 @@
 namespace RDKit {
 class Atom;
 class Bond;
-typedef boost::shared_ptr<Atom> ATOM_SPTR;
-typedef boost::shared_ptr<Bond> BOND_SPTR;
+//typedef boost::shared_ptr<Atom> ATOM_SPTR;
+//typedef boost::shared_ptr<Bond> BOND_SPTR;
+
+typedef Atom* ATOM_SPTR;
+typedef Bond* BOND_SPTR;
 
 //! This is the BGL type used to store the topology:
+struct MolGraph : public boost::adjacency_list<
+    boost::vecS,
+    boost::vecS,
+    boost::undirectedS,
+    ATOM_SPTR, BOND_SPTR> {
+
+    typedef edge_iterator EDGE_ITER;
+    typedef vertex_iterator VERTEX_ITER;
+    typedef std::pair<EDGE_ITER, EDGE_ITER> BOND_ITER_PAIR;
+    typedef std::pair<VERTEX_ITER, VERTEX_ITER> ATOM_ITER_PAIR;
+
+  ~MolGraph() {
+    ATOM_ITER_PAIR atItP = boost::vertices(*this);
+    BOND_ITER_PAIR bondItP = boost::edges(*this);
+    
+    while (atItP.first != atItP.second) {
+      delete (*this)[*(atItP.first++)];
+    }
+    
+    while (bondItP.first != bondItP.second) {
+      delete (*this)[*(bondItP.first++)];
+    }
+  }
+};
+/*
 typedef boost::adjacency_list<
     boost::vecS,
     boost::vecS,
     boost::undirectedS,
     ATOM_SPTR, BOND_SPTR>
     MolGraph;
+*/
 class MolPickler;
 class RWMol;
 class QueryAtom;
@@ -271,18 +300,18 @@ class ROMol : public RDProps {
   //@{
 
   //! associates an Atom pointer with a bookmark
-  void setAtomBookmark(ATOM_SPTR at, int mark) {
-    d_atomBookmarks[mark].push_back(at.get());
-  };
+  //void setAtomBookmark(ATOM_SPTR at, int mark) {
+  //  d_atomBookmarks[mark].push_back(at.get());
+  //};
   //! \overload
   void setAtomBookmark(Atom *at, int mark) {
     d_atomBookmarks[mark].push_back(at);
   };
   //! associates an Atom pointer with a bookmark
-  void replaceAtomBookmark(ATOM_SPTR at, int mark) {
-    d_atomBookmarks[mark].clear();
-    d_atomBookmarks[mark].push_back(at.get());
-  };
+  //void replaceAtomBookmark(ATOM_SPTR at, int mark) {
+  //  d_atomBookmarks[mark].clear();
+  //  d_atomBookmarks[mark].push_back(at.get());
+  //};
   //! \overload
   void replaceAtomBookmark(Atom *at, int mark) {
     d_atomBookmarks[mark].clear();
@@ -298,7 +327,7 @@ class ROMol : public RDProps {
   void clearAtomBookmark(const int mark, const Atom *atom);
   //! \overload
   void clearAtomBookmark(const int mark, ATOM_SPTR atom) {
-    clearAtomBookmark(mark, atom.get());
+    clearAtomBookmark(mark, atom);//.get());
   };
   //! blows out all atomic \c bookmarks
   void clearAllAtomBookmarks() { d_atomBookmarks.clear(); };
@@ -308,9 +337,9 @@ class ROMol : public RDProps {
   ATOM_BOOKMARK_MAP *getAtomBookmarks() { return &d_atomBookmarks; };
 
   //! associates a Bond pointer with a bookmark
-  void setBondBookmark(BOND_SPTR bond, int mark) {
-    d_bondBookmarks[mark].push_back(bond.get());
-  };
+  //void setBondBookmark(BOND_SPTR bond, int mark) {
+  //  d_bondBookmarks[mark].push_back(bond.get());
+  //};
   //! \overload
   void setBondBookmark(Bond *bond, int mark) {
     d_bondBookmarks[mark].push_back(bond);
@@ -324,9 +353,9 @@ class ROMol : public RDProps {
   //! removes a particular Bond from the list associated with the \c bookmark
   void clearBondBookmark(int mark, const Bond *bond);
   //! \overload
-  void clearBondBookmark(int mark, BOND_SPTR bond) {
-    clearBondBookmark(mark, bond.get());
-  };
+  //  void clearBondBookmark(int mark, BOND_SPTR bond) {
+  //    clearBondBookmark(mark, bond);//.get());
+  //  };
   //! blows out all bond \c bookmarks
   void clearAllBondBookmarks() { d_bondBookmarks.clear(); };
   //! queries whether or not any bonds are associated with a \c bookmark

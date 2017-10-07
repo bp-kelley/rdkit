@@ -200,7 +200,7 @@ ExplicitBitVect *PatternFingerprintMol(const ROMol &mol, unsigned int fpSize,
   ROMol::VERTEX_ITER firstA, lastA;
   boost::tie(firstA, lastA) = mol.getVertices();
   while (firstA != lastA) {
-    const Atom *at = mol[*firstA].get();
+    const Atom *at = mol[*firstA]/*.get()*/;
     if (isComplexQuery(at)) {
       isQueryAtom.set(at->getIdx());
       // std::cerr<<"   complex atom: "<<at->getIdx()<<std::endl;
@@ -210,7 +210,7 @@ ExplicitBitVect *PatternFingerprintMol(const ROMol &mol, unsigned int fpSize,
   ROMol::EDGE_ITER firstB, lastB;
   boost::tie(firstB, lastB) = mol.getEdges();
   while (firstB != lastB) {
-    const Bond *bond = mol[*firstB].get();
+    const Bond *bond = mol[*firstB]/*.get()*/;
     // if( isComplexQuery(bond) ){
     if (isPatternComplexQuery(bond)) {
       isQueryBond.set(bond->getIdx());

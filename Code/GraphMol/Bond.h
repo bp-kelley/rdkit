@@ -25,7 +25,7 @@ namespace RDKit {
 class ROMol;
 class RWMol;
 class Atom;
-typedef boost::shared_ptr<Atom> ATOM_SPTR;
+typedef Atom * ATOM_SPTR;
 
 //! class for representing a bond
 /*!
@@ -211,7 +211,7 @@ class Bond : public RDProps {
   */
   void setBeginAtom(Atom *at);
   //! \overload
-  void setBeginAtom(ATOM_SPTR at);
+  //void setBeginAtom(ATOM_SPTR at);
   //! sets our end Atom
   /*!
     <b>Notes:</b>
@@ -219,7 +219,7 @@ class Bond : public RDProps {
   */
   void setEndAtom(Atom *at);
   //! \overload
-  void setEndAtom(ATOM_SPTR at);
+  //void setEndAtom(ATOM_SPTR at);
 
   //! returns a pointer to our begin Atom
   /*!

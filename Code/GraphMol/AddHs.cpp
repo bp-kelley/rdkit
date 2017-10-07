@@ -546,7 +546,7 @@ void removeHs(RWMol &mol, bool implicitOnly, bool updateExplicitCount,
             if (mol[*beg]->getIdx() != bond->getIdx() &&
                 mol[*beg]->getBondType() == Bond::SINGLE) {
               if (mol[*beg]->getBondDir() == Bond::NONE) {
-                oBond = mol[*beg].get();
+                oBond = mol[*beg];//.get();
               } else {
                 foundADir = true;
               }

@@ -192,7 +192,7 @@ RWMOL_SPTR convertTemplateToMol(const ROMOL_SPTR prodTemplateSptr) {
   // copy in the atoms:
   ROMol::ATOM_ITER_PAIR atItP = prodTemplate->getVertices();
   while (atItP.first != atItP.second) {
-    Atom *oAtom = (*prodTemplate)[*(atItP.first++)].get();
+    Atom *oAtom = (*prodTemplate)[*(atItP.first++)]/*.get()*/;
     Atom *newAtom = new Atom(*oAtom);
     res->addAtom(newAtom, false, true);
     int mapNum;

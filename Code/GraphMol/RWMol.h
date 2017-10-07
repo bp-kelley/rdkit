@@ -93,9 +93,9 @@ class RWMol : public ROMol {
     issues of ownership.
 
   */
-  unsigned int addAtom(ATOM_SPTR atom, bool updateLabel = true) {
-    return ROMol::addAtom(atom, updateLabel);
-  };
+  //unsigned int addAtom(ATOM_SPTR atom, bool updateLabel = true) {
+  //  return ROMol::addAtom(atom, updateLabel);
+  //};
 
   //! replaces a particular Atom
   /*!
@@ -137,8 +137,8 @@ class RWMol : public ROMol {
   unsigned int addBond(unsigned int beginAtomIdx, unsigned int endAtomIdx,
                        Bond::BondType order = Bond::UNSPECIFIED);
   //! \overload
-  unsigned int addBond(ATOM_SPTR beginAtom, ATOM_SPTR endAtom,
-                       Bond::BondType order = Bond::UNSPECIFIED);
+  //unsigned int addBond(ATOM_SPTR beginAtom, ATOM_SPTR endAtom,
+  //                     Bond::BondType order = Bond::UNSPECIFIED);
   //! \overload
   unsigned int addBond(Atom *beginAtom, Atom *endAtom,
                        Bond::BondType order = Bond::UNSPECIFIED);
@@ -165,7 +165,7 @@ class RWMol : public ROMol {
     about
     issues of ownership.
   */
-  unsigned int addBond(BOND_SPTR bsp) { return ROMol::addBond(bsp); };
+  //unsigned int addBond(BOND_SPTR bsp) { return ROMol::addBond(bsp); };
 
   //! starts a Bond and sets its beginAtomIdx
   /*!

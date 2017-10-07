@@ -191,12 +191,12 @@ void iterateCIPRanks(const ROMol &mol, DOUBLE_VECT &invars, UINT_VECT &ranks,
 
       // start by pushing on our neighbors' ranks:
       ROMol::OEDGE_ITER beg, end;
-      boost::tie(beg, end) = mol.getAtomBonds(mol[*it].get());
+      boost::tie(beg, end) = mol.getAtomBonds(mol[*it]/*.get()*/);
       while (beg != end) {
-        const Bond *bond = mol[*beg].get();
+        const Bond *bond = mol[*beg];//.get();
         ++beg;
         unsigned int nbrIdx = bond->getOtherAtomIdx(*it);
-        const Atom *nbr = mol[nbrIdx].get();
+        const Atom *nbr = mol[nbrIdx];//.get();
 
         int rank = ranks[nbrIdx] + 1;
         // put the neighbor in 2N times where N is the bond order as a double.

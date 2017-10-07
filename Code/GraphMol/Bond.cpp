@@ -95,19 +95,19 @@ void Bond::setBeginAtom(Atom *at) {
   PRECONDITION(dp_mol != 0, "no owning molecule for bond");
   setBeginAtomIdx(at->getIdx());
 }
-void Bond::setBeginAtom(Atom::ATOM_SPTR at) {
-  PRECONDITION(dp_mol != 0, "no owning molecule for bond");
-  setBeginAtomIdx(at->getIdx());
-}
+//void Bond::setBeginAtom(Atom::ATOM_SPTR at) {
+//  PRECONDITION(dp_mol != 0, "no owning molecule for bond");
+//  setBeginAtomIdx(at->getIdx());
+//}
 
 void Bond::setEndAtom(Atom *at) {
   PRECONDITION(dp_mol != 0, "no owning molecule for bond");
   setEndAtomIdx(at->getIdx());
 }
-void Bond::setEndAtom(Atom::ATOM_SPTR at) {
-  PRECONDITION(dp_mol != 0, "no owning molecule for bond");
-  setEndAtomIdx(at->getIdx());
-}
+//void Bond::setEndAtom(Atom::ATOM_SPTR at) {
+//  PRECONDITION(dp_mol != 0, "no owning molecule for bond");
+//  setEndAtomIdx(at->getIdx());
+//}
 
 Atom *Bond::getBeginAtom() const {
   PRECONDITION(dp_mol != 0, "no owning molecule for bond");
@@ -182,7 +182,7 @@ double Bond::getBondTypeAsDouble() const {
 }
 
 double Bond::getValenceContrib(Atom::ATOM_SPTR at) const {
-  return getValenceContrib(at.get());
+  return getValenceContrib(at);//.get());
 }
 
 double Bond::getValenceContrib(const Atom *atom) const {

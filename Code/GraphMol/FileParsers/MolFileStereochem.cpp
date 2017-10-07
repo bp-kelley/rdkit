@@ -89,7 +89,7 @@ Atom::ChiralType FindAtomStereochemistry(const RWMol &mol, const Bond *bond,
   ROMol::OEDGE_ITER beg, end;
   boost::tie(beg, end) = mol.getAtomBonds(atom);
   while (beg != end) {
-    Bond *nbrBond = mol[*beg].get();
+    Bond *nbrBond = mol[*beg]/*.get()*/;
     if (nbrBond->getBondType() != Bond::SINGLE) {
       allSingle = false;
       // break;
@@ -457,7 +457,7 @@ INT_MAP_INT pickBondsToWedge(const ROMol &mol) {
     RDKit::ROMol::OBOND_ITER_PAIR atomBonds = mol.getAtomBonds(atom);
     std::vector<std::pair<int, int> > nbrScores;
     while (atomBonds.first != atomBonds.second) {
-      const Bond *bond = mol[*atomBonds.first].get();
+      const Bond *bond = mol[*atomBonds.first]/*.get()*/;
       ++atomBonds.first;
 
       // can only wedge single bonds:
@@ -564,7 +564,7 @@ Bond::BondDir DetermineBondWedgeState(const Bond *bond,
   ROMol::OEDGE_ITER beg, end;
   boost::tie(beg, end) = mol->getAtomBonds(atom);
   while (beg != end) {
-    Bond *nbrBond = (*mol)[*beg].get();
+    Bond *nbrBond = (*mol)[*beg]/*.get()*/;
     Atom *otherAtom = nbrBond->getOtherAtom(atom);
     if (nbrBond != bond) {
       tmpPt = conf->getAtomPos(otherAtom->getIdx());
@@ -707,7 +707,7 @@ void setBondDirRelativeToAtom(Bond *bond, Atom *atom, Bond::BondDir dir,
   ROMol::OEDGE_ITER beg, end;
   boost::tie(beg, end) = oAtom->getOwningMol().getAtomBonds(oAtom);
   while (beg != end) {
-    Bond *nbrBond = oAtom->getOwningMol()[*beg].get();
+    Bond *nbrBond = oAtom->getOwningMol()[*beg]/*.get()*/;
     ++beg;
     if (nbrBond != bond && nbrBond->getBondType() != Bond::DOUBLE &&
         needsDir[nbrBond->getIdx()]) {
@@ -762,7 +762,7 @@ void updateDoubleBondNeighbors(ROMol &mol, Bond *dblBond, const Conformer *conf,
   bool squiggleBondSeen = false;
   boost::tie(beg, end) = mol.getAtomBonds(dblBond->getBeginAtom());
   while (beg != end) {
-    Bond *tBond = mol[*beg].get();
+    Bond *tBond = mol[*beg]/*.get()*/;
     if (tBond->getBondType() == Bond::SINGLE ||
         tBond->getBondType() == Bond::AROMATIC) {
       // prefer bonds that already have their directionality set
@@ -800,7 +800,7 @@ void updateDoubleBondNeighbors(ROMol &mol, Bond *dblBond, const Conformer *conf,
   Bond *bond2 = 0, *obond2 = 0;
   boost::tie(beg, end) = mol.getAtomBonds(dblBond->getEndAtom());
   while (beg != end) {
-    Bond *tBond = mol[*beg].get();
+    Bond *tBond = mol[*beg]/*.get()*/;
     if (tBond->getBondType() == Bond::SINGLE ||
         tBond->getBondType() == Bond::AROMATIC) {
       if (!bond2) {
@@ -1056,7 +1056,7 @@ void DetectBondStereoChemistry(ROMol &mol, const Conformer *conf) {
       ROMol::OEDGE_ITER beg, end;
       boost::tie(beg, end) = mol.getAtomBonds(a1);
       while (beg != end) {
-        const Bond *nbrBond = mol[*beg].get();
+        const Bond *nbrBond = mol[*beg]/*.get()*/;
         if (nbrBond->getBondType() == Bond::SINGLE ||
             nbrBond->getBondType() == Bond::AROMATIC) {
           singleBondCounts[nbrBond->getIdx()] += 1;
@@ -1077,7 +1077,7 @@ void DetectBondStereoChemistry(ROMol &mol, const Conformer *conf) {
       }
       boost::tie(beg, end) = mol.getAtomBonds(a2);
       while (beg != end) {
-        const Bond *nbrBond = mol[*beg].get();
+        const Bond *nbrBond = mol[*beg]/*.get()*/;
         if (nbrBond->getBondType() == Bond::SINGLE ||
             nbrBond->getBondType() == Bond::AROMATIC) {
           singleBondCounts[nbrBond->getIdx()] += 1;

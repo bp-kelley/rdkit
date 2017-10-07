@@ -111,7 +111,7 @@ void MolDraw2D::doContinuousHighlighting(
     while (this_at != end_at) {
       int this_idx = mol[*this_at]->getIdx();
       ROMol::OEDGE_ITER nbr, end_nbr;
-      boost::tie(nbr, end_nbr) = mol.getAtomBonds(mol[*this_at].get());
+      boost::tie(nbr, end_nbr) = mol.getAtomBonds(mol[*this_at]/*.get()*/);
       while (nbr != end_nbr) {
         const BOND_SPTR bond = mol[*nbr];
         ++nbr;
@@ -277,7 +277,7 @@ void MolDraw2D::drawMolecule(const ROMol &mol,
   while (this_at != end_at) {
     int this_idx = mol[*this_at]->getIdx();
     ROMol::OEDGE_ITER nbr, end_nbr;
-    boost::tie(nbr, end_nbr) = mol.getAtomBonds(mol[*this_at].get());
+    boost::tie(nbr, end_nbr) = mol.getAtomBonds(mol[*this_at]/*.get()*/);
     while (nbr != end_nbr) {
       const BOND_SPTR bond = mol[*nbr];
       ++nbr;
@@ -295,7 +295,7 @@ void MolDraw2D::drawMolecule(const ROMol &mol,
     ROMol::VERTEX_ITER atom, end_atom;
     boost::tie(atom, end_atom) = mol.getVertices();
     while (atom != end_atom) {
-      const Atom *at1 = mol[*atom].get();
+      const Atom *at1 = mol[*atom]/*.get()*/;
       ++atom;
       if (at1->hasProp(common_properties::atomLabel) ||
           drawOptions().atomLabels.find(at1->getIdx()) !=
@@ -1128,7 +1128,7 @@ void MolDraw2D::extractAtomSymbols(const ROMol &mol) {
   boost::tie(atom, end_atom) = mol.getVertices();
   while (atom != end_atom) {
     ROMol::OEDGE_ITER nbr, end_nbrs;
-    const Atom *at1 = mol[*atom].get();
+    const Atom *at1 = mol[*atom]/*.get()*/;
     boost::tie(nbr, end_nbrs) = mol.getAtomBonds(at1);
     Point2D &at1_cds = at_cds_[activeMolIdx_][at1->getIdx()];
     Point2D nbr_sum(0.0, 0.0);

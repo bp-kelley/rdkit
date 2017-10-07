@@ -1172,12 +1172,12 @@ void set14Bounds(const ROMol &mol, DistGeom::BoundsMatPtr mmat,
     aid3 = (*bi)->getEndAtomIdx();
     boost::tie(beg1, end1) = mol.getAtomBonds(mol.getAtomWithIdx(aid2));
     while (beg1 != end1) {
-      const Bond *bnd1 = mol[*beg1].get();
+      const Bond *bnd1 = mol[*beg1]/*.get()*/;
       bid1 = bnd1->getIdx();
       if (bid1 != bid2) {
         boost::tie(beg2, end2) = mol.getAtomBonds(mol.getAtomWithIdx(aid3));
         while (beg2 != end2) {
-          const Bond *bnd3 = mol[*beg2].get();
+          const Bond *bnd3 = mol[*beg2]/*.get()*/;
           bid3 = bnd3->getIdx();
           if (bid3 != bid2) {
             id1 = nb * nb * bid1 + nb * bid2 + bid3;

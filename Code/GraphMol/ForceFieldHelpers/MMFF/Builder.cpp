@@ -250,14 +250,14 @@ void addAngles(const ROMol &mol, MMFFMolProperties *mmffMolProperties,
     const MMFFProp *mmffPropParamsCentralAtom = (*mmffProp)(jAtomType);
     boost::tie(nbr1Idx, end1Nbrs) = mol.getAtomNeighbors(jAtom);
     for (; nbr1Idx != end1Nbrs; ++nbr1Idx) {
-      const Atom *iAtom = mol[*nbr1Idx].get();
+      const Atom *iAtom = mol[*nbr1Idx]/*.get()*/;
       idx[0] = iAtom->getIdx();
       boost::tie(nbr2Idx, end2Nbrs) = mol.getAtomNeighbors(jAtom);
       for (; nbr2Idx != end2Nbrs; ++nbr2Idx) {
         if (nbr2Idx < (nbr1Idx + 1)) {
           continue;
         }
-        const Atom *kAtom = mol[*nbr2Idx].get();
+        const Atom *kAtom = mol[*nbr2Idx]/*.get()*/;
         idx[2] = kAtom->getIdx();
         unsigned int angleType;
         MMFFAngle mmffAngleParams;
@@ -368,11 +368,11 @@ void addStretchBend(const ROMol &mol, MMFFMolProperties *mmffMolProperties,
     boost::tie(nbr1Idx, end1Nbrs) = mol.getAtomNeighbors(jAtom);
     unsigned int i = 0;
     for (; nbr1Idx != end1Nbrs; ++nbr1Idx) {
-      const Atom *iAtom = mol[*nbr1Idx].get();
+      const Atom *iAtom = mol[*nbr1Idx]/*.get()*/;
       boost::tie(nbr2Idx, end2Nbrs) = mol.getAtomNeighbors(jAtom);
       unsigned int j = 0;
       for (; nbr2Idx != end2Nbrs; ++nbr2Idx) {
-        const Atom *kAtom = mol[*nbr2Idx].get();
+        const Atom *kAtom = mol[*nbr2Idx]/*.get()*/;
         if (j < (i + 1)) {
           ++j;
           continue;
@@ -506,7 +506,7 @@ void addOop(const ROMol &mol, MMFFMolProperties *mmffMolProperties,
     boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom[1]);
     unsigned int i = 0;
     for (; nbrIdx != endNbrs; ++nbrIdx) {
-      atom[i] = mol[*nbrIdx].get();
+      atom[i] = mol[*nbrIdx]/*.get()*/;
       idx[i] = atom[i]->getIdx();
       atomType[i] = mmffMolProperties->getMMFFAtomType(idx[i]);
       if (!i) {
@@ -671,13 +671,13 @@ void addTorsions(const ROMol &mol, MMFFMolProperties *mmffMolProperties,
       ROMol::OEDGE_ITER beg1, end1;
       boost::tie(beg1, end1) = mol.getAtomBonds(jAtom);
       while (beg1 != end1) {
-        const Bond *tBond1 = mol[*beg1].get();
+        const Bond *tBond1 = mol[*beg1]/*.get()*/;
         if (tBond1 != bond) {
           int idx1 = tBond1->getOtherAtomIdx(idx2);
           ROMol::OEDGE_ITER beg2, end2;
           boost::tie(beg2, end2) = mol.getAtomBonds(kAtom);
           while (beg2 != end2) {
-            const Bond *tBond2 = mol[*beg2].get();
+            const Bond *tBond2 = mol[*beg2]/*.get()*/;
             if ((tBond2 != bond) && (tBond2 != tBond1)) {
               int idx4 = tBond2->getOtherAtomIdx(idx3);
               // make sure this isn't a three-membered ring:

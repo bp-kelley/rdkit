@@ -77,7 +77,7 @@ double computeBalabanJ(const ROMol &mol, bool useBO, bool force,
       ROMol::EDGE_ITER beg, end;
       boost::tie(beg, end) = mol.getEdges();
       while (beg != end) {
-        const Bond *bond = mol[*beg].get();
+        const Bond *bond = mol[*beg];//.get();
         if (bondsUsed[bond->getIdx()]) {
           int begIdx = bond->getBeginAtomIdx();
           int endIdx = bond->getEndAtomIdx();

@@ -562,7 +562,7 @@ template <class T>
 bool getMappedAtoms(T &rIt, std::map<int, const Atom *> &mappedAtoms) {
   ROMol::ATOM_ITER_PAIR atItP = rIt->getVertices();
   while (atItP.first != atItP.second) {
-    const Atom *oAtom = (*rIt)[*(atItP.first++)].get();
+    const Atom *oAtom = (*rIt)[*(atItP.first++)]/*.get()*/;
     // we only worry about mapped atoms:
     int mapNum;
     if (oAtom->getPropIfPresent(common_properties::molAtomMapNumber, mapNum)) {
@@ -599,7 +599,7 @@ VECT_INT_VECT getReactingAtoms(const ChemicalReaction &rxn,
        rIt != rxn.endReactantTemplates(); ++rIt, ++resIt) {
     ROMol::ATOM_ITER_PAIR atItP = (*rIt)->getVertices();
     while (atItP.first != atItP.second) {
-      const Atom *oAtom = (**rIt)[*(atItP.first++)].get();
+      const Atom *oAtom = (**rIt)[*(atItP.first++)]/*.get()*/;
       // unmapped atoms are definitely changing:
       int mapNum;
       if (!oAtom->getPropIfPresent(common_properties::molAtomMapNumber,

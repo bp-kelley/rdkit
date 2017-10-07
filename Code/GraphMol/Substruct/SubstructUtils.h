@@ -17,8 +17,11 @@ namespace RDKit {
 class ROMol;
 class Atom;
 class Bond;
-typedef boost::shared_ptr<Atom> ATOM_SPTR;
-typedef boost::shared_ptr<Bond> BOND_SPTR;
+//typedef boost::shared_ptr<Atom> ATOM_SPTR;
+//typedef boost::shared_ptr<Bond> BOND_SPTR;
+
+typedef Atom* ATOM_SPTR;
+typedef Bond* BOND_SPTR;
 
 double toPrime(const MatchVectType &v);
 void removeDuplicates(std::vector<MatchVectType> &v, unsigned int nAtoms);
