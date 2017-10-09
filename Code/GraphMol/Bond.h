@@ -133,7 +133,7 @@ class Bond : public RDProps {
   */
   double getValenceContrib(const Atom *at) const;
   // \overload
-  double getValenceContrib(ATOM_SPTR at) const;
+  //double getValenceContrib(ATOM_SPTR at) const;
 
   //! sets our \c isAromatic flag
   void setIsAromatic(bool what) { df_isAromatic = what; };

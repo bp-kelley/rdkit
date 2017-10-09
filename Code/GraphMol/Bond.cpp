@@ -181,9 +181,9 @@ double Bond::getBondTypeAsDouble() const {
   }
 }
 
-double Bond::getValenceContrib(Atom::ATOM_SPTR at) const {
-  return getValenceContrib(at);//.get());
-}
+//double Bond::getValenceContrib(Atom::ATOM_SPTR at) const {
+//  return getValenceContrib(at);//.get());
+//}
 
 double Bond::getValenceContrib(const Atom *atom) const {
   switch (getBondType()) {
