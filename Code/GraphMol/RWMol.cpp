@@ -140,6 +140,7 @@ void RWMol::replaceAtom(unsigned int idx, Atom *atom_pin, bool updateLabel,
     const bool replaceExistingData = false;
     atom_p->updateProps(*d_graph[vd]/*.get()*/, replaceExistingData);
   }
+  d_graph.removeAtom(atom_pin);
   d_graph[vd] = atom_p;//.reset(atom_p);
   // FIX: do something about bookmarks
 };
@@ -159,7 +160,7 @@ void RWMol::replaceBond(unsigned int idx, Bond *bond_pin, bool preserveProps) {
     const bool replaceExistingData = false;
     bond_p->updateProps( *d_graph[*(bIter.first)]/*.get()*/, replaceExistingData );
   }
-
+  d_graph.removeBond(bond_pin);
   d_graph[*(bIter.first)] = bond_p;//.reset(bond_p);
   // FIX: do something about bookmarks
 };
@@ -261,7 +262,8 @@ void RWMol::removeAtom(Atom *atom) {
   clearComputedProps(true);
 
   atom->setOwningMol(NULL);
-
+  d_graph.removeAtom(atom);
+  
   // remove all connections to the atom:
   MolGraph::vertex_descriptor vd = boost::vertex(idx, d_graph);
   boost::clear_vertex(vd, d_graph);
@@ -380,10 +382,10 @@ void RWMol::removeBond(unsigned int aid1, unsigned int aid2) {
     ++firstB;
   }
   bnd->setOwningMol(NULL);
-
   MolGraph::vertex_descriptor vd1 = boost::vertex(aid1, d_graph);
   MolGraph::vertex_descriptor vd2 = boost::vertex(aid2, d_graph);
   boost::remove_edge(vd1, vd2, d_graph);
+  d_graph.removeBond(bnd);
   --numBonds;
 }
 

@@ -55,7 +55,9 @@ struct MolGraph : public boost::adjacency_list<
     typedef vertex_iterator VERTEX_ITER;
     typedef std::pair<EDGE_ITER, EDGE_ITER> BOND_ITER_PAIR;
     typedef std::pair<VERTEX_ITER, VERTEX_ITER> ATOM_ITER_PAIR;
-
+    std::vector<Atom *> removedAtoms;
+    std::vector<Bond *> removedBonds;
+    
   ~MolGraph() {
     ATOM_ITER_PAIR atItP = boost::vertices(*this);
     BOND_ITER_PAIR bondItP = boost::edges(*this);
@@ -67,6 +69,23 @@ struct MolGraph : public boost::adjacency_list<
     while (bondItP.first != bondItP.second) {
       delete (*this)[*(bondItP.first++)];
     }
+
+    for(size_t i=0;i<removedAtoms.size();++i)
+      delete removedAtoms[i];
+    for(size_t i=0;i<removedBonds.size();++i)
+      delete removedBonds[i];
+  }
+  // Kind of a hack, we don't really delete the atom
+  //  until the mol is cleaned.
+  void removeAtom(Atom *a) {
+    if(std::find(removedAtoms.begin(), removedAtoms.end(), a) !=
+       removedAtoms.end())
+      removedAtoms.push_back(a);
+  }
+  void removeBond(Bond *b) {
+    if(std::find(removedBonds.begin(), removedBonds.end(), b) !=
+       removedBonds.end())
+      removedBonds.push_back(b);
   }
 };
 /*
