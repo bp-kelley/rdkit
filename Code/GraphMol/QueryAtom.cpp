@@ -54,9 +54,9 @@ void QueryAtom::expandQuery(QUERYATOM_QUERY *what,
   }
 }
 
-bool QueryAtom::Match(const Atom::ATOM_SPTR &what) const {
-  return Match(what/*.get()*/);
-}
+//bool QueryAtom::Match(const Atom::ATOM_SPTR &what) const {
+//  return Match(what/*.get()*/);
+//}
 
 namespace {
 bool localMatch(ATOM_EQUALS_QUERY const *q1, ATOM_EQUALS_QUERY const *q2) {

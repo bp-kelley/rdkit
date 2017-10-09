@@ -255,7 +255,7 @@ class ROMol : public RDProps {
   //! returns the degree (number of neighbors) of an Atom in the graph
   unsigned int getAtomDegree(const Atom *at) const;
   //! \overload
-  unsigned int getAtomDegree(ATOM_SPTR at) const;
+  //unsigned int getAtomDegree(ATOM_SPTR at) const;
   //@}
 
   //! \name Bonds
@@ -326,9 +326,9 @@ class ROMol : public RDProps {
   //! removes a particular Atom from the list associated with the \c bookmark
   void clearAtomBookmark(const int mark, const Atom *atom);
   //! \overload
-  void clearAtomBookmark(const int mark, ATOM_SPTR atom) {
-    clearAtomBookmark(mark, atom);//.get());
-  };
+  //void clearAtomBookmark(const int mark, ATOM_SPTR atom) {
+  //  clearAtomBookmark(mark, atom);//.get());
+  //};
   //! blows out all atomic \c bookmarks
   void clearAllAtomBookmarks() { d_atomBookmarks.clear(); };
   //! queries whether or not any atoms are associated with a \c bookmark

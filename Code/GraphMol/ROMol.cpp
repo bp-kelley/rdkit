@@ -122,9 +122,9 @@ void ROMol::initMol() {
 unsigned int ROMol::getAtomDegree(const Atom *at) const {
   return rdcast<unsigned int>(boost::out_degree(at->getIdx(), d_graph));
 };
-unsigned int ROMol::getAtomDegree(Atom::ATOM_SPTR at) const {
-  return getAtomDegree(at);//.get());
-};
+//unsigned int ROMol::getAtomDegree(Atom::ATOM_SPTR at) const {
+//  return getAtomDegree(at);//.get());
+//};
 unsigned int ROMol::getNumAtoms(bool onlyExplicit) const {
   int res = rdcast<int>(boost::num_vertices(d_graph));
   if (!onlyExplicit) {
