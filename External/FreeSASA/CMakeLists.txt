@@ -50,7 +50,7 @@ set (freesasa_clib_srcs
     ${FREESASA_SRC_DIR}/src/classifier_oons.c
     ${FREESASA_SRC_DIR}/src/classifier_protor.c
     ${FREESASA_SRC_DIR}/src/coord.c
-    ${FREESASA_SRC_DIR}/src/freesasa2.c
+    ${FREESASA_SRC_DIR}/src/freesasa.c
     ${FREESASA_SRC_DIR}/src/lexer.c
     ${FREESASA_SRC_DIR}/src/log.c
     ${FREESASA_SRC_DIR}/src/nb.c
