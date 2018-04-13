@@ -1,9 +1,6 @@
 # adapted from http://conda.pydata.org/docs/travis.html
 language: generic
 
-# switch to new infrastructure
-sudo: false
-
 # build matrices
 matrix:
   include:
