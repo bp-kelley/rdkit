@@ -50,7 +50,7 @@ before_install:
 
 install:
  - echo "INSTALL CONDA"
- - conda install -q numpy pillow pandas # matplotlib
+ - conda install -q numpy pillow pandas cmake # matplotlib
  # install the conda boost packages from the RDKit binstar channel.
  - conda install -q py-boost=1.65.1 libboost=1.65.1
  # install eigen from conda-forge
