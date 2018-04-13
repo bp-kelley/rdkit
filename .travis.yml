@@ -1,20 +1,21 @@
 # adapted from http://conda.pydata.org/docs/travis.html
 language: generic
 
-os:
- - osx
- - linux
-
-env:
-   - CONDA_PYTHON_VERSION=2.7
-   - CONDA_PYTHON_VERSION=3.6
-
 # build matrices
 matrix:
   include:
+  - os: linux
+    dist: trusty
+    env: CONDA_PYTHON_VERSION=2.7
+  - os: linux
+    dist: trusty
+    env: CONDA_PYTHON_VERSION=3.6
   - os: osx
     osx_image: xcode8.3
-
+    env: CONDA_PYTHON_VERSION=2.7
+  - os: osx
+    osx_image: xcode8.3
+    env: CONDA_PYTHON_VERSION=3.6
 
 addons:
       apt:
