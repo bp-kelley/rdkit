@@ -29,6 +29,24 @@ env:
    - CONDA_PYTHON_VERSION=2.7
    - CONDA_PYTHON_VERSION=3.6
 
+before_install:
+ # download and install miniconda
+ - echo "*************************************************"
+ - echo "Building for $TRAVIS_OS_NAME"
+ - echo "         for Python $CONDA_PYTHON_VERSION"
+ - export PYMAJOR="";
+ - if [[ "$CONDA_PYTHON_VERSION" == "3.6" ]] ; then export PYMAJOR="3"; fi
+ - if [[ "$CONDA_PYTHON_VERSION" == "2.7" ]] ; then export PYMAJOR="2"; fi
+ - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget http://repo.continuum.io/miniconda/Miniconda$PYMAJOR-4.4.10-Linux-x86_64.sh -O miniconda.sh; fi
+ - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget http://repo.continuum.io/miniconda/Miniconda$PYMAJOR-4.4.10-MacOSX-x86_64.sh -O miniconda.sh; fi 
+ - bash miniconda.sh -b -p $HOME/conda
+ - export PATH="$HOME/conda/bin:$PATH"
+ - hash -r
+ - conda config --set always_yes yes --set changeps1 no
+ - conda update -q conda
+ # Useful for debugging any issues with conda
+ - conda info -a
+
 install:
  - echo "INSTALL CONDA"
  - conda install -q numpy pillow pandas # matplotlib
