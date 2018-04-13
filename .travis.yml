@@ -40,7 +40,7 @@ install:
 before_script:
  # RDKit
  - echo "BEFORE SCRIPT"
- - echo "Uname: `uname`"
+ - echo "Uname: $TRAVIS_OS_NAME"
  - echo "PYTHON: $CONDA_PYTHON_VERSION"
  - export RDBASE=`pwd`
  - echo $RDBASE
