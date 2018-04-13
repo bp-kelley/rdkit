@@ -1,15 +1,20 @@
 # adapted from http://conda.pydata.org/docs/travis.html
 language: generic
 
+os:
+ - osx
+ - linux
+
+env:
+   - CONDA_PYTHON_VERSION=2.7
+   - CONDA_PYTHON_VERSION=3.6
+
 # build matrices
 matrix:
   include:
   - os: osx
     osx_image: xcode8.3
 
-env:
-   - CONDA_PYTHON_VERSION=2.7
-   - CONDA_PYTHON_VERSION=3.6
 
 addons:
       apt:
@@ -39,3 +44,6 @@ before_script:
 
 script:
   - echo "SCRIPT"
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CXX="clang++-3.9 -std=c++11"   ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CC=clang-3.9 ; fi
+
