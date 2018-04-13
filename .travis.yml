@@ -30,6 +30,7 @@ env:
    - CONDA_PYTHON_VERSION=3.6
 
 install:
+ - echo "INSTALL CONDA"
  - conda install -q numpy pillow pandas # matplotlib
  # install the conda boost packages from the RDKit binstar channel.
  - conda install -q py-boost=1.65.1
@@ -38,6 +39,7 @@ install:
 
 before_script:
  # RDKit
+ - echo "BEFORE SCRIPT"
  - echo "Uname: `uname`"
  - echo "PYTHON: $CONDA_PYTHON_VERSION"
  - export RDBASE=`pwd`
@@ -54,6 +56,7 @@ before_script:
  - echo $PY_SP_DIR
 
 script:
+  - echo "SCRIPT"
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CXX="clang++-3.9 -std=c++11"   ; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CC=clang-3.9 ; fi
   - echo "CXX $CXX"
