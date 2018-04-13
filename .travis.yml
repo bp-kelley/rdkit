@@ -35,16 +35,46 @@ before_install:
  - echo "*************************************************"
  - echo "Building for $TRAVIS_OS_NAME"
  - echo "         for Python $CONDA_PYTHON_VERSION"
+ - export PYMAJOR="";
+ - if [[ "$CONDA_PYTHON_VERSION" == "3.6" ]] ; then export PYMAJOR="3"; fi
+ - if [[ "$CONDA_PYTHON_VERSION" == "2.7" ]] ; then export PYMAJOR="2"; fi
+ - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget http://repo.continuum.io/miniconda/Miniconda$PYMAJOR-4.4.10-Linux-x86_64.sh -O miniconda.sh; fi
+ - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget http://repo.continuum.io/miniconda/Miniconda$PYMAJOR-4.4.10-MacOSX-x86_64.sh -O miniconda.sh; fi 
+ - bash miniconda.sh -b -p $HOME/conda
+ - export PATH="$HOME/conda/bin:$PATH"
+ - hash -r
+ - conda config --set always_yes yes --set changeps1 no
+ - conda update -q conda
+ # Useful for debugging any issues with conda
+ - conda info -a
 
 install:
  - echo "INSTALL CONDA"
+ - conda install -q numpy pillow pandas # matplotlib
+ # install the conda boost packages from the RDKit binstar channel.
+ - conda install -q py-boost=1.65.1
+ # install eigen from conda-forge
+ - conda install -q -c conda-forge eigen
 
 before_script:
  # RDKit
  - echo "BEFORE SCRIPT"
+ - export RDBASE=`pwd`
+ - echo $RDBASE
+ - export PYTHONPATH=${RDBASE}
+ - export LD_LIBRARY_PATH=${RDBASE}/lib
+ - export DYLD_LIBRARY_PATH=${RDBASE}/lib
+
+ - export PYTHON=`which python`
+ - echo $PYTHON
+ - export PY_PREFIX=`$PYTHON -c "import sys; print(sys.prefix)"`
+ - echo $PY_PREFIX
+ - export PY_SP_DIR=$PY_PREFIX/lib/python$CONDA_PYTHON_VERSION/site-packages
+ - echo $PY_SP_DIR
 
 script:
   - echo "SCRIPT"
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CXX="clang++-3.9 -std=c++11"   ; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CC=clang-3.9 ; fi
-
+  - echo "CXX $CXX"
+  - echo "CC $CC"
