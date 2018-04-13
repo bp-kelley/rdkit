@@ -6,11 +6,17 @@ dist: trusty
 # switch to new infrastructure
 sudo: false
 
+# build matrices
+matrix:
+  include:
+  - os: linux
+    dist: trusty
+  - os: osx
+    osx_image: xcode8.3
 
-os:
-  - linux
-     dist: trusty
-  - osx
+env:
+   - CONDA_PYTHON_VERSION=2.7
+   - CONDA_PYTHON_VERSION=3.6
 
 addons:
       apt:
@@ -24,10 +30,6 @@ addons:
          - libjpeg-dev
          - clang-3.9
          - libc++-dev
-
-env:
-   - CONDA_PYTHON_VERSION=2.7
-   - CONDA_PYTHON_VERSION=3.6
 
 before_install:
  # download and install miniconda
