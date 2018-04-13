@@ -1,16 +1,12 @@
 # adapted from http://conda.pydata.org/docs/travis.html
 language: generic
 
-dist: trusty
-
 # switch to new infrastructure
 sudo: false
 
 # build matrices
 matrix:
   include:
-  - os: linux
-    dist: trusty
   - os: osx
     osx_image: xcode8.3
 
