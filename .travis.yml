@@ -6,12 +6,13 @@ dist: trusty
 # switch to new infrastructure
 sudo: false
 
-# build matrices
-matrix:
-  include:
-  - os: linux
-    dist: trusty
-    addons:
+
+os:
+  - linux
+     dist: trusty
+  - osx
+
+addons:
       apt:
         sources:
         - ubuntu-toolchain-r-test
@@ -23,8 +24,6 @@ matrix:
          - libjpeg-dev
          - clang-3.9
          - libc++-dev
-  - os: osx
-    osx_image: xcode8.3
 
 env:
    - CONDA_PYTHON_VERSION=2.7
