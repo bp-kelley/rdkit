@@ -39,6 +39,7 @@ install:
 before_script:
  # RDKit
  - echo "Uname: `uname`"
+ - echo "PYTHON: $CONDA_PYTHON_VERSION"
  - export RDBASE=`pwd`
  - echo $RDBASE
  - export PYTHONPATH=${RDBASE}
