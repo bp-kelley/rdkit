@@ -29,27 +29,8 @@ env:
    - CONDA_PYTHON_VERSION=2.7
    - CONDA_PYTHON_VERSION=3.6
 
-before_install:
- # download and install miniconda
- - echo "*************************************************"
- - echo "Building for $TRAVIS_OS_NAME"
- - echo "         for Python $CONDA_PYTHON_VERSION"
- - export PYMAJOR="";
- - if [[ "$CONDA_PYTHON_VERSION" == "3.6" ]] ; then export PYMAJOR="3"; fi
- - if [[ "$CONDA_PYTHON_VERSION" == "2.7" ]] ; then export PYMAJOR="2"; fi
- - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget http://repo.continuum.io/miniconda/Miniconda$PYMAJOR-4.4.10-Linux-x86_64.sh -O miniconda.sh; fi
- - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget http://repo.continuum.io/miniconda/Miniconda$PYMAJOR-4.4.10-MacOSX-x86_64.sh -O miniconda.sh; fi 
- - bash miniconda.sh -b -p $HOME/conda
- - export PATH="$HOME/conda/bin:$PATH"
- - hash -r
- - conda config --set always_yes yes --set changeps1 no
- - conda update -q conda
- # Useful for debugging any issues with conda
- - conda info -a
-
 install:
  - conda install -q numpy pillow pandas # matplotlib
-
  # install the conda boost packages from the RDKit binstar channel.
  - conda install -q py-boost=1.65.1
  # install eigen from conda-forge
@@ -57,6 +38,7 @@ install:
 
 before_script:
  # RDKit
+ - echo "Uname: `uname`"
  - export RDBASE=`pwd`
  - echo $RDBASE
  - export PYTHONPATH=${RDBASE}
@@ -67,23 +49,11 @@ before_script:
  - echo $PYTHON
  - export PY_PREFIX=`$PYTHON -c "import sys; print(sys.prefix)"`
  - echo $PY_PREFIX
- - export PY_SP_DIR=$PY_PREFIX/lib/python$TRAVIS_PYTHON_VERSION/site-packages
+ - export PY_SP_DIR=$PY_PREFIX/lib/python$CONDA_PYTHON_VERSION/site-packages
  - echo $PY_SP_DIR
 
 script:
- - cd $RDBASE
- - mkdir build
- - cd build
- # note that at the moment trying to use c++-14 leads to problems with our conda boost builds and libc++
- - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CXX="clang++-3.9 -std=c++11"   ; fi
- - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CC=clang-3.9 ; fi
- - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export PYTHON_LIBRARY=`find $PY_PREFIX/lib -name "libpython$CONDA_PYTHON_VERSION*.so"` ; fi
- - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export PYTHON_LIBRARY=`find $PY_PREFIX/lib -name "libpython$CONDA_PYTHON_VERSION*.dylib"` ; fi
-
- - cmake -D Python_ADDITIONAL_VERSIONS=$CONDA_PYTHON_VERSION -D PYTHON_EXECUTABLE=$PYTHON -D PYTHON_LIBRARY=`find $PY_PREFIX -name "libpython$CONDA_PYTHON_VERSION*.so"` -D PYTHON_NUMPY_INCLUDE_PATH=$PY_SP_DIR/numpy/core/include -D BOOST_ROOT=$PY_PREFIX -D Boost_NO_SYSTEM_PATHS=ON -D RDK_BUILD_AVALON_SUPPORT=ON -D RDK_BUILD_INCHI_SUPPORT=ON -DRDK_BUILD_THREADSAFE_SSS=on -DRDK_TEST_MULTITHREADED=on -DRDK_INSTALL_STATIC_LIBS=OFF -DRDK_BUILD_SWIG_WRAPPERS=OFF -DRDK_SWIG_STATIC=OFF -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_FREESASA_SUPPORT=ON ..
-
- - make -j2
- - make install
- - ls "$PREFIX/lib"
- - ls "$PY_PREFIX/lib"
- - LD_LIBRARY_PATH="$PY_PREFIX/lib:$PREFIX/lib;$SRC_DIR/lib;$LD_LIBRARY_PATH" DYLD_FALLBACK_LIBRARY_PATH="$PY_PREFIX/lib:$PREFIX/lib:$SRC_DIR/lib:$DYLD_LIBRARY_PATH ctest -j2 --output-on-failure
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CXX="clang++-3.9 -std=c++11"   ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CC=clang-3.9 ; fi
+  - echo "CXX $CXX"
+  - echo "CC $CC"
