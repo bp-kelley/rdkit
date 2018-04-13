@@ -52,7 +52,7 @@ install:
  - echo "INSTALL CONDA"
  - conda install -q numpy pillow pandas # matplotlib
  # install the conda boost packages from the RDKit binstar channel.
- - conda install -q py-boost=1.65.1
+ - conda install -q py-boost=1.65.1 libboost=1.65.1
  # install eigen from conda-forge
  - conda install -q -c conda-forge eigen
 
