@@ -50,6 +50,8 @@ before_install:
 
 install:
  - echo "INSTALL CONDA"
+ # install conda compiler tools on linux
+ - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then conda install gcc_linux-64 gcc_linux-64 ; fi
  - conda install -q numpy pillow pandas cmake # matplotlib
  # install the conda boost packages from the RDKit binstar channel.
  - conda install -q py-boost=1.65.1 libboost=1.65.1
