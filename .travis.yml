@@ -27,8 +27,8 @@ addons:
          - openjdk-7-jdk
          - swig
          - libjpeg-dev
-         - clang-3.9
-         - libc++-dev
+         #- clang-3.9
+         #- libc++-dev
 
 before_install:
  # download and install miniconda
@@ -74,8 +74,8 @@ before_script:
 
 script:
   - echo "SCRIPT"
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CXX="clang++-3.9 -std=c++11"   ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CC=clang-3.9 ; fi
+  #- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CXX="clang++-3.9 -std=c++11"   ; fi
+  #- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export CC=clang-3.9 ; fi
   - echo "CXX $CXX"
   - echo "CC $CC"
   - cd $RDBASE
