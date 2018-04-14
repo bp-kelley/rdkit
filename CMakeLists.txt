@@ -330,7 +330,7 @@ if (RDK_TEST_COVERAGE)
  message("")
 
  INCLUDE(CodeCoverage)
- SET(CMAKE_CXX_FLAGS "-g -O0 -fprofile-arcs -ftest-coverage")
+ SET(CMAKE_CXX_FLAGS "-g -O0 -fprofile-arcs -ftest-coverage -std=c++11")
  SET(CMAKE_C_FLAGS "-g -O0 -fprofile-arcs -ftest-coverage")
  message("== setup_target_for_coverage(${PROJECT_NAME}_coverage test coverage)")
  setup_target_for_coverage(${PROJECT_NAME}_coverage ctest coverage)
@@ -348,7 +348,7 @@ else(RDK_TEST_COVERAGE)
  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
    # We don't on C_FLAGS warnings to keep Avalon compiling quiet
    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-array-bounds -fPIC -Wno-parentheses -Wno-logical-op-parentheses -Wno-format")
-   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libc++ -Wall -Wextra -Wno-deprecated -Wno-unused-function -fno-strict-aliasing -Wno-format -Wno-logical-op-parentheses -fPIC")
+   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -Wall -Wextra -Wno-deprecated -Wno-unused-function -fno-strict-aliasing -Wno-format -Wno-logical-op-parentheses -fPIC")
  endif()
 endif(RDK_TEST_COVERAGE)
 
