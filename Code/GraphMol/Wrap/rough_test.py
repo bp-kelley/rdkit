@@ -14,6 +14,7 @@ from rdkit import RDConfig, rdBase
 from rdkit import DataStructs
 from rdkit import Chem
 from rdkit import six
+from rdkit.Chem import rdqueries
 from rdkit.six import exec_
 
 from rdkit import __version__
@@ -3305,7 +3306,6 @@ CAS<~>
     self.assertRaises(ValueError, lambda: Chem.FragmentOnBonds(m, ()))
 
   def test88QueryAtoms(self):
-    from rdkit.Chem import rdqueries
     m = Chem.MolFromSmiles('c1nc(C)n(CC)c1')
 
     qa = rdqueries.ExplicitDegreeEqualsQueryAtom(3)
@@ -4789,7 +4789,72 @@ M  END"""
     Chem.WedgeBond(m.GetBondWithIdx(0), 1, m.GetConformer())
     self.assertEqual(m.GetBondWithIdx(0).GetBondDir(), Chem.BondDir.BEGINWEDGE)
 
+  def testBitVectProp(self):
+    bv = DataStructs.ExplicitBitVect(100)
+    m = Chem.MolFromSmiles("CC")
+    for atom in m.GetAtoms():
+      bv.SetBit(atom.GetIdx())
+      atom.SetExplicitBitVectProp("prop", bv)
+      
+    for atom in m.GetAtoms():
+      bv = atom.GetExplicitBitVectProp("prop")
+      self.assertTrue(bv.GetBit(atom.GetIdx()))
 
+  def testBitVectQuery(self):
+    bv = DataStructs.ExplicitBitVect(4)
+    bv.SetBit(0)
+    bv.SetBit(2)
+
+    # wow, what a mouthfull..
+    qa = rdqueries.HasBitVectPropWithValueQueryAtom("prop", bv, tolerance=0.0)
+
+    m = Chem.MolFromSmiles("CC")
+    for atom in m.GetAtoms():
+      if atom.GetIdx() == 0:
+        atom.SetExplicitBitVectProp("prop", bv)
+      
+    l = tuple([x.GetIdx() for x in m.GetAtomsMatchingQuery(qa)])
+    self.assertEqual(l, (0,))
+
+
+    m = Chem.MolFromSmiles("CC")
+    for atom in m.GetAtoms():
+      bv = DataStructs.ExplicitBitVect(4)
+      bv.SetBit(atom.GetIdx())
+      atom.SetExplicitBitVectProp("prop", bv)
+        
+    sma = Chem.MolFromSmarts("C")
+    for atom in sma.GetAtoms():
+        bv = DataStructs.ExplicitBitVect(4)
+        bv.SetBit(1)
+        qa = rdqueries.HasBitVectPropWithValueQueryAtom("prop", bv, tolerance=0.0)
+        atom.ExpandQuery(qa)
+
+    res = m.GetSubstructMatches(sma)
+    self.assertEqual(res, ((1,),))
+
+    sma = Chem.MolFromSmarts("C")
+    for atom in sma.GetAtoms():
+        bv = DataStructs.ExplicitBitVect(4)
+        bv.SetBit(0)
+        qa = rdqueries.HasBitVectPropWithValueQueryAtom("prop", bv, tolerance=0.0)
+        atom.ExpandQuery(qa)
+
+    res = m.GetSubstructMatches(sma)
+    self.assertEqual(res, ((0,),))
+    
+    sma = Chem.MolFromSmarts("C")
+    for atom in sma.GetAtoms():
+        bv = DataStructs.ExplicitBitVect(4)
+        bv.SetBit(0)
+        qa = rdqueries.HasBitVectPropWithValueQueryAtom("prop", bv, tolerance=1.0)
+        atom.ExpandQuery(qa)
+
+    res = m.GetSubstructMatches(sma)
+    self.assertEqual(res, ((0,),(1,)))
+
+
+    
 if __name__ == '__main__':
   if "RDTESTCASE" in os.environ:
     suite = unittest.TestSuite()

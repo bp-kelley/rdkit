@@ -35,6 +35,7 @@
 #include <RDBoost/pyint_api.h>
 #include <RDBoost/Wrap.h>
 #include <RDGeneral/Dict.h>
+#include <DataStructs/BitVects.h>
 
 namespace RDKit {
 
@@ -91,6 +92,7 @@ boost::python::dict GetPropsAsDict(const T &obj, bool includePrivate,
     if (AddToDict<std::vector<double>>(obj, dict, keys[i])) continue;
     if (AddToDict<std::vector<std::string>>(obj, dict, keys[i])) continue;
     if (AddToDict<std::string>(obj, dict, keys[i])) continue;
+    if (AddToDict<ExplicitBitVect>(obj, dict, keys[i])) continue;
   }
   return dict;
 }
