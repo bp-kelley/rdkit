@@ -4853,6 +4853,19 @@ M  END"""
     res = m.GetSubstructMatches(sma)
     self.assertEqual(res, ((0,),(1,)))
 
+  def testSetQuery(self):
+    pat = Chem.MolFromSmarts("[C]")
+    self.assertFalse(Chem.MolFromSmiles("c1ccccc1").HasSubstructMatch(pat))
+
+    q = rdqueries.AtomNumEqualsQueryAtom(6)
+    for atom in pat.GetAtoms():
+      atom.SetQuery(q)
+
+    self.assertTrue(Chem.MolFromSmiles("c1ccccc1").HasSubstructMatch(pat))
+
+  def testGitHub1985(self):
+    # simple check
+    Chem.MolToSmarts(Chem.MolFromSmarts("[C@]"))
 
     
 if __name__ == '__main__':
