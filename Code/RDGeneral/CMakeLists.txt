@@ -53,6 +53,7 @@ rdkit_headers(Exceptions.h
               LocaleSwitcher.h
               Ranking.h
               hanoiSort.h
+              rwlock.h
               DEST RDGeneral)
 if (NOT RDK_INSTALL_INTREE)
   install(DIRECTORY hash DESTINATION ${RDKit_HdrDir}/RDGeneral/hash

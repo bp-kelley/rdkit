@@ -8,7 +8,7 @@ it's intended to be shallow, but broad
 
 """
 from __future__ import print_function
-import os, sys, tempfile, gzip
+import os, sys, tempfile, gzip, uuid
 import unittest, doctest
 from rdkit import RDConfig, rdBase
 from rdkit import DataStructs
@@ -4598,6 +4598,19 @@ M  END"""
     Chem.WedgeBond(m.GetBondWithIdx(0),1,m.GetConformer())
     self.assertEqual(m.GetBondWithIdx(0).GetBondDir(),Chem.BondDir.BEGINWEDGE)
 
+  def testRWLock(self):
+    s = str(uuid.uuid1())
+    lock = Chem.SharedLock(s)
+    
+    # need the blocks so that the lock gets released
+    
+    if 1:
+        Chem.ScopedReadLock(s)
+        Chem.ScopedReadLock(s)
+        Chem.ScopedReadLock(s)
+    if 1:
+        Chem.ScopedWriteLock(s)
+    
 
 if __name__ == '__main__':
   if "RDTESTCASE" in os.environ:
