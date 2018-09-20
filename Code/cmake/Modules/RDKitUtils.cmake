@@ -46,7 +46,7 @@ macro(rdkit_library)
      VERSION_MINOR ${RDKit_Month}
      VERSION_PATCH ""
      VERSION_REVISION ${RDKit_Revision}
-     FILE_DESCRIPTION "RDKit dll ${RDKLIB_NAME} ${RDKIT_MSVC_VERSION}"
+     FILE_DESCRIPTION "RDKit dll ${RDKLIB_NAME} ${RDK_WINDOWS_DLLNAME_PREFIX}"
     )
     	      
     add_library(${RDKLIB_NAME} ${RDKLIB_SOURCES}
