@@ -4930,12 +4930,21 @@ width='200px' height='200px' >
       bv = atom.GetExplicitBitVectProp("prop")
       self.assertTrue(bv.GetBit(atom.GetIdx()))
 >>>>>>> Rebase with smarts bug fix
+<<<<<<< Updated upstream
 
   def testBitVectQuery(self):
     bv = DataStructs.ExplicitBitVect(4)
     bv.SetBit(0)
     bv.SetBit(2)
 
+=======
+
+  def testBitVectQuery(self):
+    bv = DataStructs.ExplicitBitVect(4)
+    bv.SetBit(0)
+    bv.SetBit(2)
+
+>>>>>>> Stashed changes
     # wow, what a mouthfull..
     qa = rdqueries.HasBitVectPropWithValueQueryAtom("prop", bv, tolerance=0.0)
 
@@ -4947,6 +4956,9 @@ width='200px' height='200px' >
     l = tuple([x.GetIdx() for x in m.GetAtomsMatchingQuery(qa)])
     self.assertEqual(l, (0,))
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
     m = Chem.MolFromSmiles("CC")
@@ -4986,6 +4998,7 @@ width='200px' height='200px' >
     self.assertEqual(res, ((0,),(1,)))
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   def testSetQuery(self):
     pat = Chem.MolFromSmarts("[C]")
     self.assertFalse(Chem.MolFromSmiles("c1ccccc1").HasSubstructMatch(pat))
@@ -4999,6 +5012,8 @@ width='200px' height='200px' >
   def testGitHub1985(self):
     # simple check
     Chem.MolToSmarts(Chem.MolFromSmarts("[C@]"))
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 
