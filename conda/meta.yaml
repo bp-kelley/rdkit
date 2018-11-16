@@ -20,10 +20,10 @@ requirements:
     - boost-cpp ==1.67.0
     - py-boost ==1.67.0
     - python
+    - numpy {{ '%s.*' % (environ.get('NPY_VER') or '1.11') }}    
     - numpy ==1.12
     - pillow
     - freetype
-    - nox [linux]
     - cairo ==1.14.6 [linux]
     - cairo [not linux]
     - pkg-config [unix]
@@ -35,7 +35,8 @@ requirements:
     - python
     - pillow
     - pandas
-    - numpy >=1.12
+    - numpy {{ '%s.*' % (environ.get('NPY_VER') or '1.11') }}
+
 test:
   imports:
     - rdkit
