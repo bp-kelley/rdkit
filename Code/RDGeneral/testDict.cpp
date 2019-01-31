@@ -591,7 +591,7 @@ void testUpdate() {
     TEST_ASSERT(d.getVal<std::string>("foo") == d2.getVal<std::string>("foo"));
     TEST_ASSERT(d.getVal<double>("foo2") == d2.getVal<double>("foo2"));
     TEST_ASSERT(d.getVal<std::vector<int>>("foo3") ==
-               ` d2.getVal<std::vector<int>>("foo3"));
+		d2.getVal<std::vector<int>>("foo3"));
   }
 
   {  // a few tests to make sure copying/updating with nonPOD data is ok
