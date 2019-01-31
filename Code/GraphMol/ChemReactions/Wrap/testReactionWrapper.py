@@ -709,6 +709,20 @@ M  END
     
     prods = rxn.RunReactants([m],1)
     self.assertEqual(len(prods), 1)
+
+  def testProductProps(self):
+    rxn = rdChemReactions.ReactionFromSmarts("[C:1][N:2]O>>[C:1][N:2]")
+    mol = Chem.MolFromSmiles("CNO")
+    for atom in mol.GetAtoms():
+      atom.SetProp(str(atom.GetIdx()), str(atom.GetIdx()))
+
+    prods = rxn.RunReactants([mol])
+    res = {}
+    for atom in prods[0][0].GetAtoms():
+      res.update(atom.GetPropsAsDict())
+    self.assertEqual(res['0'], 0)
+    self.assertEqual(res['1'], 1)
+    
     
 if __name__ == '__main__':
   unittest.main(verbosity=True)

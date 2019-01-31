@@ -322,7 +322,7 @@ ReactantProductAtomMapping *getAtomMappingsReactantProduct(
     boost::tie(firstB, lastB) = reactantTemplate.getEdges();
     while (firstB != lastB) {
       const Bond *bond = reactantTemplate[*firstB];
-      // this will put in pairs with 0s for things that aren't mapped, but we
+     // this will put in pairs with 0s for things that aren't mapped, but we
       // don't care about that
       int a1mapidx = bond->getBeginAtom()->getAtomMapNum();
       int a2mapidx = bond->getEndAtom()->getAtomMapNum();
@@ -482,6 +482,13 @@ void setReactantAtomPropertiesToProduct(Atom *productAtom,
   if (reactantAtom.getMonomerInfo()) {
     productAtom->setMonomerInfo(reactantAtom.getMonomerInfo()->copy());
   }
+
+  // Copy over user data from the reactants
+  const bool preserveExisting = true;
+  const bool includePrivate = false;
+  const bool includeComputed = false;
+  productAtom->updateProps(reactantAtom,
+			   preserveExisting, includePrivate, includeComputed);
 }
 
 void setNewProductBond(const Bond &origB, RWMOL_SPTR product,
@@ -514,6 +521,12 @@ void addMissingProductAtom(const Atom &reactAtom, unsigned reactNeighborIdx,
   unsigned reactAtomIdx = reactAtom.getIdx();
   newAtom->setProp<unsigned int>(common_properties::reactantAtomIdx,
                                  reactAtomIdx);
+  // Copy over user data from the reactants
+  const bool preserveExisting = true;
+  const bool includePrivate = false;
+  const bool includeComputed = false;
+  newAtom->updateProps(reactAtom, 
+  		       preserveExisting, includePrivate, includeComputed);
   unsigned productIdx = product->addAtom(newAtom, false, true);
   mapping->reactProdAtomMap[reactAtomIdx].push_back(productIdx);
   mapping->prodReactAtomMap[productIdx] = reactAtomIdx;

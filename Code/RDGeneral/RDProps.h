@@ -153,8 +153,24 @@ class RDProps {
     \param preserve  Existing If true keep existing data, else override from the
     source
   */
-  void updateProps(const RDProps &source, bool preserveExisting = false) {
-    dp_props.update(source.getDict(), preserveExisting);
+  void updateProps(const RDProps &source, bool preserveExisting = false,
+                   bool includePrivate = true, bool includeComputed = true) {
+    if (includePrivate && includeComputed) {
+      // copy everything
+      dp_props.update(source.getDict(), preserveExisting);
+    } else {
+      // The easiest way is to make a dict copy with only the items we want
+      // suboptimal, but easy
+      Dict d(source.getDict());
+      STR_VECT all = source.getPropList(includePrivate, includeComputed);
+      STR_VECT names = source.getPropList(includePrivate, includeComputed);
+      for(auto propname: all) {
+        if(std::find(names.begin(), names.end(), propname) == names.end()) {
+          d.clearVal(propname);
+        }
+      }
+      dp_props.update(d, preserveExisting);
+    }
   }
 };
 }

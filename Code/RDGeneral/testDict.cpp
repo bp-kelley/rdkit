@@ -591,7 +591,7 @@ void testUpdate() {
     TEST_ASSERT(d.getVal<std::string>("foo") == d2.getVal<std::string>("foo"));
     TEST_ASSERT(d.getVal<double>("foo2") == d2.getVal<double>("foo2"));
     TEST_ASSERT(d.getVal<std::vector<int>>("foo3") ==
-                d2.getVal<std::vector<int>>("foo3"));
+               ` d2.getVal<std::vector<int>>("foo3"));
   }
 
   {  // a few tests to make sure copying/updating with nonPOD data is ok
@@ -629,6 +629,40 @@ void testUpdate() {
       TEST_ASSERT(d.getVal<double>("foo2") == d2.getVal<double>("foo2"));
       TEST_ASSERT(d.getVal<std::vector<int>>("foo3") ==
                   d2.getVal<std::vector<int>>("foo3"));
+    }
+
+    // Test RDProps interface (private, computed)
+    {
+      RDProps p;
+      p.setProp<int>("_foo", 1);
+      p.setProp<int>("foo", 1);
+      p.setProp<int>("computed", 1, true);
+      p.setProp<std::string>("_bar", "_bar");
+      p.setProp<std::string>("bar", "_bar");
+      
+      RDProps dst1;
+      dst1.updateProps(p);
+      TEST_ASSERT(1 == dst1.getProp<int>("foo"));
+      TEST_ASSERT(1 == dst1.getProp<int>("_foo"));
+      TEST_ASSERT(1 == dst1.getProp<int>("computed"));
+      TEST_ASSERT(dst1.getProp<std::string>("_bar") == "_bar");
+      TEST_ASSERT(dst1.getProp<std::string>("bar") == "bar");
+
+      RDProps dst2;
+      dst2.updateProps(p, false, false, true); // drop private
+      TEST_ASSERT(1 == dst2.getProp<int>("foo"));
+      TEST_ASSERT(false == dst2.hasProp<int>("_foo"));
+      TEST_ASSERT(1 == dst2.getProp<int>("computed"));
+      TEST_ASSERT(false == dst2.hasProp("_bar"));
+      TEST_ASSERT(dst2.getProp<std::string>("bar") == "bar");
+
+      RDProps dst3;
+      dst3.updateProps(p, false, false, false); // drop private and computed
+      TEST_ASSERT(1 == dst3.getProp<int>("foo"));
+      TEST_ASSERT(false == dst3.hasProp<int>("_foo"));
+      TEST_ASSERT(false == dst3.hasProp("computed"));
+      TEST_ASSERT(false == dst3.hasProp("_bar"));
+      TEST_ASSERT(dst3.getProp<std::string>("bar") == "bar");
     }
   }
   BOOST_LOG(rdErrorLog) << "\tdone" << std::endl;
