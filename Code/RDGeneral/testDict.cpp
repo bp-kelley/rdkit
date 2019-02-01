@@ -15,6 +15,7 @@
 #include <RDGeneral/Invariant.h>
 #include <RDGeneral/RDAny.h>
 #include <RDGeneral/Dict.h>
+#include <RDGeneral/RDProps.h>
 #include <RDGeneral/RDLog.h>
 #include <RDGeneral/utils.h>
 #include <boost/shared_ptr.hpp>
@@ -638,7 +639,7 @@ void testUpdate() {
       p.setProp<int>("foo", 1);
       p.setProp<int>("computed", 1, true);
       p.setProp<std::string>("_bar", "_bar");
-      p.setProp<std::string>("bar", "_bar");
+      p.setProp<std::string>("bar", "bar");
       
       RDProps dst1;
       dst1.updateProps(p);
@@ -651,7 +652,7 @@ void testUpdate() {
       RDProps dst2;
       dst2.updateProps(p, false, false, true); // drop private
       TEST_ASSERT(1 == dst2.getProp<int>("foo"));
-      TEST_ASSERT(false == dst2.hasProp<int>("_foo"));
+      TEST_ASSERT(false == dst2.hasProp("_foo"));
       TEST_ASSERT(1 == dst2.getProp<int>("computed"));
       TEST_ASSERT(false == dst2.hasProp("_bar"));
       TEST_ASSERT(dst2.getProp<std::string>("bar") == "bar");
@@ -659,7 +660,7 @@ void testUpdate() {
       RDProps dst3;
       dst3.updateProps(p, false, false, false); // drop private and computed
       TEST_ASSERT(1 == dst3.getProp<int>("foo"));
-      TEST_ASSERT(false == dst3.hasProp<int>("_foo"));
+      TEST_ASSERT(false == dst3.hasProp("_foo"));
       TEST_ASSERT(false == dst3.hasProp("computed"));
       TEST_ASSERT(false == dst3.hasProp("_bar"));
       TEST_ASSERT(dst3.getProp<std::string>("bar") == "bar");

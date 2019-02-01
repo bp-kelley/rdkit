@@ -162,7 +162,7 @@ class RDProps {
       // The easiest way is to make a dict copy with only the items we want
       // suboptimal, but easy
       Dict d(source.getDict());
-      STR_VECT all = source.getPropList(includePrivate, includeComputed);
+      STR_VECT all = source.getPropList(true, true);
       STR_VECT names = source.getPropList(includePrivate, includeComputed);
       for(auto propname: all) {
         if(std::find(names.begin(), names.end(), propname) == names.end()) {
