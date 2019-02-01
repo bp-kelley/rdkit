@@ -433,6 +433,19 @@ void checkProductChirality(Atom::ChiralType reactantChirality,
 void setReactantAtomPropertiesToProduct(Atom *productAtom,
                                         const Atom &reactantAtom,
                                         bool setImplicitProperties) {
+  // Copy over user data from the reactants
+  //   molAtomMapNum is not considered private, so we need to
+  //   deal with this manually
+  const bool preserveExisting = true;
+  const bool includePrivate = false;
+  const bool includeComputed = false;
+  RDProps props(reactantAtom);
+  if(props.hasProp(common_properties::molAtomMapNumber)) {
+    props.clearProp(common_properties::molAtomMapNumber);
+  }
+  productAtom->updateProps(props,
+  			   preserveExisting, includePrivate, includeComputed);
+
   // which properties need to be set from the reactant?
   if (productAtom->getAtomicNum() <= 0 ||
       productAtom->hasProp(common_properties::_MolFileAtomQuery)) {
@@ -483,12 +496,6 @@ void setReactantAtomPropertiesToProduct(Atom *productAtom,
     productAtom->setMonomerInfo(reactantAtom.getMonomerInfo()->copy());
   }
 
-  // Copy over user data from the reactants
-  const bool preserveExisting = true;
-  const bool includePrivate = false;
-  const bool includeComputed = false;
-  productAtom->updateProps(reactantAtom,
-			   preserveExisting, includePrivate, includeComputed);
 }
 
 void setNewProductBond(const Bond &origB, RWMOL_SPTR product,
