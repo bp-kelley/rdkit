@@ -24,7 +24,7 @@
 #include <RDGeneral/RDLog.h>
 #include <RDGeneral/Exceptions.h>
 #include <DataStructs/SparseIntVect.h>
-
+#include <DataStructs/DatastructsStreamOps.h>
 #include <stdlib.h>
 
 using namespace std;
@@ -1392,6 +1392,27 @@ void test15BitmapOps() {
   }
 }
 
+void test16BitVectProps() {
+  ExplicitBitVect bv(32);
+  for(int i=0;i<32;i+=2){
+    bv.setBit(i);
+  }
+    
+  Dict d;
+  d.setVal<ExplicitBitVect>("exp", bv);
+  RDValue &value = d.getData()[0].val;
+  
+  DataStructsExplicitBitVectPropHandler handler;
+  TEST_ASSERT(handler.canSerialize(value));
+  RDValue bad_value = 1;
+  TEST_ASSERT(!handler.canSerialize(bad_value));
+  std::stringstream ss;
+  TEST_ASSERT(handler.write(ss, value));
+  RDValue newValue;
+  TEST_ASSERT(handler.read(ss, value));
+}
+
+
 int main() {
   RDLog::InitLogs();
   try {
@@ -1491,5 +1512,9 @@ int main() {
                        << std::endl;
   test15BitmapOps();
 
+  BOOST_LOG(rdInfoLog) << " Test bitmaps as properties "
+                          "-------------------------------"
+                       << std::endl;
+  test16BitVectProps();
   return 0;
 }
