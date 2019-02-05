@@ -535,6 +535,7 @@ inline bool streamReadProp(std::istream &ss, Dict::Pair &pair,
         for(auto &handler: handlers) {
           if(handler.getPropName() == propType) {
             handler.read(ss, pair.val);
+            dictHasNonPod = true;
             return true;
           }
         }
