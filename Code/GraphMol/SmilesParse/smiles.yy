@@ -20,8 +20,7 @@
 #define YYDEBUG 1
 #include "smiles.tab.hpp"
 
-extern int yysmiles_lex(YYSTYPE *,void *);
-
+extern int yysmiles_lex(YYSTYPE *,void *,int &);
 
 using namespace RDKit;
 namespace {
@@ -37,8 +36,20 @@ namespace {
 void
 yysmiles_error( const char *input,
                 std::vector<RDKit::RWMol *> *ms,
+                RDKit::Atom* &lastAtom,
+                RDKit::Bond* &lastBond,
                 std::list<unsigned int> *branchPoints,
-		void *scanner,const char * msg )
+		void *scanner,int start_token, const char * msg )
+{
+  yyErrorCleanup(ms);
+  throw RDKit::SmilesParseException(msg);
+}
+
+void
+yysmiles_error( const char *input,
+                std::vector<RDKit::RWMol *> *ms,
+                std::list<unsigned int> *branchPoints,
+		void *scanner,int start_token, const char * msg )
 {
   yyErrorCleanup(ms);
   throw RDKit::SmilesParseException(msg);
@@ -47,12 +58,21 @@ yysmiles_error( const char *input,
 
 %}
 
-%define api.pure
+%define api.pure full
 %lex-param   {yyscan_t *scanner}
+%lex-param   {int& start_token}
 %parse-param {const char *input}
 %parse-param {std::vector<RDKit::RWMol *> *molList}
+%parse-param {RDKit::Atom* &lastAtom}
+%parse-param {RDKit::Bond* &lastBond}
 %parse-param {std::list<unsigned int> *branchPoints}
 %parse-param {void *scanner}
+%parse-param {int& start_token}
+
+%code provides {
+#define YY_DECL int yylex \
+               (YYSTYPE * yylval_param , yyscan_t yyscanner, int& start_token)
+}
 
 %union {
   int                      moli;
@@ -61,35 +81,71 @@ yysmiles_error( const char *input,
   int                      ival;
 }
 
+%token START_MOL START_ATOM START_BOND;
 %token <atom> AROMATIC_ATOM_TOKEN ATOM_TOKEN ORGANIC_ATOM_TOKEN
 %token <ival> NONZERO_DIGIT_TOKEN ZERO_TOKEN
 %token GROUP_OPEN_TOKEN GROUP_CLOSE_TOKEN SEPARATOR_TOKEN LOOP_CONNECTOR_TOKEN
 %token MINUS_TOKEN PLUS_TOKEN CHIRAL_MARKER_TOKEN CHI_CLASS_TOKEN CHI_CLASS_OH_TOKEN
 %token H_TOKEN AT_TOKEN PERCENT_TOKEN COLON_TOKEN HASH_TOKEN
 %token <bond> BOND_TOKEN
-%type <moli> cmpd mol
+%type <moli> mol
 %type <atom> atomd element chiral_element h_element charge_element simple_atom
+%type <bond> bondd
 %type <ival>  nonzero_number number ring_number digit
 %token ATOM_OPEN_TOKEN ATOM_CLOSE_TOKEN
 %token EOS_TOKEN
 
+%destructor { delete $$; } AROMATIC_ATOM_TOKEN ATOM_TOKEN ORGANIC_ATOM_TOKEN
+%destructor { delete $$; } <bond>
+
+%start meta_start
+
 %%
 
 /* --------------------------------------------------------------- */
-cmpd: mol
-| cmpd error EOS_TOKEN{
-  yyclearin;
+meta_start:
+START_MOL mol {
+// the molList has already been updated, no need to do anything
+}
+| START_ATOM atomd EOS_TOKEN {
+  lastAtom = $2;
+  YYACCEPT;
+}
+| START_ATOM bad_atom_def {
+  YYABORT;
+}
+| START_BOND bondd EOS_TOKEN {
+  lastBond = $2;
+  YYACCEPT;
+}
+| START_BOND bondd {
+  delete $2;
+  YYABORT;
+}
+| START_BOND {
+  YYABORT;
+}
+| meta_start error EOS_TOKEN{
   yyerrok;
   yyErrorCleanup(molList);
   YYABORT;
 }
-| cmpd EOS_TOKEN {
+| meta_start EOS_TOKEN {
   YYACCEPT;
 }
 | error EOS_TOKEN {
-  yyclearin;
   yyerrok;
   yyErrorCleanup(molList);
+  YYABORT;
+}
+;
+
+bad_atom_def:
+ATOM_OPEN_TOKEN bad_atom_def
+| ATOM_CLOSE_TOKEN bad_atom_def
+| COLON_TOKEN bad_atom_def
+| charge_element {
+  delete $1;
   YYABORT;
 }
 ;
@@ -102,8 +158,8 @@ mol: atomd {
   (*molList)[ sz ] = new RWMol();
   RDKit::RWMol *curMol = (*molList)[ sz ];
   $1->setProp(RDKit::common_properties::_SmilesStart,1);
-  curMol->addAtom($1);
-  delete $1;
+  curMol->addAtom($1, true, true);
+  //delete $1;
   $$ = sz;
 }
 
@@ -243,13 +299,19 @@ mol: atomd {
   branchPoints->push_back(atomIdx1);
 }
 | mol GROUP_CLOSE_TOKEN {
-  if(branchPoints->empty()) yyerror(input,molList,branchPoints,scanner,"extra close parentheses");
+  if(branchPoints->empty()) yyerror(input,molList,branchPoints,scanner,start_token,"extra close parentheses");
   RWMol *mp = (*molList)[$$];
   mp->setActiveAtom(branchPoints->back());
   branchPoints->pop_back();
 }
 ;
 
+/* --------------------------------------------------------------- */
+bondd:      BOND_TOKEN
+          | MINUS_TOKEN {
+          $$ = new Bond(Bond::SINGLE);
+          }
+;
 
 /* --------------------------------------------------------------- */
 atomd:	simple_atom
@@ -259,7 +321,6 @@ atomd:	simple_atom
   $$->setNoImplicit(true);
   $$->setProp(RDKit::common_properties::molAtomMapNumber,$4);
 }
-
 | ATOM_OPEN_TOKEN charge_element ATOM_CLOSE_TOKEN
 {
   $$ = $2;
@@ -275,7 +336,7 @@ charge_element:	h_element
 | h_element MINUS_TOKEN { $1->setFormalCharge(-1); }
 | h_element MINUS_TOKEN MINUS_TOKEN { $1->setFormalCharge(-2); }
 | h_element MINUS_TOKEN number { $1->setFormalCharge(-$3); }
-		;
+;
 
 /* --------------------------------------------------------------- */
 h_element:      H_TOKEN { $$ = new Atom(1); }
@@ -305,7 +366,7 @@ element:	simple_atom
 		;
 
 /* --------------------------------------------------------------- */
-simple_atom:      ORGANIC_ATOM_TOKEN
+simple_atom:       ORGANIC_ATOM_TOKEN
                 | AROMATIC_ATOM_TOKEN
                 ;
 

@@ -10,7 +10,7 @@
 //
 // There are chirality test cases spread all over the place. Many of the
 // tests here are repeats, but it's good to have everything in one place.
-#include <RDBoost/test.h>
+#include <RDGeneral/test.h>
 #include <RDGeneral/utils.h>
 #include <RDGeneral/Invariant.h>
 #include <RDGeneral/RDLog.h>
@@ -112,6 +112,7 @@ void testMol1() {
   TEST_ASSERT(cip == "R");
   MolOps::removeStereochemistry(*m);
   TEST_ASSERT(!m->getAtomWithIdx(1)->hasProp(common_properties::_CIPCode));
+  delete m;
 
   BOOST_LOG(rdInfoLog) << "done" << std::endl;
 };
@@ -269,6 +270,7 @@ void testRoundTrip() {
   TEST_ASSERT(smi == smi2);
 #endif
 
+  delete m;
   BOOST_LOG(rdInfoLog) << "done" << std::endl;
 };
 
@@ -336,6 +338,7 @@ void testMol2() {
   m->getAtomWithIdx(3)->getProp(common_properties::_CIPCode, cip);
   TEST_ASSERT(cip == "R");
 
+  delete m;
   BOOST_LOG(rdInfoLog) << "done" << std::endl;
 };
 
@@ -2757,6 +2760,23 @@ void testIssue1735() {
   BOOST_LOG(rdInfoLog) << "done" << std::endl;
 }
 
+void testStereoGroupUpdating() {
+  BOOST_LOG(rdInfoLog) << "-----------------------------------------------------------" << std::endl;
+  BOOST_LOG(rdInfoLog) << "Are stereo groups updated when atoms and bonds are deleted?" << std::endl;
+
+  std::string rdbase = getenv("RDBASE");
+  std::string fName =
+      rdbase + "/Code/GraphMol/FileParsers/test_data/two_centers_or.mol";
+  std::unique_ptr<RWMol> m(MolFileToMol(fName));
+  TEST_ASSERT(m.get());
+
+  TEST_ASSERT(m->getStereoGroups().size() == 2);
+  m->removeAtom(3);
+  TEST_ASSERT(m->getStereoGroups().size() == 1);
+  m->removeAtom(m->getAtomWithIdx(0));
+  TEST_ASSERT(m->getStereoGroups().size() == 0u);
+}
+
 
 int main() {
   RDLog::InitLogs();
@@ -2783,10 +2803,11 @@ int main() {
   testGithub553();
   testGithub803();
   testGithub1294();
-#endif
+  #endif
   testGithub1423();
   testAssignStereochemistryFrom3D();
   testDoubleBondStereoInRings();
   testIssue1735();
+  testStereoGroupUpdating();
   return 0;
 }

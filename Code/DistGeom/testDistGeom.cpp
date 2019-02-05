@@ -9,7 +9,7 @@
 //  of the RDKit source tree.
 //
 
-#include <RDBoost/test.h>
+#include <RDGeneral/test.h>
 #include "BoundsMatrix.h"
 #include "TriangleSmooth.h"
 #include <iostream>
@@ -117,6 +117,9 @@ void testIssue216() {
       ptj -= pti;
       CHECK_INVARIANT(RDKit::feq(ptj.length(), 1.0, 0.02), "");
     }
+  }
+  for (int i = 0; i < 4; i++) {
+    delete pos[i];
   }
 }
 int main() {

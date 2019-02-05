@@ -36,7 +36,8 @@ class TestCase(unittest.TestCase):
     self.failUnless(fNames[1] == 'HBondAcceptor')
 
     mol = Chem.MolFromSmiles("COCN")
-    rdDistGeom.EmbedMolecule(mol, 30, 100)
+    rdDistGeom.EmbedMolecule(mol, 30, 100, useExpTorsionAnglePrefs=False,
+                            useBasicKnowledge=False)
 
     self.failUnless(cfac.GetNumMolFeatures(mol) == 3)
     for i in range(cfac.GetNumMolFeatures(mol)):
@@ -53,18 +54,17 @@ class TestCase(unittest.TestCase):
 
     positions = [[1.3041, -0.6079, 0.0924], [-0.7066, 0.5994, 0.1824], [1.3041, -0.6079, 0.0924]]
     targetAids = [[3], [1], [3]]
-    i = 0
-    for feat in feats:
-      self.failUnless(feat.GetFamily() == fTypes[i])
+    for i,feat in enumerate(feats):
+      self.assertEqual(feat.GetFamily(),fTypes[i])
       pos = list(feat.GetPos())
       aids = list(feat.GetAtomIds())
-      self.failUnless(aids == targetAids[i])
-      self.failUnless(lstFeq(pos, positions[i]))
+      self.assertEqual(aids,targetAids[i])
+      self.assertTrue(lstFeq(pos, positions[i]))
       nmol = feat.GetMol()
-      self.failUnless(Chem.MolToSmiles(nmol) == "COCN")
+      self.assertEqual(Chem.MolToSmiles(nmol),"COCN")
       ncfac = feat.GetFactory()
-      self.failUnless(ncfac.GetNumFeatureDefs() == 2)
-      i += 1
+      self.assertEqual(ncfac.GetNumFeatureDefs(), 2)
+      self.assertEqual(feat.GetActiveConformer(),-1)
 
   def testIncludeOnly(self):
     cfac = ChemicalFeatures.BuildFeatureFactory(

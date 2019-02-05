@@ -7,7 +7,7 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-#include <RDBoost/test.h>
+#include <RDGeneral/test.h>
 #include <string>
 #include <GraphMol/RDKitBase.h>
 #include "SmilesParse.h"
@@ -99,6 +99,8 @@ void testAtomLabels() {
     TEST_ASSERT(m->getAtomWithIdx(5)->getProp<std::string>(
                     common_properties::atomLabel) == "_AP2");
     TEST_ASSERT(m->getAtomWithIdx(5)->getAtomMapNum() == 2);
+
+    delete m;
   }
   {  // query properties
     std::string smiles = "**C |$Q_e;QH_p;;$|";

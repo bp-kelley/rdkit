@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2003-2015 Greg Landrum and Rational Discovery LLC
+//  Copyright (C) 2003-2018 Greg Landrum and Rational Discovery LLC
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -33,10 +33,12 @@
 #include <RDGeneral/RDProps.h>
 #include "Atom.h"
 #include "Bond.h"
-
 #include "Conformer.h"
+#include "Sgroup.h"
+#include "StereoGroup.h"
 
 namespace RDKit {
+class SGroup;
 class Atom;
 class Bond;
 //! This is the BGL type used to store the topology:
@@ -367,12 +369,15 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
   };
   //! returns the first Atom associated with the \c bookmark provided
   Atom *getAtomWithBookmark(int mark);
+  //! returns the Atom associated with the \c bookmark provided
+  //! a check is made to ensure it is the only atom with that bookmark
+  Atom *getUniqueAtomWithBookmark(int mark);
   //! returns all Atoms associated with the \c bookmark provided
   ATOM_PTR_LIST &getAllAtomsWithBookmark(int mark);
   //! removes a \c bookmark from our collection
-  void clearAtomBookmark(const int mark);
+  void clearAtomBookmark(int mark);
   //! removes a particular Atom from the list associated with the \c bookmark
-  void clearAtomBookmark(const int mark, const Atom *atom);
+  void clearAtomBookmark(int mark, const Atom *atom);
 
   //! blows out all atomic \c bookmarks
   void clearAllAtomBookmarks() { d_atomBookmarks.clear(); };
@@ -387,6 +392,9 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
   };
   //! returns the first Bond associated with the \c bookmark provided
   Bond *getBondWithBookmark(int mark);
+  //! returns the Bond associated with the \c bookmark provided
+  //! a check is made to ensure it is the only bond with that bookmark
+  Bond *getUniqueBondWithBookmark(int mark);
   //! returns all bonds associated with the \c bookmark provided
   BOND_PTR_LIST &getAllBondsWithBookmark(int mark);
   //! removes a \c bookmark from our collection
@@ -435,8 +443,6 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
   inline unsigned int getNumConformers() const {
     return rdcast<unsigned int>(d_confs.size());
   }
-
-  //@}
 
   //! \name Topology
   //@{
@@ -648,12 +654,28 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
   Bond *operator[](const edge_descriptor &e) { return d_graph[e]; };
   const Bond *operator[](const edge_descriptor &e) const { return d_graph[e]; };
 
+  //! Gets a reference to the groups of atoms with relative stereochemistry
+  /*!
+    Stereo groups are also called enhanced stereochemistry in the SDF/Mol3000
+    file format.
+  */
+  const std::vector<StereoGroup> &getStereoGroups() const {
+    return d_stereo_groups;
+  }
+
  private:
   MolGraph d_graph;
   ATOM_BOOKMARK_MAP d_atomBookmarks;
   BOND_BOOKMARK_MAP d_bondBookmarks;
   RingInfo *dp_ringInfo;
   CONF_SPTR_LIST d_confs;
+  std::vector<SGroup> d_sgroups;
+  friend RDKIT_GRAPHMOL_EXPORT std::vector<SGroup> &getSGroups(ROMol &);
+  friend RDKIT_GRAPHMOL_EXPORT const std::vector<SGroup> &getSGroups(
+      const ROMol &);
+  void clearSGroups() { d_sgroups.clear(); }
+  std::vector<StereoGroup> d_stereo_groups;
+
   ROMol &operator=(
       const ROMol &);  // disable assignment, RWMol's support assignment
 
@@ -687,6 +709,15 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
     \return the new number of bonds
   */
   unsigned int addBond(Bond *bond, bool takeOwnership = false);
+
+  //! Sets groups of atoms with relative stereochemistry
+  /*!
+    \param stereo_groups the new set of stereo groups. All will be replaced.
+
+    Stereo groups are also called enhanced stereochemistry in the SDF/Mol3000
+    file format. stereo_groups should be std::move()ed into this function.
+  */
+  void setStereoGroups(std::vector<StereoGroup> stereo_groups);
   //! adds a Bond to our collection
   /*!
     \param bond          pointer to the Bond to add
@@ -708,5 +739,5 @@ typedef std::vector<ROMOL_SPTR> MOL_SPTR_VECT;
 typedef MOL_PTR_VECT::const_iterator MOL_PTR_VECT_CI;
 typedef MOL_PTR_VECT::iterator MOL_PTR_VECT_I;
 
-};  // end of RDKit namespace
+};  // namespace RDKit
 #endif

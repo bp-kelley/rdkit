@@ -1,6 +1,5 @@
-// $Id$
 //
-//  Copyright (C) 2003-2013 Greg Landrum and Rational Discovery LLC
+//  Copyright (C) 2003-2018 Greg Landrum and Rational Discovery LLC
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -18,22 +17,22 @@
 #include <set>
 #include <algorithm>
 #include <boost/dynamic_bitset.hpp>
-#include <boost/cstdint.hpp>
+#include <cstdint>
 #include <RDGeneral/hash/hash.hpp>
 
-typedef std::set<boost::uint32_t> RINGINVAR_SET;
+typedef std::set<std::uint32_t> RINGINVAR_SET;
 typedef RINGINVAR_SET::const_iterator RINGINVAR_SET_CI;
-typedef std::vector<boost::uint32_t> RINGINVAR_VECT;
+typedef std::vector<std::uint32_t> RINGINVAR_VECT;
 
 namespace RingUtils {
 const size_t MAX_BFSQ_SIZE = 200000;  // arbitrary huge value
 
 using namespace RDKit;
 
-boost::uint32_t computeRingInvariant(INT_VECT ring, unsigned int nAtoms) {
+std::uint32_t computeRingInvariant(INT_VECT ring, unsigned int nAtoms) {
   RDUNUSED_PARAM(nAtoms);
   std::sort(ring.begin(), ring.end());
-  boost::uint32_t res = gboost::hash_range(ring.begin(), ring.end());
+  std::uint32_t res = gboost::hash_range(ring.begin(), ring.end());
   return res;
 }
 
@@ -137,7 +136,7 @@ void pickD2Nodes(const ROMol &tMol, INT_VECT &d2nodes, const INT_VECT &currFrag,
   typedef DOUBLE_INT_VECT_MAP::iterator DOUBLE_INT_VECT_MAP_I;
   typedef DOUBLE_INT_VECT_MAP::const_iterator DOUBLE_INT_VECT_MAP_CI;
 #else
-typedef std::map<boost::uint32_t, INT_VECT> RINGINVAR_INT_VECT_MAP;
+typedef std::map<std::uint32_t, INT_VECT> RINGINVAR_INT_VECT_MAP;
 typedef RINGINVAR_INT_VECT_MAP::iterator RINGINVAR_INT_VECT_MAP_I;
 typedef RINGINVAR_INT_VECT_MAP::const_iterator RINGINVAR_INT_VECT_MAP_CI;
 #endif
@@ -178,7 +177,7 @@ void findSSSRforDupCands(const ROMol &mol, VECT_INT_VECT &res,
 
       for (VECT_INT_VECT_CI nri = nrings.begin(); nri != nrings.end(); ++nri) {
         if (nri->size() == minSiz) {
-          boost::uint32_t invr =
+          std::uint32_t invr =
               RingUtils::computeRingInvariant(*nri, mol.getNumAtoms());
           if (invars.find(invr) == invars.end()) {
             res.push_back((*nri));
@@ -333,7 +332,7 @@ void findRingsD2nodes(const ROMol &tMol, VECT_INT_VECT &res,
     smallestRingsBfs(tMol, cand, srings, activeBonds);
     for (VECT_INT_VECT_CI sri = srings.begin(); sri != srings.end(); ++sri) {
       const INT_VECT &nring = (*sri);
-      boost::uint32_t invr =
+      std::uint32_t invr =
           RingUtils::computeRingInvariant(nring, tMol.getNumAtoms());
       if (invars.find(invr) == invars.end()) {
         res.push_back(nring);
@@ -422,7 +421,7 @@ void findRingsD3Node(const ROMol &tMol, VECT_INT_VECT &res,
 
   for (VECT_INT_VECT_CI sri = srings.begin(); sri != srings.end(); ++sri) {
     const INT_VECT &nring = (*sri);
-    boost::uint32_t invr =
+    std::uint32_t invr =
         RingUtils::computeRingInvariant(nring, tMol.getNumAtoms());
     if (invars.find(invr) == invars.end()) {
       res.push_back(nring);
@@ -480,7 +479,7 @@ void findRingsD3Node(const ROMol &tMol, VECT_INT_VECT &res,
       smallestRingsBfs(tMol, cand, trings, activeBonds, &forb);
       for (VECT_INT_VECT_CI sri = trings.begin(); sri != trings.end(); ++sri) {
         const INT_VECT &nring = (*sri);
-        boost::uint32_t invr =
+        std::uint32_t invr =
             RingUtils::computeRingInvariant(nring, tMol.getNumAtoms());
 
         if (invars.find(invr) == invars.end()) {
@@ -519,7 +518,7 @@ void findRingsD3Node(const ROMol &tMol, VECT_INT_VECT &res,
       smallestRingsBfs(tMol, cand, trings, activeBonds, &forb);
       for (VECT_INT_VECT_CI sri = trings.begin(); sri != trings.end(); ++sri) {
         const INT_VECT &nring = (*sri);
-        boost::uint32_t invr =
+        std::uint32_t invr =
             RingUtils::computeRingInvariant(nring, tMol.getNumAtoms());
         if (invars.find(invr) == invars.end()) {
           res.push_back(nring);
@@ -534,7 +533,7 @@ void findRingsD3Node(const ROMol &tMol, VECT_INT_VECT &res,
       smallestRingsBfs(tMol, cand, trings, activeBonds, &forb);
       for (VECT_INT_VECT_CI sri = trings.begin(); sri != trings.end(); ++sri) {
         const INT_VECT &nring = (*sri);
-        boost::uint32_t invr =
+        std::uint32_t invr =
             RingUtils::computeRingInvariant(nring, tMol.getNumAtoms());
         if (invars.find(invr) == invars.end()) {
           res.push_back(nring);
@@ -766,7 +765,7 @@ bool _atomSearchBFS(const ROMol &tMol, unsigned int startAtomIdx,
           nv.push_back(rdcast<unsigned int>(*nbrIdx));
           // make sure the ring we just found isn't already in our set
           // of rings (this was an extension of sf.net issue 249)
-          boost::uint32_t invr =
+          std::uint32_t invr =
               RingUtils::computeRingInvariant(nv, tMol.getNumAtoms());
           if (invars.find(invr) == invars.end()) {
             // we're done!
@@ -803,7 +802,7 @@ bool findRingConnectingAtoms(const ROMol &tMol, const Bond *bond,
   INT_VECT nring;
   if (_atomSearchBFS(tMol, bond->getBeginAtomIdx(), bond->getEndAtomIdx(),
                      ringAtoms, nring, invars)) {
-    boost::uint32_t invr =
+    std::uint32_t invr =
         RingUtils::computeRingInvariant(nring, tMol.getNumAtoms());
     if (invars.find(invr) == invars.end()) {
       res.push_back(nring);
@@ -1057,7 +1056,10 @@ int findSSSR(const ROMol &mol, VECT_INT_VECT &res) {
       }
       ssiz = rdcast<int>(fragRes.size());
       if (ssiz < nexpt) {
-        throw ValueErrorException("could not find number of expected rings.");
+        BOOST_LOG(rdWarningLog)<<"WARNING: could not find number of expected rings. Switching to an approximate ring finding algorithm."<<std::endl;
+        fastFindRings(mol);
+        res.clear();
+        res = mol.getRingInfo()->atomRings();
       }
     }
     // if we have more than expected we need to do some cleanup

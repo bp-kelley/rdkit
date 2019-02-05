@@ -11,12 +11,13 @@
 #ifndef _RD_SMILESPARSE_H_
 #define _RD_SMILESPARSE_H_
 
+#include <GraphMol/RWMol.h>
+#include <GraphMol/SanitException.h>
 #include <string>
 #include <exception>
 #include <map>
 
 namespace RDKit {
-class RWMol;
 
 struct RDKIT_SMILESPARSE_EXPORT SmilesParserParams {
   int debugParse;
@@ -33,7 +34,11 @@ struct RDKIT_SMILESPARSE_EXPORT SmilesParserParams {
         parseName(false),
         removeHs(true){};
 };
-RDKIT_SMILESPARSE_EXPORT RWMol *SmilesToMol(const std::string &smi, const SmilesParserParams &params);
+RDKIT_SMILESPARSE_EXPORT RWMol *SmilesToMol(const std::string &smi,
+                                            const SmilesParserParams &params);
+
+RDKIT_SMILESPARSE_EXPORT Atom *SmilesToAtom(const std::string &smi);
+RDKIT_SMILESPARSE_EXPORT Bond *SmilesToBond(const std::string &smi);
 
 //! Construct a molecule from a SMILES string
 /*!
@@ -90,9 +95,12 @@ inline RWMol *SmilesToMol(
  \return a pointer to the new molecule; the caller is responsible for free'ing
  this.
  */
-RDKIT_SMILESPARSE_EXPORT RWMol *SmartsToMol(const std::string &sma, int debugParse = 0,
-                   bool mergeHs = false,
-                   std::map<std::string, std::string> *replacements = 0);
+RDKIT_SMILESPARSE_EXPORT RWMol *SmartsToMol(
+    const std::string &sma, int debugParse = 0, bool mergeHs = false,
+    std::map<std::string, std::string> *replacements = 0);
+
+RDKIT_SMILESPARSE_EXPORT Atom *SmartsToAtom(const std::string &sma);
+RDKIT_SMILESPARSE_EXPORT Bond *SmartsToBond(const std::string &sma);
 
 class RDKIT_SMILESPARSE_EXPORT SmilesParseException : public std::exception {
  public:
@@ -104,6 +112,30 @@ class RDKIT_SMILESPARSE_EXPORT SmilesParseException : public std::exception {
  private:
   std::string _msg;
 };
+
+inline std::unique_ptr<RDKit::RWMol> operator"" _smiles(const char *text,
+                                                        size_t len) {
+  std::string smi(text, len);
+  RWMol *ptr = nullptr;
+  try {
+    ptr = SmilesToMol(smi);
+  } catch (const RDKit::MolSanitizeException &e) {
+    ptr = nullptr;
+  }
+  return std::unique_ptr<RWMol>(ptr);
 }
+inline std::unique_ptr<RDKit::RWMol> operator"" _smarts(const char *text,
+                                                        size_t len) {
+  std::string smi(text, len);
+  RWMol *ptr = nullptr;
+  try {
+    ptr = SmartsToMol(smi);
+  } catch (const RDKit::MolSanitizeException &e) {
+    ptr = nullptr;
+  }
+  return std::unique_ptr<RWMol>(ptr);
+}
+
+}  // namespace RDKit
 
 #endif

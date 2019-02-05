@@ -13,7 +13,7 @@
 #include <GraphMol/Substruct/SubstructMatch.h>
 #include <cstdlib>
 
-#include "coordgenlibs/sketcherMinimizer.h"
+#include "coordgen/sketcherMinimizer.h"
 
 namespace RDKit {
 namespace CoordGen {
@@ -62,7 +62,7 @@ unsigned int addCoords(T& mol, const CoordGenParams* params = nullptr) {
   auto min_mol = new sketcherMinimizerMolecule();
 
   // FIX: only do this check once.
-  std::cerr << "  TEMPLATES: " << templateFileDir << std::endl;
+  // std::cerr << "  TEMPLATES: " << templateFileDir << std::endl;
   if (templateFileDir != "") {
     minimizer.setTemplateFileDir(templateFileDir);
   }

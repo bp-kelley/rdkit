@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2001-2017 Greg Landrum and Rational Discovery LLC
+//  Copyright (C) 2001-2019 Greg Landrum and Rational Discovery LLC
 //  Copyright (c) 2014, Novartis Institutes for BioMedical Research Inc.
 //
 //   @@ All Rights Reserved @@
@@ -215,6 +215,9 @@ RDKIT_GRAPHMOL_EXPORT void addHs(RWMol &mol, bool explicitOnly = false,
        - Hs connected to dummy atoms will not be removed
        - Hs that are part of the definition of double bond Stereochemistry
          will not be removed
+       - Hs that are not connected to anything else will not be removed
+       - Hs that have a query defined (i.e. hasQuery() returns true) will not 
+         be removed
 
        - the caller is responsible for <tt>delete</tt>ing the pointer this
    returns.
@@ -272,22 +275,22 @@ typedef enum {
 
 struct RDKIT_GRAPHMOL_EXPORT AdjustQueryParameters {
   bool adjustDegree; /**< add degree queries */
-  boost::uint32_t adjustDegreeFlags;
+  std::uint32_t adjustDegreeFlags;
   bool adjustRingCount; /**< add ring-count queries */
-  boost::uint32_t adjustRingCountFlags;
+  std::uint32_t adjustRingCountFlags;
 
   bool makeDummiesQueries; /**< convert dummy atoms without isotope labels to
                               any-atom queries */
   bool aromatizeIfPossible;
   bool makeBondsGeneric; /**< convert bonds to generic queries (any bonds) */
-  boost::uint32_t makeBondsGenericFlags;
+  std::uint32_t makeBondsGenericFlags;
   bool makeAtomsGeneric; /**< convert atoms to generic queries (any atoms) */
-  boost::uint32_t makeAtomsGenericFlags;
+  std::uint32_t makeAtomsGenericFlags;
   bool adjustHeavyDegree; /**< adjust the heavy-atom degree instead of overall
                              degree */
-  boost::uint32_t adjustHeavyDegreeFlags;
+  std::uint32_t adjustHeavyDegreeFlags;
   bool adjustRingChain; /**< add ring-chain queries */
-  boost::uint32_t adjustRingChainFlags;
+  std::uint32_t adjustRingChainFlags;
 
   AdjustQueryParameters()
       : adjustDegree(true),
@@ -839,6 +842,7 @@ RDKIT_GRAPHMOL_EXPORT void assignChiralTypesFrom3D(
   \param replaceExistingTags  if this flag is true, any existing info about
                               stereochemistry will be replaced
 
+  If the conformer provided is not a 3D conformer, nothing will be done.
 */
 RDKIT_GRAPHMOL_EXPORT void assignStereochemistryFrom3D(
     ROMol &mol, int confId = -1, bool replaceExistingTags = true);

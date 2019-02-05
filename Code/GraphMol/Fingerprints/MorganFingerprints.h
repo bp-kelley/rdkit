@@ -45,15 +45,14 @@
 #include <map>
 #include <DataStructs/SparseIntVect.h>
 #include <DataStructs/ExplicitBitVect.h>
-#include <boost/cstdint.hpp>
+#include <cstdint>
+#include <GraphMol/Fingerprints/FingerprintUtil.h>
 
 namespace RDKit {
 class ROMol;
 namespace MorganFingerprints {
-RDKIT_FINGERPRINTS_EXPORT extern std::vector<std::string> defaultFeatureSmarts;
-
-typedef std::map<boost::uint32_t,
-                 std::vector<std::pair<boost::uint32_t, boost::uint32_t> > >
+typedef std::map<std::uint32_t,
+                 std::vector<std::pair<std::uint32_t, std::uint32_t>>>
     BitInfoMap;
 
 const std::string morganFingerprintVersion = "1.0.0";
@@ -101,10 +100,10 @@ const std::string morganFingerprintVersion = "1.0.0";
   responsible for calling delete on this.
 
 */
-RDKIT_FINGERPRINTS_EXPORT SparseIntVect<boost::uint32_t> *getFingerprint(
+RDKIT_FINGERPRINTS_EXPORT SparseIntVect<std::uint32_t> *getFingerprint(
     const ROMol &mol, unsigned int radius,
-    std::vector<boost::uint32_t> *invariants = 0,
-    const std::vector<boost::uint32_t> *fromAtoms = 0,
+    std::vector<std::uint32_t> *invariants = 0,
+    const std::vector<std::uint32_t> *fromAtoms = 0,
     bool useChirality = false, bool useBondTypes = true, bool useCounts = true,
     bool onlyNonzeroInvariants = false, BitInfoMap *atomsSettingBits = 0);
 
@@ -150,10 +149,10 @@ RDKIT_FINGERPRINTS_EXPORT SparseIntVect<boost::uint32_t> *getFingerprint(
   responsible for calling delete on this.
 
 */
-RDKIT_FINGERPRINTS_EXPORT SparseIntVect<boost::uint32_t> *getHashedFingerprint(
+RDKIT_FINGERPRINTS_EXPORT SparseIntVect<std::uint32_t> *getHashedFingerprint(
     const ROMol &mol, unsigned int radius, unsigned int nBits = 2048,
-    std::vector<boost::uint32_t> *invariants = 0,
-    const std::vector<boost::uint32_t> *fromAtoms = 0,
+    std::vector<std::uint32_t> *invariants = 0,
+    const std::vector<std::uint32_t> *fromAtoms = 0,
     bool useChirality = false, bool useBondTypes = true,
     bool onlyNonzeroInvariants = false, BitInfoMap *atomsSettingBits = 0);
 
@@ -191,43 +190,12 @@ RDKIT_FINGERPRINTS_EXPORT SparseIntVect<boost::uint32_t> *getHashedFingerprint(
 */
 RDKIT_FINGERPRINTS_EXPORT ExplicitBitVect *getFingerprintAsBitVect(
     const ROMol &mol, unsigned int radius, unsigned int nBits,
-    std::vector<boost::uint32_t> *invariants = 0,
-    const std::vector<boost::uint32_t> *fromAtoms = 0,
+    std::vector<std::uint32_t> *invariants = 0,
+    const std::vector<std::uint32_t> *fromAtoms = 0,
     bool useChirality = false, bool useBondTypes = true,
     bool onlyNonzeroInvariants = false, BitInfoMap *atomsSettingBits = 0);
 
-//! returns the connectivity invariants for a molecule
-/*!
-
-  \param mol :    the molecule to be considered
-  \param invars : used to return the results
-  \param includeRingMembership : if set, whether or not the atom is in
-             a ring will be used in the invariant list.
-*/
-RDKIT_FINGERPRINTS_EXPORT void getConnectivityInvariants(const ROMol &mol,
-                               std::vector<boost::uint32_t> &invars,
-                               bool includeRingMembership = true);
-const std::string morganConnectivityInvariantVersion = "1.0.0";
-
-//! returns the feature invariants for a molecule
-/*!
-
-  \param mol:    the molecule to be considered
-  \param invars : used to return the results
-  \param patterns: if provided should contain the queries used to assign
-  atom-types.
-                   if not provided, feature definitions adapted from reference:
-                   Gobbi and Poppinger, Biotech. Bioeng. _61_ 47-54 (1998)
-                   will be used for Donor, Acceptor, Aromatic, Halogen, Basic,
-  Acidic
-
-*/
-RDKIT_FINGERPRINTS_EXPORT void getFeatureInvariants(const ROMol &mol,
-                          std::vector<boost::uint32_t> &invars,
-                          std::vector<const ROMol *> *patterns = 0);
-const std::string morganFeatureInvariantVersion = "0.1.0";
-
 }  // end of namespace MorganFingerprints
-}
+}  // namespace RDKit
 
 #endif

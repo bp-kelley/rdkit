@@ -181,7 +181,7 @@ double calcBitmapTanimotoSml(CBfp a, CBfp b);
 double calcBitmapDiceSml(CBfp a, CBfp b);
 double calcBitmapTverskySml(CBfp a, CBfp b, float ca, float cb);
 
-/* SparseIntVect<boost::int32_t> */
+/* SparseIntVect<std::int32_t> */
 typedef void *CSfp;
 void freeCSfp(CSfp data);
 
@@ -262,6 +262,8 @@ CChemicalReaction parseChemReactCTAB(char *data, bool warnOnFail);
 char *makeChemReactBlob(CChemicalReaction data, int *len);
 char *makeChemReactText(CChemicalReaction data, int *len, bool asSmarts);
 char *makeCTABChemReact(CChemicalReaction data, int *len);
+char *ReactionGetSVG(CChemicalReaction i, unsigned int w, unsigned int h,
+                     bool highlightByReactant, const char *params);
 
 int ChemReactNumReactants(CChemicalReaction rxn);
 int ChemReactNumProducts(CChemicalReaction rxn);

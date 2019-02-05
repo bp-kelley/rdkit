@@ -611,15 +611,15 @@ ExplicitBitVect *wrapRDKFingerprintMol(
       pythonObjectToVect<unsigned int>(atomInvariants);
   std::unique_ptr<std::vector<unsigned int>> lFromAtoms =
       pythonObjectToVect(fromAtoms, mol.getNumAtoms());
-  std::vector<std::vector<boost::uint32_t>> *lAtomBits = nullptr;
-  std::map<boost::uint32_t, std::vector<std::vector<int>>> *lBitInfo = nullptr;
+  std::vector<std::vector<std::uint32_t>> *lAtomBits = nullptr;
+  std::map<std::uint32_t, std::vector<std::vector<int>>> *lBitInfo = nullptr;
   // if(!(atomBits.is_none())){
   if (atomBits != python::object()) {
     lAtomBits =
-        new std::vector<std::vector<boost::uint32_t>>(mol.getNumAtoms());
+        new std::vector<std::vector<std::uint32_t>>(mol.getNumAtoms());
   }
   if (bitInfo != python::object()) {
-    lBitInfo = new std::map<boost::uint32_t, std::vector<std::vector<int>>>;
+    lBitInfo = new std::map<std::uint32_t, std::vector<std::vector<int>>>;
   }
   ExplicitBitVect *res;
   res = RDKit::RDKFingerprintMol(mol, minPath, maxPath, fpSize, nBitsPerHash,
@@ -631,7 +631,7 @@ ExplicitBitVect *wrapRDKFingerprintMol(
     python::list &pyl = static_cast<python::list &>(atomBits);
     for (unsigned int i = 0; i < mol.getNumAtoms(); ++i) {
       python::list tmp;
-      BOOST_FOREACH (boost::uint32_t v, (*lAtomBits)[i]) { tmp.append(v); }
+      BOOST_FOREACH (std::uint32_t v, (*lAtomBits)[i]) { tmp.append(v); }
       pyl.append(tmp);
     }
     delete lAtomBits;
@@ -993,7 +993,8 @@ struct molops_wrapper {
     - Hs connected to dummy atoms will not be removed\n\
     - Hs that are part of the definition of double bond Stereochemistry\n\
       will not be removed\n\
-\n";
+    - Hs that are not connected to anything else will not be removed\n\
+\n ";
     python::def("RemoveHs",
                 (ROMol * (*)(const ROMol &, bool, bool, bool)) MolOps::removeHs,
                 (python::arg("mol"), python::arg("implicitOnly") = false,
@@ -1573,6 +1574,23 @@ struct molops_wrapper {
                 (python::arg("mol"), python::arg("cleanIt") = false,
                  python::arg("force") = false,
                  python::arg("flagPossibleStereoCenters") = false),
+                docString.c_str());
+
+    // ------------------------------------------------------------------------
+    docString =
+        "Uses a conformer (should be 3D) to assign ChiralTypes to a molecule's atoms\n\
+        and stereo flags to its bonds\n\
+\n\
+  ARGUMENTS:\n\
+\n\
+    - mol: the molecule to use\n\
+    - confId: (optional) the conformation to use \n\
+    - replaceExistingTags: (optional) replace any existing information about stereochemistry\n\
+\n";
+    python::def("AssignStereochemistryFrom3D",
+                MolOps::assignStereochemistryFrom3D,
+                (python::arg("mol"), python::arg("confId") = -1,
+                 python::arg("replaceExistingTags") = true),
                 docString.c_str());
 
     // ------------------------------------------------------------------------

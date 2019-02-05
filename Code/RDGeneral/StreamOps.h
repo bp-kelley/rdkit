@@ -488,35 +488,43 @@ inline void readRDStringVecValue(std::istream &ss, RDValue &value) {
 }
 
 inline bool streamReadProp(std::istream &ss, Dict::Pair &pair,
+                           bool& dictHasNonPod,
                            const std::vector<const CustomPropHandler> &handlers = {}) {
-
   int version=0;
   streamRead(ss, pair.key, version);
 
   unsigned char type;
   streamRead(ss, type);
   switch(type) {
-    case DTags::StringTag: readRDValueString(ss, pair.val); break;
     case DTags::IntTag: readRDValue<int>(ss, pair.val); break;
     case DTags::UnsignedIntTag: readRDValue<unsigned int>(ss, pair.val); break;
     case DTags::BoolTag: readRDValue<bool>(ss, pair.val); break;
     case DTags::FloatTag: readRDValue<float>(ss, pair.val); break;
     case DTags::DoubleTag: readRDValue<double>(ss, pair.val); break;
 
+    case DTags::StringTag:
+      readRDValueString(ss, pair.val);
+      dictHasNonPOD = true;
+      break;
     case DTags::VecStringTag:
       readRDStringVecValue(ss, pair.val);
+      dictHasNonPOD = true;
       break;
     case DTags::VecIntTag:
       readRDVecValue<int>(ss, pair.val);
+      dictHasNonPOD = true;
       break;
     case DTags::VecUIntTag:
       readRDVecValue<unsigned int>(ss, pair.val);
+      dictHasNonPOD = true;
       break;
     case DTags::VecFloatTag:
       readRDVecValue<float>(ss, pair.val);
+      dictHasNonPOD = true;
       break;
     case DTags::VecDoubleTag:
       readRDVecValue<double>(ss, pair.val);
+      dictHasNonPOD = true;
       break;
     case DTags::CustomTag:
       {
@@ -546,9 +554,10 @@ inline unsigned int streamReadProps(std::istream &ss, RDProps &props,
   streamRead(ss, count);
 
   Dict &dict = props.getDict();
+  dict.reset(); // Clear data before repopulating
   dict.getData().resize(count);
   for(unsigned index = 0; index<count; ++index) {
-    CHECK_INVARIANT(streamReadProp(ss, dict.getData()[index], handlers),
+    CHECK_INVARIANT(streamReadProp(ss, dict.getData()[index], dict.getNonPODStatus(), handlers),
                     "Corrupted property serialization detected");
   }
 

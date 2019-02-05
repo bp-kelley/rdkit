@@ -25,6 +25,21 @@ namespace RDKit {
 const int MOLFILE_MAXLINE = 256;
 RDKIT_FILEPARSERS_EXPORT std::string strip(const std::string &orig);
 
+class MolFileUnhandledFeatureException : public std::exception {
+ public:
+  //! construct with an error message
+  explicit MolFileUnhandledFeatureException(const char *msg) : _msg(msg){};
+  //! construct with an error message
+  explicit MolFileUnhandledFeatureException(const std::string msg)
+      : _msg(msg){};
+  //! get the error message
+  const char *message() const { return _msg.c_str(); };
+  ~MolFileUnhandledFeatureException() noexcept override{};
+
+ private:
+  std::string _msg;
+};
+
 //-----
 // mol files
 //-----
@@ -279,6 +294,25 @@ RDKIT_FILEPARSERS_EXPORT void MolToPDBFile(const ROMol &mol,
                                            const std::string &fname,
                                            int confId = -1,
                                            unsigned int flavor = 0);
+
+// \brief reads a molecule from the metadata in an RDKit-generated SVG file
+/*!
+ *   \param svg      - string containing the SVG
+ *   \param sanitize - toggles sanitization of the molecule
+ *   \param removeHs - toggles removal of Hs from the molecule. H removal
+ *                     is only done if the molecule is sanitized
+ *
+ *   **NOTE** This functionality should be considered beta.
+ */
+RDKIT_FILEPARSERS_EXPORT RWMol *RDKitSVGToMol(const std::string &svg,
+                                              bool sanitize = true,
+                                              bool removeHs = true);
+/*! \overload
+ */
+RDKIT_FILEPARSERS_EXPORT RWMol *RDKitSVGToMol(std::istream *instream,
+                                              bool sanitize = true,
+                                              bool removeHs = true);
+
 }  // namespace RDKit
 
 #endif

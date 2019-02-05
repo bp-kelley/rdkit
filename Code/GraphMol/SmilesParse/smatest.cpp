@@ -7,7 +7,7 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-#include <RDBoost/test.h>
+#include <RDGeneral/test.h>
 #include <iostream>
 
 #include <fstream>
@@ -154,6 +154,7 @@ void testFail() {
     } else {
       CHECK_INVARIANT(mol, smi);
     }
+    delete mol;
     i++;
   }
   BOOST_LOG(rdInfoLog) << "\tdone" << std::endl;
@@ -528,6 +529,8 @@ void testProblems() {
   _checkMatches("*-[N;H2,H1&-1,-2]", "CC([N-2])C", 1, 2);
   _checkNoMatches("*-[N;H2,H1&-1,-2]", "CC(=N)C");
   _checkNoMatches("*-[N;H2,H1&-1,-2]", "CC(NC)C");
+
+  delete matcher;
   BOOST_LOG(rdInfoLog) << "\tdone" << std::endl;
 }
 
@@ -759,6 +762,7 @@ void testSmartsWrite() {
       delete m1;
       delete m2;
     }
+    delete nmol;
     i++;
   }
   BOOST_LOG(rdInfoLog) << "\tdone" << std::endl;
@@ -785,6 +789,8 @@ void testIssue196() {
   TEST_ASSERT(mts1);
   TEST_ASSERT(mV1.size() == 2);
 
+  delete mol1;
+  delete matcher1;
   BOOST_LOG(rdInfoLog) << "\tdone" << std::endl;
 }
 
@@ -968,10 +974,12 @@ void testAtomMap() {
   sma = "[C:10H3]CC";
   matcher1 = SmartsToMol(sma);
   TEST_ASSERT(!matcher1);
+  delete matcher1;
 
   sma = "[C:10:3]ON";
   matcher1 = SmartsToMol(sma);
   TEST_ASSERT(!matcher1);
+  delete matcher1;
 
   sma = "C-C";
   matcher1 = SmartsToMol(sma);
@@ -994,6 +1002,7 @@ void testAtomMap() {
   sma = MolToSmarts(*matcher1);
   TEST_ASSERT(sma == "[C&$(C=O):2]-[O:3]");
 
+  delete matcher1;
   BOOST_LOG(rdInfoLog) << "\tdone" << std::endl;
 }
 
@@ -2583,6 +2592,22 @@ void testGithub1906() {
   BOOST_LOG(rdInfoLog) << "done" << std::endl;
 }
 
+void testGithub1988() {
+  BOOST_LOG(rdInfoLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdInfoLog) << "Testing github #1988: QueryAtoms with atom list "
+                          "queries should not have the atomic number set"
+                       << std::endl;
+  {
+    std::unique_ptr<ROMol> m(SmartsToMol("[Li,Na]"));
+    TEST_ASSERT(m->getAtomWithIdx(0)->getAtomicNum() == 0);
+  }
+  // {
+  //   std::unique_ptr<ROMol> m(SmartsToMol("C-,=C`"));
+  //   TEST_ASSERT(m->getBondWithIdx(0)->getBondType()==Bond::UNSPECIFIED);
+  // }
+  BOOST_LOG(rdInfoLog) << "done" << std::endl;
+}
+
 void testGithub1985() {
   BOOST_LOG(rdInfoLog) << "-------------------------------------" << std::endl;
   BOOST_LOG(rdInfoLog) << "Testing Github #1985: MolFromSmarts/MolToSmarts "
@@ -2600,6 +2625,48 @@ void testGithub1985() {
       auto csma1 = MolToSmarts(*m1);
       TEST_ASSERT(csma1.find("C@") != std::string::npos);
     }
+  }
+
+  BOOST_LOG(rdInfoLog) << "done" << std::endl;
+}
+
+void testGithub2142() {
+  BOOST_LOG(rdInfoLog) << "-------------------------------------" << std::endl;
+  BOOST_LOG(rdInfoLog) << "Testing Github #2142: SMARTS roundtrip failure"
+                       << std::endl;
+  // make sure we actually do throw in the problematic case:
+  {
+    std::string sma1 = "[C,N;a]";
+    std::unique_ptr<ROMol> m1(SmartsToMol(sma1));
+    TEST_ASSERT(m1);
+    std::string sma2 = "[C]";
+    std::unique_ptr<ROMol> m2(SmartsToMol(sma2));
+    TEST_ASSERT(m2);
+    QueryAtom *qa = static_cast<QueryAtom *>(m2->getAtomWithIdx(0));
+    const auto q1 = static_cast<QueryAtom *>(m1->getAtomWithIdx(0))->getQuery();
+    qa->expandQuery(q1->copy(), Queries::COMPOSITE_OR);
+    bool ok = true;
+    try {
+      auto csma2 = MolToSmarts(*m2);
+      ok = false;
+    } catch (const ValueErrorException &) {
+    }
+    TEST_ASSERT(ok);
+  }
+  {  // the original problem report
+    std::string smarts = "[C;H1&$(C([#6])[#6]),H2&$(C[#6])]";
+    std::unique_ptr<ROMol> m1(SmartsToMol(smarts));
+    TEST_ASSERT(m1);
+    auto csma1 = MolToSmarts(*m1);
+    TEST_ASSERT(csma1 == "[C;H1&$(C(-,:[#6])[#6]),H2&$(C[#6])]");
+  }
+
+  {  // a second one from the issue
+    std::string smarts = "[N;$(NC),H2&$(NC[C,N])]";
+    std::unique_ptr<ROMol> m1(SmartsToMol(smarts));
+    TEST_ASSERT(m1);
+    auto csma1 = MolToSmarts(*m1);
+    TEST_ASSERT(csma1 == "[N;$(NC),H2&$(NC[C,N])]");
   }
 
   BOOST_LOG(rdInfoLog) << "done" << std::endl;
@@ -2654,8 +2721,10 @@ int main(int argc, char *argv[]) {
   testGithub1719();
   testCombinedQueries();
   testGithub1906();
-#endif
+  testGithub1988();
   testGithub1985();
+#endif
+  testGithub2142();
 
   return 0;
 }

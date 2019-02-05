@@ -8,7 +8,7 @@
 //  of the RDKit source tree.
 //
 
-#include <RDBoost/test.h>
+#include <RDGeneral/test.h>
 #include <iostream>
 #include <RDGeneral/Invariant.h>
 #include <RDGeneral/RDLog.h>
@@ -35,7 +35,7 @@ void testMMFFTyper1() {
   BOOST_LOG(rdErrorLog) << "    Test MMFF atom types." << std::endl;
 
   {
-    boost::uint8_t type;
+    std::uint8_t type;
     ROMol *mol = SmilesToMol("[SiH3]CC(=O)NC");
     TEST_ASSERT(mol);
     MMFF::MMFFMolProperties mmffMolProperties(*mol);
@@ -55,7 +55,7 @@ void testMMFFTyper1() {
   }
 
   {
-    boost::uint8_t type;
+    std::uint8_t type;
     ROMol *mol = SmilesToMol("CC(=O)C");
     TEST_ASSERT(mol);
     MMFF::MMFFMolProperties mmffMolProperties(*mol);
@@ -73,7 +73,7 @@ void testMMFFTyper1() {
   }
 
   {
-    boost::uint8_t type;
+    std::uint8_t type;
     ROMol *mol = SmilesToMol("C(=O)S");
     TEST_ASSERT(mol);
     MMFF::MMFFMolProperties mmffMolProperties(*mol);
@@ -88,7 +88,7 @@ void testMMFFTyper1() {
     delete mol;
   }
   {
-    boost::uint8_t type;
+    std::uint8_t type;
     ROMol *mol = SmilesToMol("SCS(=O)S(=O)(=O)O");
     TEST_ASSERT(mol);
     MMFF::MMFFMolProperties mmffMolProperties(*mol);
@@ -105,7 +105,7 @@ void testMMFFTyper1() {
     delete mol;
   }
   {
-    boost::uint8_t type;
+    std::uint8_t type;
     ROMol *mol = SmilesToMol("PCP(O)CP(=O)(=O)");
     TEST_ASSERT(mol);
     MMFF::MMFFMolProperties mmffMolProperties(*mol);
@@ -122,7 +122,7 @@ void testMMFFTyper1() {
     delete mol;
   }
   {
-    boost::uint8_t type;
+    std::uint8_t type;
     ROMol *mol = SmilesToMol("C(F)(Cl)(Br)I");
     TEST_ASSERT(mol);
     MMFF::MMFFMolProperties mmffMolProperties(*mol);
@@ -151,7 +151,7 @@ void testMMFFBuilder1() {
   ROMol *mol, *mol2;
 
   ForceFields::ForceField *field;
-  boost::shared_array<boost::uint8_t> nbrMat;
+  boost::shared_array<std::uint8_t> nbrMat;
 
   mol = SmilesToMol("CC(O)C");
   auto *conf = new Conformer(mol->getNumAtoms());
@@ -418,17 +418,18 @@ void testMMFFBatch() {
     if (field) {
       field->initialize();
       int failed = field->minimize(500);
+      delete field;
       if (failed) {
         BOOST_LOG(rdErrorLog)
             << " not converged (code = " << failed << ")" << std::endl;
         std::cout << origMolBlock << "$$$$" << std::endl;
         std::cout << MolToMolBlock(*mol) << "$$$$" << std::endl;
       }
-      delete field;
     }
     delete mol;
     mol = suppl.next();
   }
+  delete mol;
 
   BOOST_LOG(rdErrorLog) << "  done" << std::endl;
 }
@@ -627,6 +628,8 @@ void testGithub308() {
   field->initialize();
   needMore = field->minimize(200, 1.0e-6, 1.0e-3);
   TEST_ASSERT(!needMore);
+  delete mol;
+  delete field;
 }
 
 void testSFIssue1653802() {
@@ -647,7 +650,7 @@ void testSFIssue1653802() {
       new MMFF::MMFFMolProperties(*mol);
   TEST_ASSERT(mmffMolProperties);
 
-  boost::shared_array<boost::uint8_t> nbrMat;
+  boost::shared_array<std::uint8_t> nbrMat;
   field = new ForceFields::ForceField();
   // add the atomic positions:
   for (unsigned int i = 0; i < mol->getNumAtoms(); ++i) {
@@ -767,6 +770,7 @@ void testMMFFParamGetters() {
     ROMol *mol = SmilesToMol("c1ccccc1CCNN");
     TEST_ASSERT(mol);
     ROMol *molH = MolOps::addHs(*mol);
+    delete mol;
     TEST_ASSERT(molH);
     MMFF::MMFFMolProperties *mmffMolProperties =
         new MMFF::MMFFMolProperties(*molH);
@@ -833,6 +837,7 @@ void testMMFFParamGetters() {
     RWMol *patt = SmartsToMol("NN[H]");
     MatchVectType matchVect;
     TEST_ASSERT(SubstructMatch(*molH, (ROMol &)*patt, matchVect));
+    delete patt;
     unsigned int nIdx = matchVect[0].second;
     unsigned int hIdx = matchVect[2].second;
     TEST_ASSERT(mmffMolProperties->getMMFFVdWParams(nIdx, hIdx, mmffVdWParams));
@@ -842,6 +847,8 @@ void testMMFFParamGetters() {
         ((int)boost::math::round(mmffVdWParams.epsilonUnscaled * 1000) == 34) &&
         ((int)boost::math::round(mmffVdWParams.R_ij_star * 1000) == 2657) &&
         ((int)boost::math::round(mmffVdWParams.epsilon * 1000) == 17));
+    delete molH;
+    delete mmffMolProperties;
   }
 }
 #ifdef RDK_TEST_MULTITHREADED
@@ -872,7 +879,7 @@ void runblock_mmff(const std::vector<ROMol *> &mols,
     }
   }
 }
-}
+}  // namespace
 #include <thread>
 #include <future>
 void testMMFFMultiThread() {

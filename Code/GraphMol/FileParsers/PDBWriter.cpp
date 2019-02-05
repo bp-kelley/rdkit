@@ -115,15 +115,16 @@ std::string GetPDBAtomLine(const Atom *atom, const Conformer *conf,
   if (conf) {
     const RDGeom::Point3D pos = conf->getAtomPos(atom->getIdx());
     ss << boost::format("%8.3f%8.3f%8.3f") % pos.x % pos.y % pos.z;
-  } else
+  } else {
     ss << "   0.000   0.000   0.000";
+  }
 
   if (info) {
-    ss << boost::format("%6.2f%6.2f") % info->getOccupancy() %
-              info->getTempFactor();
+    ss << boost::format("%6.2f%6.2f") % info->getOccupancy() % info->getTempFactor();
     ss << "          ";
-  } else
+  } else {
     ss << "  1.00  0.00          ";
+  }
 
   ss << at1;
   ss << at2;
@@ -162,8 +163,10 @@ std::string GetPDBBondLines(const Atom *atom, bool all, bool both, bool mult,
         break;
       case Bond::QUADRUPLE:
         v.push_back(dst);
+        /* FALLTHRU */
       case Bond::TRIPLE:
         v.push_back(dst);
+        /* FALLTHRU */
       case Bond::DOUBLE:
         v.push_back(dst);
         v.push_back(dst);

@@ -8,6 +8,7 @@ ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 set(RDKit_VERSION "${RDKit_VERSION}.${RDKit_Revision}${RDKit_RevisionModifier}")
 set(RDKit_RELEASENAME "${RDKit_Year}.${RDKit_Month}.${RDKit_Revision}${RDKit_RevisionModifier}")
 
+
 set(compilerID "${CMAKE_CXX_COMPILER_ID}")
 set(systemAttribute "")
 if(MINGW)
@@ -23,6 +24,7 @@ else()
 endif()
 set(RDKit_BUILDNAME "${CMAKE_SYSTEM_NAME}|${CMAKE_SYSTEM_VERSION}|${systemAttribute}|${compilerID}|${bit3264}")
 set(RDKit_EXPORTED_TARGETS rdkit-targets)
+
 
 macro(rdkit_library)
   PARSE_ARGUMENTS(RDKLIB
@@ -154,6 +156,22 @@ macro(rdkit_test)
   endif(RDK_BUILD_CPP_TESTS)
 endmacro(rdkit_test)
 
+macro(rdkit_catch_test)
+  PARSE_ARGUMENTS(RDKTEST
+    "LINK_LIBRARIES;DEPENDS;DEST"
+    ""
+    ${ARGN})
+  CAR(RDKTEST_NAME ${RDKTEST_DEFAULT_ARGS})
+  CDR(RDKTEST_SOURCES ${RDKTEST_DEFAULT_ARGS})
+  if(RDK_BUILD_CPP_TESTS)
+    add_executable(${RDKTEST_NAME} ${RDKTEST_SOURCES})
+    target_link_libraries(${RDKTEST_NAME} ${RDKTEST_LINK_LIBRARIES})
+    add_test(${RDKTEST_NAME} ${EXECUTABLE_OUTPUT_PATH}/${RDKTEST_NAME})
+    #ParseAndAddCatchTests(${RDKTEST_NAME})
+    add_dependencies(${RDKTEST_NAME} catch)
+  endif(RDK_BUILD_CPP_TESTS)
+endmacro(rdkit_catch_test)
+
 macro(add_pytest)
   PARSE_ARGUMENTS(PYTEST
     "LINK_LIBRARIES;DEPENDS;DEST"
@@ -164,6 +182,7 @@ macro(add_pytest)
   if(RDK_BUILD_PYTHON_WRAPPERS)
     add_test(${PYTEST_NAME}  ${PYTHON_EXECUTABLE}
              ${PYTEST_SOURCES})
+    SET(RDKIT_PYTEST_CACHE "${PYTEST_NAME};${RDKIT_PYTEST_CACHE}" CACHE INTERNAL "Global list of python tests")
   endif(RDK_BUILD_PYTHON_WRAPPERS)
 endmacro(add_pytest)
 
@@ -244,7 +263,7 @@ function(createExportTestHeaders)
     "\n"
     "#include <boost/config.hpp>\n"
     "#endif\n")
-  set(testPath "Code/RDBoost/test.h")
+  set(testPath "Code/RDGeneral/test.h")
   file(WRITE "${CMAKE_BINARY_DIR}/${testPath}"
     "// auto-generated header to be imported in all cpp tests\n"
     "#pragma once\n")

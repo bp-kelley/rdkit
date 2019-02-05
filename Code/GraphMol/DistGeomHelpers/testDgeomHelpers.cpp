@@ -7,7 +7,7 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-#include <RDBoost/test.h>
+#include <RDGeneral/test.h>
 #include <RDGeneral/RDLog.h>
 #include <RDGeneral/versions.h>
 #include <GraphMol/RDKitBase.h>
@@ -368,6 +368,7 @@ void test3() {
             "");
       }
     }
+    delete mol;
   }
 }
 
@@ -565,6 +566,7 @@ void testMultipleConfs() {
     TEST_ASSERT(energy < 300.0);
     delete ff;
   }
+  delete m;
 }
 
 void testMultipleConfsExpTors() {
@@ -587,6 +589,7 @@ void testMultipleConfsExpTors() {
     TEST_ASSERT(energy < 300.0);
     delete ff;
   }
+  delete m;
 }
 
 void testOrdering() {
@@ -646,6 +649,7 @@ void testIssue236() {
   DGeomHelpers::setTopolBounds(*m, bm);
   bool ok = DistGeom::triangleSmoothBounds(bm);
   TEST_ASSERT(ok);
+  delete m;
 
   smi = "Cc1cccc2c1c(C3=CCC3)c(C)cc2";
   m = SmilesToMol(smi, 0, 1);
@@ -893,8 +897,8 @@ void testRandomCoords() {
     int cid = DGeomHelpers::EmbedMolecule(*m, 10, 1, true, true, 2, true, 1,
                                           nullptr, 1e-2);
     CHECK_INVARIANT(cid >= 0, "");
-// writer.write(*m);
-// writer.flush();
+    // writer.write(*m);
+    // writer.flush();
 #if 1
     m2 = static_cast<RWMol *>(sdsup.next());
     // ROMol *m2 = NULL;
@@ -1017,6 +1021,7 @@ void testConstrainedEmbedding() {
     TEST_ASSERT(ssd < 0.1);
     delete test;
   }
+  delete ref;
 }
 
 void testIssue2091864() {
@@ -1252,7 +1257,7 @@ void runblock(const std::vector<ROMol *> &mols,
     }
   }
 };
-}
+}  // namespace
 
 #include <thread>
 #include <future>
@@ -1400,7 +1405,8 @@ void testGithub256() {
 #ifdef RDK_TEST_MULTITHREADED
 void testMultiThreadMultiConf() {
   boost::char_separator<char> sep("|");
-  tokenizer tokens(std::string(RDKit::rdkitBuild), sep);
+  auto bldString = std::string(RDKit::rdkitBuild);
+  tokenizer tokens(bldString, sep);
   std::vector<std::string> tokenVect(tokens.begin(), tokens.end());
   const double ENERGY_TOLERANCE = ((tokenVect[2] != "MINGW") ? 1.0e-6 : 1.0);
   const double MSD_TOLERANCE = ((tokenVect[2] != "MINGW") ? 1.0e-6 : 1.0e-5);
@@ -1439,6 +1445,7 @@ void testMultiThreadMultiConf() {
     delete ff;
     delete ff2;
   }
+  delete m;
 }
 #endif
 
@@ -1450,10 +1457,12 @@ void testGithub563() {
     std::cerr << csmi << std::endl;
     for (unsigned int i = 1; i < 100; ++i) {
       ROMol m2 = ROMol(*m);
-      MolOps::addHs(m2);
+      auto *tmpMol = MolOps::addHs(m2);
+      delete tmpMol;
       DGeomHelpers::EmbedMolecule(m2, 50, i);
       MolOps::assignChiralTypesFrom3D(m2);
-      MolOps::removeHs(m2);
+      auto *tmp = MolOps::removeHs(m2);
+      delete tmp;
       std::string smi = MolToSmiles(m2, true);
       TEST_ASSERT(smi == csmi);
     }
@@ -1623,7 +1632,7 @@ void compareConfs(const ROMol *m, const ROMol *expected, int molConfId = -1,
     TEST_ASSERT((pt1i - pt2i).length() < 10e-4);
   }
 }
-}
+}  // namespace
 
 void testGithub971() {
   {
@@ -2017,6 +2026,77 @@ void testGithubPullRequest1635() {
   }
 }
 
+void testGithub1990() {
+  {  // we saw the problem here (though it came from something in MolOps)
+    std::unique_ptr<RWMol> mol(SmilesToMol("F/C=C/F"));
+    TEST_ASSERT(mol);
+    MolOps::addHs(*mol);
+    MolOps::removeHs(*mol);
+    TEST_ASSERT(mol->getNumAtoms() == 4);
+    int cid = DGeomHelpers::EmbedMolecule(*mol);
+    TEST_ASSERT(cid >= 0);
+  }
+  {  // The original problem report
+    std::unique_ptr<RWMol> mol(SmilesToMol(
+        "CCCCCCCCCCCCCCCC(=O)O[C@@H]1CC(C)=C(/C=C/C(C)=C/C=C/C(C)=C/"
+        "C=C\\C=C(C)\\C=C\\C=C(C)\\C=C\\C2=C(C)C[C@@H](OC(=O)CCCCCCCCCCCCCCC)"
+        "CC2(C)C)C(C)(C)C1"));
+    TEST_ASSERT(mol);
+    MolOps::addHs(*mol);
+    MolOps::removeHs(*mol);
+    int cid = DGeomHelpers::EmbedMolecule(*mol);
+    TEST_ASSERT(cid >= 0);
+  }
+}
+
+void testGithub2246() {
+  {  // make sure the mechanics work
+    std::vector<RDGeom::Point3D> pts = {{0, 0, 0}, {1.5, 0, 0}};
+    auto m = "C1CC1C"_smiles;
+    TEST_ASSERT(m);
+    DGeomHelpers::EmbedParameters params(DGeomHelpers::ETKDG);
+    std::map<int, RDGeom::Point3D> coordMap;
+    params.useRandomCoords = true;
+    params.coordMap = &coordMap;
+    params.maxIterations = 1;
+    for (unsigned int i = 0; i < pts.size(); ++i) {
+      coordMap[i] = pts[i];
+    }
+    params.randomSeed = 0xf00d;
+    int cid = DGeomHelpers::EmbedMolecule(*m, params);
+    TEST_ASSERT(cid >= 0);
+    for (unsigned int i = 0; i < pts.size(); ++i) {
+      auto d = (m->getConformer().getAtomPos(i) - pts[i]).length();
+      TEST_ASSERT(d < 1e-3);
+    }
+  }
+  {  // a more complex example
+    std::vector<RDGeom::Point3D> pts = {
+        {0, 0, 0}, {1.5, 0, 0}, {1.5, 1.5, 0}, {0, 1.5, 0}};
+    auto m = "C12C3CC1.O2C.C3CC"_smiles;
+    TEST_ASSERT(m);
+    MolOps::addHs(*m);
+    DGeomHelpers::EmbedParameters params(DGeomHelpers::ETKDG);
+    std::map<int, RDGeom::Point3D> coordMap;
+    params.useRandomCoords = true;
+    params.coordMap = &coordMap;
+    params.maxIterations = 1;
+    for (unsigned int i = 0; i < pts.size(); ++i) {
+      coordMap[i] = pts[i];
+    }
+    for (unsigned int i = 0; i < 100; ++i) {
+      params.randomSeed = i + 1;
+      int cid = DGeomHelpers::EmbedMolecule(*m, params);
+      TEST_ASSERT(cid >= 0);
+      for (unsigned int i = 0; i < pts.size(); ++i) {
+        auto d = (m->getConformer().getAtomPos(i) - pts[i]).length();
+        TEST_ASSERT(d < 1e-3);
+      }
+    }
+    MolOps::removeHs(*m);
+  }
+}
+
 int main() {
   RDLog::InitLogs();
   BOOST_LOG(rdInfoLog)
@@ -2180,7 +2260,6 @@ int main() {
   BOOST_LOG(rdInfoLog) << "\t---------------------------------\n";
   BOOST_LOG(rdInfoLog) << "\t test embed parameters structure.\n";
   testEmbedParameters();
-#endif
 
   BOOST_LOG(rdInfoLog) << "\t---------------------------------\n";
   BOOST_LOG(rdInfoLog)
@@ -2195,6 +2274,15 @@ int main() {
   BOOST_LOG(rdInfoLog) << "\t Deterministic with large random seeds\n";
   testGithubPullRequest1635();
 
+  BOOST_LOG(rdInfoLog) << "\t---------------------------------\n";
+  BOOST_LOG(rdInfoLog) << "\t Github #1990: seg fault after RemoveHs\n";
+  testGithub1990();
+#endif
+
+  BOOST_LOG(rdInfoLog) << "\t---------------------------------\n";
+  BOOST_LOG(rdInfoLog) << "\t Github #2246: Use coordMap when starting "
+                          "embedding from random coords\n";
+  testGithub2246();
   BOOST_LOG(rdInfoLog)
       << "*******************************************************\n";
 

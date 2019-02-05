@@ -7,7 +7,7 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-#include <RDBoost/test.h>
+#include <RDGeneral/test.h>
 #include <GraphMol/RDKitBase.h>
 #include <string>
 #include <iostream>
@@ -55,7 +55,7 @@ void testSmilesWriter() {
       break;
     }
   }
-  writer->flush();
+  writer->close();
   delete writer;
   delete nSup;
 
@@ -77,6 +77,7 @@ void testSmilesWriter() {
       break;
     }
   }
+  delete nSup;
 }
 
 void testSmilesWriter2() {
@@ -95,7 +96,7 @@ void testSmilesWriter2() {
     mol = SmilesToMol("F[C@H](Cl)Br");
     writer->write(*mol);
     delete mol;
-    writer->flush();
+    writer->close();
     TEST_ASSERT(ss.str() == "c1ccccc1 0\nFC(Cl)Br 1\n");
     delete writer;
   }
@@ -114,7 +115,7 @@ void testSmilesWriter2() {
     mol = SmilesToMol("F[C@H](Cl)Br");
     writer->write(*mol);
     delete mol;
-    writer->flush();
+    writer->close();
     TEST_ASSERT(ss.str() == "C1=CC=CC=C1 0\nF[C@H](Cl)Br 1\n");
     delete writer;
   }
@@ -126,7 +127,7 @@ void testSmilesWriterNoNames() {
       rdbase + "/Code/GraphMol/FileParsers/test_data/fewSmi.csv";
   SmilesMolSupplier *nSup = new SmilesMolSupplier(fname, ",", 1, 0, false);
   std::string oname =
-      rdbase + "/Code/GraphMol/FileParsers/test_data/outSmiles.csv";
+      rdbase + "/Code/GraphMol/FileParsers/test_data/outSmiles_molwriter.csv";
 
   STR_VECT propNames;
   propNames.push_back(std::string("Column_2"));
@@ -149,27 +150,30 @@ void testSmilesWriterNoNames() {
     }
   }
   writer->flush();
-  delete writer;
   delete nSup;
 
   // now read the molecules back in a check if we have the same properties etc
-  nSup = new SmilesMolSupplier(oname, ",", 0, -1);
+  nSup = new SmilesMolSupplier(oname, " ", 0, -1);
   int i = 0;
   mol = nSup->next();
   while (mol) {
     std::string mname, pval;
     mol->getProp(common_properties::_Name, mname);
-    TEST_ASSERT(mname != "bogus");
     mol->getProp("Column_2", pval);
+    delete mol;
+    TEST_ASSERT(mname != "bogus");
     TEST_ASSERT(pval == props[i]);
     i++;
-    delete mol;
     try {
       mol = nSup->next();
     } catch (FileParseException &) {
       break;
     }
   }
+  TEST_ASSERT(writer->numMols() == nSup->length());
+  writer->close();
+  delete writer;
+  delete nSup;
 }
 
 void testSmilesWriterClose() {
@@ -178,7 +182,7 @@ void testSmilesWriterClose() {
       rdbase + "/Code/GraphMol/FileParsers/test_data/fewSmi.csv";
   SmilesMolSupplier *nSup = new SmilesMolSupplier(fname, ",", 1, 0, false);
   std::string oname =
-      rdbase + "/Code/GraphMol/FileParsers/test_data/outSmiles.csv";
+      rdbase + "/Code/GraphMol/FileParsers/test_data/outSmiles_molwriter.csv";
 
   STR_VECT propNames;
   propNames.push_back(std::string("Column_2"));
@@ -200,27 +204,31 @@ void testSmilesWriterClose() {
       break;
     }
   }
-  writer->close();
+  writer->flush();
   delete nSup;
 
   // now read the molecules back in a check if we have the same properties etc
-  nSup = new SmilesMolSupplier(oname, ",", 0, -1);
+  nSup = new SmilesMolSupplier(oname, " ", 0, -1);
   int i = 0;
   mol = nSup->next();
   while (mol) {
     std::string mname, pval;
     mol->getProp(common_properties::_Name, mname);
-    TEST_ASSERT(mname != "bogus");
     mol->getProp("Column_2", pval);
+    delete mol;
+    TEST_ASSERT(mname != "bogus");
     TEST_ASSERT(pval == props[i]);
     i++;
-    delete mol;
     try {
       mol = nSup->next();
     } catch (FileParseException &) {
       break;
     }
   }
+  TEST_ASSERT(writer->numMols() == nSup->length());
+  writer->close();
+  delete nSup;
+  delete writer;
 }
 
 void testSDWriter() {
@@ -230,7 +238,8 @@ void testSDWriter() {
   SDMolSupplier sdsup(fname);
 
   std::string ofile =
-      rdbase + "/Code/GraphMol/FileParsers/test_data/outNCI_few.sdf";
+      rdbase +
+      "/Code/GraphMol/FileParsers/test_data/outNCI_few.sdf_molwriter.sdf";
   auto *writer = new SDWriter(ofile);
 
   STR_VECT names;
@@ -249,7 +258,6 @@ void testSDWriter() {
 
   // make sure we can close() the writer and delete it:
   writer->close();
-
   delete writer;
 
   // now read in the file we just finished writing
@@ -288,11 +296,10 @@ void testTDTWriter() {
   SDMolSupplier sdsup(fname);
 
   std::string ofile =
-      rdbase + "/Code/GraphMol/FileParsers/test_data/outNCI_few.tdt";
+      rdbase + "/Code/GraphMol/FileParsers/test_data/outNCI_few_molwriter.tdt";
   auto *writer = new TDTWriter(ofile);
 
   STR_VECT names;
-
   while (!sdsup.atEnd()) {
     ROMol *mol = sdsup.next();
     std::string mname;
@@ -302,8 +309,8 @@ void testTDTWriter() {
     writer->write(*mol);
     delete mol;
   }
-  writer->flush();
   TEST_ASSERT(writer->numMols() == 16);
+  writer->close();
   delete writer;
 
   // now read in the file we just finished writing
@@ -328,7 +335,7 @@ void testSmilesWriterStrm() {
       rdbase + "/Code/GraphMol/FileParsers/test_data/fewSmi.csv";
   SmilesMolSupplier *nSup = new SmilesMolSupplier(fname, ",", 1, 0, false);
   std::string oname =
-      rdbase + "/Code/GraphMol/FileParsers/test_data/outSmiles.csv";
+      rdbase + "/Code/GraphMol/FileParsers/test_data/outSmiles_molwriter.csv";
   auto *oStream = new std::ofstream(oname.c_str());
 
   STR_VECT propNames;
@@ -353,9 +360,10 @@ void testSmilesWriterStrm() {
       break;
     }
   }
-  writer->flush();
+  writer->close();
   delete writer;
   delete nSup;
+  delete oStream;
 
   // now read the molecules back in a check if we have the same properties etc
   nSup = new SmilesMolSupplier(oname);
@@ -375,6 +383,7 @@ void testSmilesWriterStrm() {
       break;
     }
   }
+  delete nSup;
 }
 
 void testSDWriterStrm() {
@@ -385,7 +394,8 @@ void testSDWriterStrm() {
     SDMolSupplier sdsup(fname);
 
     std::string ofile =
-        rdbase + "/Code/GraphMol/FileParsers/test_data/outNCI_few.sdf";
+        rdbase +
+        "/Code/GraphMol/FileParsers/test_data/outNCI_few_molwriter.sdf";
     auto *oStream = new std::ofstream(ofile.c_str());
 
     auto *writer = new SDWriter(oStream);
@@ -403,7 +413,9 @@ void testSDWriterStrm() {
     }
     writer->flush();
     CHECK_INVARIANT(writer->numMols() == 16, "");
+    writer->close();
     delete writer;
+    delete oStream;
 
     // now read in the file we just finished writing
     SDMolSupplier reader(ofile);
@@ -442,7 +454,7 @@ void testTDTWriterStrm() {
   SDMolSupplier sdsup(fname);
 
   std::string ofile =
-      rdbase + "/Code/GraphMol/FileParsers/test_data/outNCI_few.tdt";
+      rdbase + "/Code/GraphMol/FileParsers/test_data/outNCI_few_molwriter.tdt";
   auto *oStream = new std::ofstream(ofile.c_str());
   auto *writer = new TDTWriter(oStream);
 
@@ -459,7 +471,9 @@ void testTDTWriterStrm() {
   }
   writer->flush();
   TEST_ASSERT(writer->numMols() == 16);
+  writer->close();
   delete writer;
+  delete oStream;
 
   // now read in the file we just finished writing
   TDTMolSupplier reader(ofile);
@@ -481,9 +495,9 @@ void testSDMemoryCorruption() {
   std::string rdbase = getenv("RDBASE");
   std::string fname = rdbase + "/Data/NCI/first_200.props.sdf";
   SDMolSupplier sdsup(fname, true);
-  std::string ofile =
-      rdbase +
-      "/Code/GraphMol/FileParsers/test_data/outNCI_first_200.props.sdf";
+  std::string ofile = rdbase +
+                      "/Code/GraphMol/FileParsers/test_data/"
+                      "outNCI_first_200.props_molwriter.sdf";
   std::ostream *os = new std::ofstream(ofile.c_str());
   // std::ostream *os=new std::stringstream();
   auto *writer = new SDWriter(os, false);
@@ -492,6 +506,7 @@ void testSDMemoryCorruption() {
 #if 1
   ROMol *m1 = sdsup.next();
   MolOps::sanitizeMol(*(RWMol *)m1);
+  delete m1;
 #else
   ROMol *m1 = SmilesToMol("C1CC1");
   TEST_ASSERT(m1);
@@ -517,8 +532,10 @@ void testSDMemoryCorruption() {
   CHECK_INVARIANT(nDone == 200, "");
   writer->flush();
   CHECK_INVARIANT(writer->numMols() == 200, "");
+  writer->close();
 
   delete writer;
+  delete os;
 #if 1
   // now read in the file we just finished writing
   SDMolSupplier reader(ofile);
@@ -599,6 +616,7 @@ void testIssue3525000() {
     TEST_ASSERT(mol->getAtomWithIdx(15)->hasProp(common_properties::_CIPCode));
     mol->getAtomWithIdx(15)->getProp(common_properties::_CIPCode, cip);
     TEST_ASSERT(cip == "R");
+    delete mol;
   }
   {
     std::string rdbase = getenv("RDBASE");
@@ -644,6 +662,7 @@ void testIssue3525000() {
     TEST_ASSERT(mol->getAtomWithIdx(4)->hasProp(common_properties::_CIPCode));
     mol->getAtomWithIdx(4)->getProp(common_properties::_CIPCode, cip);
     TEST_ASSERT(cip == "S");
+    delete mol;
   }
 }
 
@@ -663,9 +682,10 @@ void testIssue265() {
     std::stringstream sstream;
     TDTWriter writer(&sstream);
     writer.write(*m1);
-    writer.flush();
     std::string otext = sstream.str();
     TEST_ASSERT(otext == "$SMI<C1NO1>\n3D<0,0,0,0,1,0,1,0,0;>\n");
+    writer.close();
+    delete m1;
   }
 }
 
@@ -678,6 +698,7 @@ void testMolFileChiralFlag() {
     delete m1;
     m1 = MolBlockToMol(mb);
     TEST_ASSERT(!m1->hasProp(common_properties::_MolFileChiralFlag));
+    delete m1;
   }
   {
     ROMol *m1 = SmilesToMol("C[C@H](Cl)F");
@@ -688,6 +709,7 @@ void testMolFileChiralFlag() {
     delete m1;
     m1 = MolBlockToMol(mb);
     TEST_ASSERT(m1->hasProp(common_properties::_MolFileChiralFlag));
+    delete m1;
   }
 }
 
@@ -815,6 +837,7 @@ void testSDWriterOptions() {
     delete mol;
     writer.flush();
     CHECK_INVARIANT(writer.numMols() == 1, "");
+    writer.close();
 
     std::string txt = ss.str();
     TEST_ASSERT(txt.find("V2000") != std::string::npos);
@@ -829,6 +852,7 @@ void testSDWriterOptions() {
     delete mol;
     writer.flush();
     CHECK_INVARIANT(writer.numMols() == 1, "");
+    writer.close();
 
     std::string txt = ss.str();
     TEST_ASSERT(txt.find("V2000") == std::string::npos);
@@ -844,6 +868,7 @@ void testSDWriterOptions() {
     delete mol;
     writer.flush();
     CHECK_INVARIANT(writer.numMols() == 2, "");
+    writer.close();
 
     std::string txt = ss.str();
     TEST_ASSERT(txt.find("V2000") != std::string::npos);
@@ -861,6 +886,7 @@ void testSDWriterOptions() {
     delete mol;
     writer.flush();
     CHECK_INVARIANT(writer.numMols() == 2, "");
+    writer.close();
 
     std::string txt = ss.str();
     TEST_ASSERT(txt.find("V2000") != std::string::npos);
@@ -876,6 +902,7 @@ void testSDWriterOptions() {
     delete mol;
     writer.flush();
     CHECK_INVARIANT(writer.numMols() == 1, "");
+    writer.close();
 
     std::string txt = ss.str();
     TEST_ASSERT(txt.find("  1  2  2") != std::string::npos);
@@ -891,6 +918,7 @@ void testSDWriterOptions() {
     delete mol;
     writer.flush();
     CHECK_INVARIANT(writer.numMols() == 1, "");
+    writer.close();
 
     std::string txt = ss.str();
     TEST_ASSERT(txt.find("  1  2  2") == std::string::npos);
@@ -907,6 +935,7 @@ void testSDWriterOptions() {
     delete mol;
     writer.flush();
     CHECK_INVARIANT(writer.numMols() == 2, "");
+    writer.close();
 
     std::string txt = ss.str();
     TEST_ASSERT(txt.find("  1  2  2") != std::string::npos);
@@ -925,6 +954,7 @@ void testSDWriterOptions() {
     delete mol;
     writer.flush();
     CHECK_INVARIANT(writer.numMols() == 2, "");
+    writer.close();
 
     std::string txt = ss.str();
     TEST_ASSERT(txt.find("  1  2  2") != std::string::npos);
@@ -1109,7 +1139,8 @@ void testGithub187() {
 
     // try the v3000 version:
     mb = MolToMolBlock(*m, true, -1, true, true);
-    TEST_ASSERT(mb.find("V30 1 \"NOT [C,H]\" 0") != std::string::npos);
+    TEST_ASSERT(mb.find("V30 1 \"NOT [C,H]\" 0") == std::string::npos);
+    TEST_ASSERT(mb.find("1 Q 0") != std::string::npos);
 
     delete m;
   }
@@ -1216,6 +1247,7 @@ void testGithub266() {
                 "BondOr");
 
     delete m;
+    delete m2;
   }
 
   {
@@ -1224,7 +1256,8 @@ void testGithub266() {
     TEST_ASSERT(m);
     TEST_ASSERT(m->getNumBonds() == 4);
     TEST_ASSERT(m->getBondWithIdx(1)->hasQuery());
-    TEST_ASSERT(m->getBondWithIdx(1)->getQuery()->getDescription() == "SingleOrAromaticBond");
+    TEST_ASSERT(m->getBondWithIdx(1)->getQuery()->getDescription() ==
+                "SingleOrAromaticBond");
 
     std::string mb = MolToMolBlock(*m);
     RWMol *m2 = MolBlockToMol(mb);
@@ -1243,6 +1276,7 @@ void testGithub266() {
                 "SingleOrAromaticBond");
 
     delete m;
+    delete m2;
   }
 
   {
@@ -1270,6 +1304,7 @@ void testGithub266() {
                 "BondOr");
 
     delete m;
+    delete m2;
   }
 
   {
@@ -1288,6 +1323,8 @@ void testGithub266() {
     TEST_ASSERT(m2->getBondWithIdx(1)->hasQuery());
     TEST_ASSERT(m2->getBondWithIdx(1)->getQuery()->getDescription() ==
                 "SingleOrAromaticBond");
+    delete m;
+    delete m2;
   }
 }
 
@@ -1324,6 +1361,7 @@ void testGithub268() {
                 "BondAnd");
 
     delete m;
+    delete m2;
   }
 }
 
@@ -1341,6 +1379,7 @@ void testGithub357() {
     TEST_ASSERT(
         mb.find("    0.0000    0.0000    0.0000 H   0  0  0  0  0  1") ==
         std::string::npos);
+    delete m2;
   }
 }
 
@@ -1383,6 +1422,7 @@ void testGithub488() {
     TEST_ASSERT(txt.find("O foo") != std::string::npos);
     TEST_ASSERT(txt.find("O 2") != std::string::npos);
     TEST_ASSERT(txt.find("O  \n") != std::string::npos);
+    delete m1;
   }
 }
 
@@ -1403,6 +1443,7 @@ void testGithub611() {
     mb = MolToMolBlock(*m);
     TEST_ASSERT(mb.find("3  5  1  1") == std::string::npos);
     TEST_ASSERT(mb.find("3  4  1  1") != std::string::npos);
+    delete m;
   }
 }
 
@@ -1461,6 +1502,8 @@ void testMolFileWriterDativeBonds() {
     TEST_ASSERT(m2);
     TEST_ASSERT(m->getBondWithIdx(8)->getBondType() == Bond::DATIVE);
     TEST_ASSERT(m->getBondWithIdx(9)->getBondType() == Bond::DATIVE);
+    delete m;
+    delete m2;
   }
 
   // Small molecules without dative bonds are output in V2000 format.
@@ -1470,6 +1513,7 @@ void testMolFileWriterDativeBonds() {
     std::string mb = MolToMolBlock(*m);
     TEST_ASSERT(mb.find("0999 V2000") != std::string::npos);
     TEST_ASSERT(mb.find("0999 V3000") == std::string::npos);
+    delete m;
   }
   // ... but molecules with dative bonds will always be
   // output in V3000 format.
@@ -1479,6 +1523,7 @@ void testMolFileWriterDativeBonds() {
     std::string mb = MolToMolBlock(*m);
     TEST_ASSERT(mb.find("0999 V2000") == std::string::npos);
     TEST_ASSERT(mb.find("0999 V3000") != std::string::npos);
+    delete m;
   }
 }
 
@@ -1505,7 +1550,7 @@ int main() {
 
   BOOST_LOG(rdInfoLog) << "-----------------------------------------\n";
   BOOST_LOG(rdInfoLog) << "Running testSmilesWriterClose()\n";
-  testSmilesWriterNoNames();
+  testSmilesWriterClose();
   BOOST_LOG(rdInfoLog) << "Finished\n";
   BOOST_LOG(rdInfoLog) << "-----------------------------------------\n\n";
 

@@ -13,6 +13,7 @@
 #ifndef __RD_MMFFPARAMS_H__
 #define __RD_MMFFPARAMS_H__
 
+#include <memory>
 #include <RDGeneral/Invariant.h>
 #include <cmath>
 #include <string>
@@ -20,7 +21,7 @@
 #include <algorithm>
 #include <map>
 #include <iostream>
-#include <boost/cstdint.hpp>
+#include <cstdint>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -53,20 +54,20 @@ inline void clipToOne(double &x) {
 //! class to store MMFF atom type equivalence levels
 class RDKIT_FORCEFIELD_EXPORT MMFFDef {
  public:
-  boost::uint8_t eqLevel[4];
+  std::uint8_t eqLevel[4];
 };
 
 //! class to store MMFF Properties
 class RDKIT_FORCEFIELD_EXPORT MMFFProp {
  public:
-  boost::uint8_t atno;
-  boost::uint8_t crd;
-  boost::uint8_t val;
-  boost::uint8_t pilp;
-  boost::uint8_t mltb;
-  boost::uint8_t arom;
-  boost::uint8_t linh;
-  boost::uint8_t sbmb;
+  std::uint8_t atno;
+  std::uint8_t crd;
+  std::uint8_t val;
+  std::uint8_t pilp;
+  std::uint8_t mltb;
+  std::uint8_t arom;
+  std::uint8_t linh;
+  std::uint8_t sbmb;
 };
 
 //! class to store MMFF Partial Bond Charge Increments
@@ -143,7 +144,7 @@ class RDKIT_FORCEFIELD_EXPORT MMFFVdW {
   double A_i;
   double G_i;
   double R_star;
-  boost::uint8_t DA;
+  std::uint8_t DA;
 };
 
 class RDKIT_FORCEFIELD_EXPORT MMFFVdWRijstarEps {
@@ -175,7 +176,7 @@ class RDKIT_FORCEFIELD_EXPORT MMFFAromCollection {
         The current instantiation (if there is one) will be deleted.
   */
   static MMFFAromCollection *getMMFFArom(
-      const boost::uint8_t *aromatic_types = NULL);
+      const std::uint8_t *aromatic_types = NULL);
   //! Looks up the parameters for a particular key and returns them.
   /*!
     \return a pointer to the MMFFArom object, NULL on failure.
@@ -189,9 +190,9 @@ class RDKIT_FORCEFIELD_EXPORT MMFFAromCollection {
 
  private:
   //! to force this to be a singleton, the constructor must be private
-  MMFFAromCollection(const boost::uint8_t mmffArom[]);
-  static class MMFFAromCollection *ds_instance;  //!< the singleton
-  std::vector<boost::uint8_t> d_params;          //!< the aromatic type vector
+  MMFFAromCollection(const std::uint8_t mmffArom[]);
+  static class std::unique_ptr<MMFFAromCollection> ds_instance;  //!< the singleton
+  std::vector<std::uint8_t> d_params;          //!< the aromatic type vector
 };
 
 class RDKIT_FORCEFIELD_EXPORT MMFFDefCollection {
@@ -235,7 +236,7 @@ class RDKIT_FORCEFIELD_EXPORT MMFFDefCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFDefCollection(std::string mmffDef);
-  static class MMFFDefCollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFDefCollection> ds_instance;  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<const unsigned int, MMFFDef> d_params;  //!< the parameter map
 #else
@@ -274,8 +275,8 @@ class RDKIT_FORCEFIELD_EXPORT MMFFPropCollection {
 
     return ((res != d_params.end()) ? &((*res).second) : NULL);
 #else
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> bounds =
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> bounds =
         std::equal_range(d_iAtomType.begin(), d_iAtomType.end(), atomType);
 
     return ((bounds.first != bounds.second)
@@ -287,12 +288,12 @@ class RDKIT_FORCEFIELD_EXPORT MMFFPropCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFPropCollection(std::string mmffProp);
-  static class MMFFPropCollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFPropCollection> ds_instance;  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<const unsigned int, MMFFProp> d_params;  //!< the parameter map
 #else
   std::vector<MMFFProp> d_params;
-  std::vector<boost::uint8_t> d_iAtomType;  //!< the parameter vector
+  std::vector<std::uint8_t> d_iAtomType;  //!< the parameter vector
 #endif
 };
 
@@ -336,7 +337,7 @@ class RDKIT_FORCEFIELD_EXPORT MMFFPBCICollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFPBCICollection(std::string mmffPBCI);
-  static class MMFFPBCICollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFPBCICollection> ds_instance;  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<const unsigned int, MMFFPBCI> d_params;  //!< the parameter map
 #else
@@ -392,8 +393,8 @@ class RDKIT_FORCEFIELD_EXPORT MMFFChgCollection {
       }
     }
 #else
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> bounds;
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> bounds;
 
     bounds =
         std::equal_range(d_iAtomType.begin(), d_iAtomType.end(), canIAtomType);
@@ -420,7 +421,7 @@ class RDKIT_FORCEFIELD_EXPORT MMFFChgCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFChgCollection(std::string mmffChg);
-  static class MMFFChgCollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFChgCollection> ds_instance;  //!< the singleton
 //!< the parameter 3D-map
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<
@@ -429,9 +430,9 @@ class RDKIT_FORCEFIELD_EXPORT MMFFChgCollection {
       d_params;  //!< the parameter 3D-map
 #else
   std::vector<MMFFChg> d_params;            //! the parameter vector
-  std::vector<boost::uint8_t> d_iAtomType;  //! atom type vector for atom i
-  std::vector<boost::uint8_t> d_jAtomType;  //! atom type vector for atom j
-  std::vector<boost::uint8_t> d_bondType;   //! bond type vector for bond i-j
+  std::vector<std::uint8_t> d_iAtomType;  //! atom type vector for atom i
+  std::vector<std::uint8_t> d_jAtomType;  //! atom type vector for atom j
+  std::vector<std::uint8_t> d_bondType;   //! bond type vector for bond i-j
 #endif
 };
 
@@ -488,8 +489,8 @@ class RDKIT_FORCEFIELD_EXPORT MMFFBondCollection {
       }
     }
 #else
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> bounds;
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> bounds;
     bounds =
         std::equal_range(d_iAtomType.begin(), d_iAtomType.end(), canAtomType);
     if (bounds.first != bounds.second) {
@@ -515,7 +516,7 @@ class RDKIT_FORCEFIELD_EXPORT MMFFBondCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFBondCollection(std::string mmffBond);
-  static class MMFFBondCollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFBondCollection> ds_instance;  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<
       const unsigned int,
@@ -523,9 +524,9 @@ class RDKIT_FORCEFIELD_EXPORT MMFFBondCollection {
       d_params;  //!< the parameter 3D-map
 #else
   std::vector<MMFFBond> d_params;           //!< the parameter vector
-  std::vector<boost::uint8_t> d_iAtomType;  //! atom type vector for atom i
-  std::vector<boost::uint8_t> d_jAtomType;  //! atom type vector for atom j
-  std::vector<boost::uint8_t> d_bondType;   //! bond type vector for bond i-j
+  std::vector<std::uint8_t> d_iAtomType;  //! atom type vector for atom i
+  std::vector<std::uint8_t> d_jAtomType;  //! atom type vector for atom j
+  std::vector<std::uint8_t> d_bondType;   //! bond type vector for bond i-j
 #endif
 };
 
@@ -573,8 +574,8 @@ class RDKIT_FORCEFIELD_EXPORT MMFFBndkCollection {
       }
     }
 #else
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> bounds;
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> bounds;
     bounds = std::equal_range(d_iAtomicNum.begin(), d_iAtomicNum.end(),
                               canAtomicNum);
     if (bounds.first != bounds.second) {
@@ -594,14 +595,14 @@ class RDKIT_FORCEFIELD_EXPORT MMFFBndkCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFBndkCollection(std::string mmffBndk);
-  static class MMFFBndkCollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFBndkCollection> ds_instance;  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<const unsigned int, std::map<const unsigned int, MMFFBond> >
       d_params;  //!< the parameter 2D-map
 #else
   std::vector<MMFFBond> d_params;            //!< the parameter vector
-  std::vector<boost::uint8_t> d_iAtomicNum;  //! atomic number vector for atom i
-  std::vector<boost::uint8_t> d_jAtomicNum;  //! atomic number vector for atom j
+  std::vector<std::uint8_t> d_iAtomicNum;  //! atomic number vector for atom i
+  std::vector<std::uint8_t> d_jAtomicNum;  //! atomic number vector for atom j
 #endif
 };
 
@@ -654,8 +655,8 @@ class RDKIT_FORCEFIELD_EXPORT MMFFHerschbachLaurieCollection {
       }
     }
 #else
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> bounds;
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> bounds;
     bounds = std::equal_range(d_iRow.begin(), d_iRow.end(), canIRow);
     if (bounds.first != bounds.second) {
       bounds = std::equal_range(
@@ -673,15 +674,15 @@ class RDKIT_FORCEFIELD_EXPORT MMFFHerschbachLaurieCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFHerschbachLaurieCollection(std::string mmffHerschbachLaurie);
-  static class MMFFHerschbachLaurieCollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFHerschbachLaurieCollection> ds_instance;  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<const unsigned int,
            std::map<const unsigned int, MMFFHerschbachLaurie> >
       d_params;  //!< the parameter 2D-map
 #else
   std::vector<MMFFHerschbachLaurie> d_params;  //!< the parameter vector
-  std::vector<boost::uint8_t> d_iRow;  //! periodic row number vector for atom i
-  std::vector<boost::uint8_t> d_jRow;  //! periodic row number vector for atom j
+  std::vector<std::uint8_t> d_iRow;  //! periodic row number vector for atom i
+  std::vector<std::uint8_t> d_jRow;  //! periodic row number vector for atom j
 #endif
 };
 
@@ -720,8 +721,8 @@ class RDKIT_FORCEFIELD_EXPORT MMFFCovRadPauEleCollection {
 
     return ((res != d_params.end()) ? &((*res).second) : NULL);
 #else
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> bounds =
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> bounds =
         std::equal_range(d_atomicNum.begin(), d_atomicNum.end(), atomicNum);
 
     return ((bounds.first != bounds.second)
@@ -733,13 +734,13 @@ class RDKIT_FORCEFIELD_EXPORT MMFFCovRadPauEleCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFCovRadPauEleCollection(std::string mmffCovRadPauEle);
-  static class MMFFCovRadPauEleCollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFCovRadPauEleCollection> ds_instance;  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<const unsigned int, MMFFCovRadPauEle>
       d_params;  //!< the parameter map
 #else
   std::vector<MMFFCovRadPauEle> d_params;   //!< the parameter vector
-  std::vector<boost::uint8_t> d_atomicNum;  //!< the atomic number vector
+  std::vector<std::uint8_t> d_atomicNum;  //!< the atomic number vector
 #endif
 };
 
@@ -816,11 +817,11 @@ class RDKIT_FORCEFIELD_EXPORT MMFFAngleCollection {
       ++iter;
     }
 #else
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> jBounds =
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> jBounds =
         std::equal_range(d_jAtomType.begin(), d_jAtomType.end(), jAtomType);
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> bounds;
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> bounds;
     if (jBounds.first != jBounds.second) {
       while ((iter < 4) && (!mmffAngleParams)) {
         unsigned int canIAtomType = (*mmffDef)(iAtomType)->eqLevel[iter];
@@ -860,7 +861,7 @@ class RDKIT_FORCEFIELD_EXPORT MMFFAngleCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFAngleCollection(std::string mmffAngle);
-  static class MMFFAngleCollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFAngleCollection> ds_instance;  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<const unsigned int,
            std::map<const unsigned int,
@@ -869,10 +870,10 @@ class RDKIT_FORCEFIELD_EXPORT MMFFAngleCollection {
       d_params;  //!< the parameter 4D-map
 #else
   std::vector<MMFFAngle> d_params;          //!< the parameter vector
-  std::vector<boost::uint8_t> d_iAtomType;  //! atom type vector for atom i
-  std::vector<boost::uint8_t> d_jAtomType;  //! atom type vector for atom j
-  std::vector<boost::uint8_t> d_kAtomType;  //! atom type vector for atom k
-  std::vector<boost::uint8_t>
+  std::vector<std::uint8_t> d_iAtomType;  //! atom type vector for atom i
+  std::vector<std::uint8_t> d_jAtomType;  //! atom type vector for atom j
+  std::vector<std::uint8_t> d_kAtomType;  //! atom type vector for atom k
+  std::vector<std::uint8_t>
       d_angleType;  //! angle type vector for angle i-j-k
 #endif
 };
@@ -944,11 +945,11 @@ class RDKIT_FORCEFIELD_EXPORT MMFFStbnCollection {
       }
     }
 #else
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> jBounds =
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> jBounds =
         std::equal_range(d_jAtomType.begin(), d_jAtomType.end(), jAtomType);
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> bounds;
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> bounds;
     if (jBounds.first != jBounds.second) {
       bounds = std::equal_range(
           d_iAtomType.begin() + (jBounds.first - d_jAtomType.begin()),
@@ -979,7 +980,7 @@ class RDKIT_FORCEFIELD_EXPORT MMFFStbnCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFStbnCollection(std::string mmffStbn);
-  static class MMFFStbnCollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFStbnCollection> ds_instance;  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<const unsigned int,
            std::map<const unsigned int,
@@ -988,10 +989,10 @@ class RDKIT_FORCEFIELD_EXPORT MMFFStbnCollection {
       d_params;  //!< the parameter 4D-map
 #else
   std::vector<MMFFStbn> d_params;           //!< the parameter vector
-  std::vector<boost::uint8_t> d_iAtomType;  //! atom type vector for atom i
-  std::vector<boost::uint8_t> d_jAtomType;  //! atom type vector for atom j
-  std::vector<boost::uint8_t> d_kAtomType;  //! atom type vector for atom k
-  std::vector<boost::uint8_t>
+  std::vector<std::uint8_t> d_iAtomType;  //! atom type vector for atom i
+  std::vector<std::uint8_t> d_jAtomType;  //! atom type vector for atom j
+  std::vector<std::uint8_t> d_kAtomType;  //! atom type vector for atom k
+  std::vector<std::uint8_t>
       d_stretchBendType;  //! stretch-bend type vector for angle i-j-k
 #endif
 };
@@ -1057,7 +1058,7 @@ class RDKIT_FORCEFIELD_EXPORT MMFFDfsbCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFDfsbCollection(std::string mmffDfsb);
-  static class MMFFDfsbCollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFDfsbCollection> ds_instance;  //!< the singleton
   std::map<
       const unsigned int,
       std::map<const unsigned int, std::map<const unsigned int, MMFFStbn> > >
@@ -1136,11 +1137,11 @@ class RDKIT_FORCEFIELD_EXPORT MMFFOopCollection {
       ++iter;
     }
 #else
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> jBounds =
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> jBounds =
         std::equal_range(d_jAtomType.begin(), d_jAtomType.end(), jAtomType);
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> bounds;
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> bounds;
     if (jBounds.first != jBounds.second) {
       while ((iter < 4) && (!mmffOopParams)) {
         canIKLAtomType[0] = (*mmffDef)(iAtomType)->eqLevel[iter];
@@ -1177,7 +1178,7 @@ class RDKIT_FORCEFIELD_EXPORT MMFFOopCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFOopCollection(const bool isMMFFs, std::string mmffOop);
-  static class MMFFOopCollection *ds_instance[2];  //!< the singleton
+  static class std::unique_ptr<MMFFOopCollection> ds_instance[2];  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<const unsigned int,
            std::map<const unsigned int,
@@ -1186,10 +1187,10 @@ class RDKIT_FORCEFIELD_EXPORT MMFFOopCollection {
       d_params;  //!< the parameter 4D-map
 #else
   std::vector<MMFFOop> d_params;            //!< the parameter vector
-  std::vector<boost::uint8_t> d_iAtomType;  //! atom type vector for atom i
-  std::vector<boost::uint8_t> d_jAtomType;  //! atom type vector for atom j
-  std::vector<boost::uint8_t> d_kAtomType;  //! atom type vector for atom k
-  std::vector<boost::uint8_t> d_lAtomType;  //! atom type vector for atom l
+  std::vector<std::uint8_t> d_iAtomType;  //! atom type vector for atom i
+  std::vector<std::uint8_t> d_jAtomType;  //! atom type vector for atom j
+  std::vector<std::uint8_t> d_kAtomType;  //! atom type vector for atom k
+  std::vector<std::uint8_t> d_lAtomType;  //! atom type vector for atom l
 #endif
 };
 
@@ -1255,10 +1256,10 @@ class RDKIT_FORCEFIELD_EXPORT MMFFTorCollection {
              std::map<const unsigned int, MMFFTor> >::const_iterator res4;
     std::map<const unsigned int, MMFFTor>::const_iterator res5;
 #else
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> jBounds;
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> bounds;
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> jBounds;
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> bounds;
 #endif
 
     while (((iter < maxIter) && ((!mmffTorParams) || (maxIter == 4))) ||
@@ -1362,7 +1363,7 @@ class RDKIT_FORCEFIELD_EXPORT MMFFTorCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFTorCollection(const bool isMMFFs, std::string mmffTor);
-  static class MMFFTorCollection *ds_instance[2];  //!< the singleton
+  static class std::unique_ptr<MMFFTorCollection> ds_instance[2];  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<const unsigned int,
            std::map<const unsigned int,
@@ -1373,11 +1374,11 @@ class RDKIT_FORCEFIELD_EXPORT MMFFTorCollection {
       d_params;  //!< the parameter 5D-map
 #else
   std::vector<MMFFTor> d_params;            //!< the parameter vector
-  std::vector<boost::uint8_t> d_iAtomType;  //! atom type vector for atom i
-  std::vector<boost::uint8_t> d_jAtomType;  //! atom type vector for atom j
-  std::vector<boost::uint8_t> d_kAtomType;  //! atom type vector for atom k
-  std::vector<boost::uint8_t> d_lAtomType;  //! atom type vector for atom l
-  std::vector<boost::uint8_t>
+  std::vector<std::uint8_t> d_iAtomType;  //! atom type vector for atom i
+  std::vector<std::uint8_t> d_jAtomType;  //! atom type vector for atom j
+  std::vector<std::uint8_t> d_kAtomType;  //! atom type vector for atom k
+  std::vector<std::uint8_t> d_lAtomType;  //! atom type vector for atom l
+  std::vector<std::uint8_t>
       d_torType;  //! torsion type vector for angle i-j-k-l
 #endif
 };
@@ -1418,8 +1419,8 @@ class RDKIT_FORCEFIELD_EXPORT MMFFVdWCollection {
 
     return (res != d_params.end() ? &((*res).second) : NULL);
 #else
-    std::pair<std::vector<boost::uint8_t>::const_iterator,
-              std::vector<boost::uint8_t>::const_iterator> bounds =
+    std::pair<std::vector<std::uint8_t>::const_iterator,
+              std::vector<std::uint8_t>::const_iterator> bounds =
         std::equal_range(d_atomType.begin(), d_atomType.end(), atomType);
 
     return ((bounds.first != bounds.second)
@@ -1431,12 +1432,12 @@ class RDKIT_FORCEFIELD_EXPORT MMFFVdWCollection {
  private:
   //! to force this to be a singleton, the constructor must be private
   MMFFVdWCollection(std::string mmffVdW);
-  static class MMFFVdWCollection *ds_instance;  //!< the singleton
+  static class std::unique_ptr<MMFFVdWCollection> ds_instance;  //!< the singleton
 #ifdef RDKIT_MMFF_PARAMS_USE_STD_MAP
   std::map<const unsigned int, MMFFVdW> d_params;  //!< the parameter map
 #else
   std::vector<MMFFVdW> d_params;           //!< the parameter vector
-  std::vector<boost::uint8_t> d_atomType;  //! atom type vector
+  std::vector<std::uint8_t> d_atomType;  //! atom type vector
 #endif
 };
 }
