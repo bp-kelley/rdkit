@@ -4789,37 +4789,6 @@ M  END"""
     Chem.WedgeBond(m.GetBondWithIdx(0), 1, m.GetConformer())
     self.assertEqual(m.GetBondWithIdx(0).GetBondDir(), Chem.BondDir.BEGINWEDGE)
 
-<<<<<<< Updated upstream
-  def testBitVectProp(self):
-    bv = DataStructs.ExplicitBitVect(100)
-    m = Chem.MolFromSmiles("CC")
-    for atom in m.GetAtoms():
-      bv.SetBit(atom.GetIdx())
-      atom.SetExplicitBitVectProp("prop", bv)
-      
-    for atom in m.GetAtoms():
-      bv = atom.GetExplicitBitVectProp("prop")
-      self.assertTrue(bv.GetBit(atom.GetIdx()))
-
-  def testBitVectQuery(self):
-    bv = DataStructs.ExplicitBitVect(4)
-    bv.SetBit(0)
-    bv.SetBit(2)
-
-    # wow, what a mouthfull..
-    qa = rdqueries.HasBitVectPropWithValueQueryAtom("prop", bv, tolerance=0.0)
-
-    m = Chem.MolFromSmiles("CC")
-    for atom in m.GetAtoms():
-      if atom.GetIdx() == 0:
-        atom.SetExplicitBitVectProp("prop", bv)
-      
-    l = tuple([x.GetIdx() for x in m.GetAtomsMatchingQuery(qa)])
-    self.assertEqual(l, (0,))
-
-=======
-<<<<<<< HEAD
->>>>>>> Stashed changes
   def testSmilesToAtom(self):
     a = Chem.AtomFromSmiles("C")
     self.assertEqual(a.GetAtomicNum(), 6)
@@ -4922,7 +4891,6 @@ width='200px' height='200px' >
     with self.assertRaises(RuntimeError):
       mol = Chem.MolFromRDKitSVG("bad svg")
 
-=======
   def testBitVectProp(self):
     bv = DataStructs.ExplicitBitVect(100)
     m = Chem.MolFromSmiles("CC")
@@ -4933,39 +4901,6 @@ width='200px' height='200px' >
     for atom in m.GetAtoms():
       bv = atom.GetExplicitBitVectProp("prop")
       self.assertTrue(bv.GetBit(atom.GetIdx()))
->>>>>>> Rebase with smarts bug fix
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-
-  def testBitVectQuery(self):
-    bv = DataStructs.ExplicitBitVect(4)
-    bv.SetBit(0)
-    bv.SetBit(2)
-
-=======
-
-  def testBitVectQuery(self):
-    bv = DataStructs.ExplicitBitVect(4)
-    bv.SetBit(0)
-    bv.SetBit(2)
-
->>>>>>> Stashed changes
-    # wow, what a mouthfull..
-    qa = rdqueries.HasBitVectPropWithValueQueryAtom("prop", bv, tolerance=0.0)
-
-    m = Chem.MolFromSmiles("CC")
-    for atom in m.GetAtoms():
-      if atom.GetIdx() == 0:
-        atom.SetExplicitBitVectProp("prop", bv)
-      
-    l = tuple([x.GetIdx() for x in m.GetAtomsMatchingQuery(qa)])
-    self.assertEqual(l, (0,))
-
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
 
   def testBitVectQuery(self):
     bv = DataStructs.ExplicitBitVect(4)
@@ -4982,8 +4917,6 @@ width='200px' height='200px' >
       
     l = tuple([x.GetIdx() for x in m.GetAtomsMatchingQuery(qa)])
     self.assertEqual(l, (0,))
-
->>>>>>> Stashed changes
 
     m = Chem.MolFromSmiles("CC")
     for atom in m.GetAtoms():
@@ -5021,9 +4954,6 @@ width='200px' height='200px' >
     res = m.GetSubstructMatches(sma)
     self.assertEqual(res, ((0,),(1,)))
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
   def testSetQuery(self):
     pat = Chem.MolFromSmarts("[C]")
     self.assertFalse(Chem.MolFromSmiles("c1ccccc1").HasSubstructMatch(pat))
@@ -5037,13 +4967,6 @@ width='200px' height='200px' >
   def testGitHub1985(self):
     # simple check
     Chem.MolToSmarts(Chem.MolFromSmarts("[C@]"))
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-
     
 if __name__ == '__main__':
   if "RDTESTCASE" in os.environ:
