@@ -47,6 +47,7 @@ void wrap_table();
 void wrap_atom();
 void wrap_conformer();
 void wrap_bond();
+void wrap_stereogroup();
 void wrap_mol();
 void wrap_ringinfo();
 void wrap_EditableMol();
@@ -105,8 +106,7 @@ void WrapLogs() {
   static PySysErrWrite error("RDKit ERROR: ");
   static PySysErrWrite info("RDKit INFO: ");
   static PySysErrWrite warning("RDKit WARNING: ");
-  if (rdDebugLog == nullptr || rdInfoLog == nullptr || rdErrorLog == nullptr ||
-      rdWarningLog == nullptr) {
+  if (!rdDebugLog || !rdInfoLog || !rdErrorLog || !rdWarningLog) {
     RDLog::InitLogs();
   }
   if (rdDebugLog != nullptr) rdDebugLog->SetTee(debug);
@@ -180,6 +180,7 @@ BOOST_PYTHON_MODULE(rdchem) {
   wrap_atom();
   wrap_conformer();
   wrap_bond();
+  wrap_stereogroup();
   wrap_mol();
   wrap_EditableMol();
   wrap_ringinfo();

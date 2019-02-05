@@ -1,5 +1,6 @@
 %{
 
+  // $Id$
   //
   //  Copyright (C) 2003-2018 Greg Landrum and Rational Discovery LLC
   //
@@ -18,15 +19,7 @@
 #define YYDEBUG 1
 #include "smarts.tab.hpp"
 
-extern int yysmarts_lex(YYSTYPE *,void *);
-
-void
-yysmarts_error( const char *input,
-                std::vector<RDKit::RWMol *> *ms,
-		void *scanner,const char * msg )
-{
-  throw RDKit::SmilesParseException(msg);
-}
+extern int yysmarts_lex(YYSTYPE *,void *, int &);
 
 using namespace RDKit;
 namespace {
@@ -39,13 +32,33 @@ namespace {
   molList->resize(0);
  }
 }
+void
+yysmarts_error( const char *input,
+                std::vector<RDKit::RWMol *> *ms,
+                RDKit::Atom* &lastAtom,
+                RDKit::Bond* &lastBond,
+		void *scanner,int start_token, const char * msg )
+{
+  yyErrorCleanup(ms);
+  throw RDKit::SmilesParseException(msg);
+}
+
 %}
 
-%define api.pure
+%define api.pure full
 %lex-param   {yyscan_t *scanner}
+%lex-param   {int& start_token}
 %parse-param {const char *input}
 %parse-param {std::vector<RDKit::RWMol *> *molList}
+%parse-param {RDKit::Atom* &lastAtom}
+%parse-param {RDKit::Bond* &lastBond}
 %parse-param {void *scanner}
+%parse-param {int& start_token}
+
+%code provides {
+#define YY_DECL int yylex \
+               (YYSTYPE * yylval_param , yyscan_t yyscanner, int& start_token)
+}
 
 %union {
   int                      moli;
@@ -54,6 +67,7 @@ namespace {
   int                      ival;
 }
 
+%token START_MOL START_ATOM START_BOND;
 %token <ival> AROMATIC_ATOM_TOKEN ORGANIC_ATOM_TOKEN
 %token <atom> ATOM_TOKEN
 %token <atom> SIMPLE_ATOM_QUERY_TOKEN COMPLEX_ATOM_QUERY_TOKEN
@@ -69,7 +83,7 @@ namespace {
 %token NOT_TOKEN AND_TOKEN OR_TOKEN SEMI_TOKEN BEGIN_RECURSE END_RECURSE
 %token COLON_TOKEN UNDERSCORE_TOKEN
 %token <bond> BOND_TOKEN
-%type <moli> cmpd mol branch
+%type <moli>  mol branch
 %type <atom> atomd simple_atom hydrogen_atom
 %type <atom> atom_expr point_query atom_query recursive_query possible_range_query
 %type <ival> ring_number nonzero_number number charge_spec digit
@@ -81,24 +95,63 @@ namespace {
 %left AND_TOKEN
 %right NOT_TOKEN
 
+%destructor { delete $$; } ATOM_TOKEN
+%destructor { delete $$; } SIMPLE_ATOM_QUERY_TOKEN COMPLEX_ATOM_QUERY_TOKEN
+%destructor { delete $$; } RINGSIZE_ATOM_QUERY_TOKEN RINGBOND_ATOM_QUERY_TOKEN IMPLICIT_H_ATOM_QUERY_TOKEN
+%destructor { delete $$; } HYB_TOKEN HETERONEIGHBOR_ATOM_QUERY_TOKEN ALIPHATIC ALIPHATICHETERONEIGHBOR_ATOM_QUERY_TOKEN
+%destructor { delete $$; } bond_expr
+
+%start meta_start
+
 %%
 
 /* --------------------------------------------------------------- */
-cmpd: mol
-| cmpd error EOS_TOKEN{
-  yyclearin;
+meta_start:
+START_MOL mol {
+// the molList has already been updated, no need to do anything
+}
+| START_ATOM atomd EOS_TOKEN {
+  lastAtom = $2;
+  YYACCEPT;
+}
+| START_ATOM bad_atom_def {
+  YYABORT;
+}
+| START_ATOM {
+  YYABORT;
+}
+| START_BOND bond_expr EOS_TOKEN {
+  lastBond = $2;
+  YYACCEPT;
+}
+| START_BOND bond_expr {
+  delete $2;
+  YYABORT;
+}
+| START_BOND {
+  YYABORT;
+}
+| meta_start error EOS_TOKEN{
   yyerrok;
   yyErrorCleanup(molList);
   YYABORT;
 }
-| cmpd EOS_TOKEN {
+| meta_start EOS_TOKEN {
   YYACCEPT;
 }
-| error EOS_TOKEN{
-  yyclearin;
+| error EOS_TOKEN {
   yyerrok;
-
   yyErrorCleanup(molList);
+  YYABORT;
+}
+;
+
+bad_atom_def:
+ATOM_OPEN_TOKEN bad_atom_def
+| ATOM_CLOSE_TOKEN bad_atom_def
+| COLON_TOKEN bad_atom_def
+| atom_expr {
+  delete $1;
   YYABORT;
 }
 ;
@@ -224,7 +277,6 @@ mol: atomd {
     molList->resize( sz-1 );
   }
 }
-
 ;
 
 /* --------------------------------------------------------------- */
@@ -338,6 +390,7 @@ atom_expr: atom_expr AND_TOKEN atom_expr {
   $1->expandQuery($3->getQuery()->copy(),Queries::COMPOSITE_OR,true);
   if($1->getChiralTag()==Atom::CHI_UNSPECIFIED) $1->setChiralTag($3->getChiralTag());
   SmilesParseOps::ClearAtomChemicalProps($1);
+  $1->setAtomicNum(0);
   delete $3;
 }
 | atom_expr SEMI_TOKEN atom_expr {

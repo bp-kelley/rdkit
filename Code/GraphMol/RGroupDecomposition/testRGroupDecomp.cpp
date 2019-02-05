@@ -28,7 +28,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
-#include <RDBoost/test.h>
+#include <RDGeneral/test.h>
 #include <RDGeneral/RDLog.h>
 #include <RDGeneral/utils.h>
 #include <GraphMol/RDKitBase.h>
@@ -333,6 +333,8 @@ void testGithub1550() {
   RWMol *rg2 = (RWMol *)groups["R2"][0].get();
   TEST_ASSERT(rg2->getNumAtoms() == 12);
   MolOps::Kekulize(*rg2);
+
+  delete core;
 }
 
 void testRemoveHs() {
@@ -379,6 +381,7 @@ void testRemoveHs() {
     RWMol *rg2 = (RWMol *)groups["R2"][0].get();
     TEST_ASSERT(rg2->getNumAtoms() == 7);
   }
+  delete core;
 }
 
 void testGitHubIssue1705() {
@@ -407,10 +410,8 @@ void testGitHubIssue1705() {
       ss << MolToSmiles(*rgroup) << std::endl;
     }
   }
-
+  delete core;
   TEST_ASSERT(ss.str() == "Rgroup===Core\nOc1ccc([*:2])cc1[*:1]\nOc1ccc([*:2])cc1[*:1]\nOc1ccc([*:2])cc1[*:1]\nOc1ccc([*:2])cc1[*:1]\nOc1ccc([*:2])cc1[*:1]\nRgroup===R1\n[H][*:1]\nF[*:1]\nF[*:1]\nF[*:1]\nCl[*:1]\nRgroup===R2\n[H][*:2]\n[H][*:2]\n[H][*:2]\n[H]N([H])[*:2]\n[H][*:2]\n");
-
-
 }
 
 void testMatchOnlyAtRgroupHs() {
@@ -426,6 +427,7 @@ void testMatchOnlyAtRgroupHs() {
   for (int i = 0; i < 2; ++i) {
     ROMol *mol = SmilesToMol(smilesData[i]);
     decomp.add(*mol);
+    delete mol;
   }
   decomp.process();
 
@@ -438,6 +440,8 @@ void testMatchOnlyAtRgroupHs() {
     }
   }
   std::cerr << ss.str() << std::endl;
+
+  delete core;
   TEST_ASSERT(ss.str() == "Rgroup===Core\nCCO[*:1]\nCCO[*:1]\nRgroup===R1\n[H][*:1]\n[H]C([H])([H])[*:1]\n");
 }
 

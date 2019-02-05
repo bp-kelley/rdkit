@@ -9,6 +9,7 @@
 //
 #define NO_IMPORT_ARRAY
 #include <RDBoost/python.h>
+#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
 #include <string>
 
 #include "rdchem.h"
@@ -236,6 +237,9 @@ struct mol_wrapper {
         .value("AllProps", RDKit::PicklerOps::AllProps)
         .export_values();
     ;
+
+    python::class_<std::vector<StereoGroup>>("StereoGroupVector")
+        .def(python::vector_indexing_suite<std::vector<StereoGroup>>());
 
     python::def("GetDefaultPickleProperties",
                 MolPickler::getDefaultPickleProperties,
@@ -553,6 +557,12 @@ struct mol_wrapper {
              "explicit "
              "valence of the molecule have already been calculated.\n\n")
 
+        .def("GetStereoGroups", &ROMol::getStereoGroups,
+             "Returns a list of StereoGroups defining the relative stereochemistry "
+             "of the atoms.\n",
+             python::return_internal_reference<
+                 1, python::with_custodian_and_ward_postcall<0, 1>>())
+
         .def("GetPropNames", &ROMol::getPropList,
              (python::arg("self"), python::arg("includePrivate") = false,
               python::arg("includeComputed") = false),
@@ -648,6 +658,7 @@ struct mol_wrapper {
         "RWMol", rwmolClassDoc.c_str(),
         python::init<const ROMol &>("Construct from a Mol"))
         .def(python::init<>())
+        .def(python::init<const std::string &>())
         .def(python::init<const ROMol &, bool>())
         .def(python::init<const ROMol &, bool, int>())
         .def("__copy__", &generic__copy__<ReadWriteMol>)
@@ -680,7 +691,12 @@ struct mol_wrapper {
              "explicit set on the new bond")
         .def("GetMol", &ReadWriteMol::GetMol,
              "Returns a Mol (a normal molecule)",
-             python::return_value_policy<python::manage_new_object>());
+             python::return_value_policy<python::manage_new_object>())
+
+        // enable pickle support
+        .def_pickle(mol_pickle_suite())
+        ;
+
   };
 };
 }  // end of namespace

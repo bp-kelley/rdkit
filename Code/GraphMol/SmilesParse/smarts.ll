@@ -90,6 +90,15 @@ size_t setup_smarts_string(const std::string &text,yyscan_t yyscanner){
 %s IN_RECURSION_STATE
 %%
 
+%{
+  if (start_token)
+    {
+      int t = start_token;
+      start_token = 0;
+      return t;
+    }
+%}
+
 @[' ']*TH |
 @[' ']*AL |
 @[' ']*SQ |
@@ -295,6 +304,10 @@ o			{  yylval->ival = 8;  return AROMATIC_ATOM_TOKEN;  }
 p			{  yylval->ival = 15;  return AROMATIC_ATOM_TOKEN;  }
 
 s			{  yylval->ival = 16;  return AROMATIC_ATOM_TOKEN;  }
+
+<IN_ATOM_STATE>si	{  yylval->ival = 14;  return AROMATIC_ATOM_TOKEN;  }
+
+<IN_ATOM_STATE>as	{  yylval->ival = 33;  return AROMATIC_ATOM_TOKEN;  }
 
 <IN_ATOM_STATE>se	{  yylval->ival = 34;  return AROMATIC_ATOM_TOKEN;  }
 

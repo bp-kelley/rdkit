@@ -5,41 +5,25 @@ language: generic
 matrix:
   include:
   - os: linux
-    dist: trusty
-    env: CONDA_PYTHON_VERSION=2.7
-  - os: linux
-    dist: trusty
+    dist: xenial
     env: CONDA_PYTHON_VERSION=3.6
-  - os: osx
-    osx_image: xcode8.3
-    env: CONDA_PYTHON_VERSION=2.7
   - os: osx
     osx_image: xcode8.3
     env: CONDA_PYTHON_VERSION=3.6
 
 addons:
       apt:
-        sources:
-        - ubuntu-toolchain-r-test
-        - llvm-toolchain-trusty-3.9
         packages:
-         - build-essential
-         - openjdk-7-jdk
          - swig
-         - libjpeg-dev
-         - clang-3.9
-         - libc++-dev
 
 before_install:
  # download and install miniconda
  - echo "*************************************************"
  - echo "Building for $TRAVIS_OS_NAME"
  - echo "         for Python $CONDA_PYTHON_VERSION"
- - export PYMAJOR="";
- - if [[ "$CONDA_PYTHON_VERSION" == "3.6" ]] ; then export PYMAJOR="3"; fi
- - if [[ "$CONDA_PYTHON_VERSION" == "2.7" ]] ; then export PYMAJOR="2"; fi
- - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget http://repo.continuum.io/miniconda/Miniconda$PYMAJOR-4.4.10-Linux-x86_64.sh -O miniconda.sh; fi
- - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget http://repo.continuum.io/miniconda/Miniconda$PYMAJOR-4.4.10-MacOSX-x86_64.sh -O miniconda.sh; fi 
+ - export PYMAJOR="3";
+ - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget http://repo.continuum.io/miniconda/Miniconda$PYMAJOR-4.5.11-Linux-x86_64.sh -O miniconda.sh; fi
+ - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget http://repo.continuum.io/miniconda/Miniconda$PYMAJOR-4.5.11-MacOSX-x86_64.sh -O miniconda.sh; fi
  - bash miniconda.sh -b -p $HOME/conda
  - export PATH="$HOME/conda/bin:$PATH"
  - hash -r
@@ -52,12 +36,10 @@ install:
  - echo "INSTALL CONDA"
  # (don't install conda compiler tools on linux -- this is gcc 4.8 right now)
  #- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then conda install gcc_linux-64 gcc_linux-64 ; fi
- - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then conda install -q -c rdkit boost=1.63; fi
+ #- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then conda install -q -c rdkit boost=1.63; fi
+ - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then conda install -q py-boost=1.67.0 libboost=1.67.0 ; fi
  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then conda install -q py-boost=1.65.1 libboost=1.65.1 ; fi
- - conda install -q numpy pillow pandas cmake # matplotlib
- # install the conda boost packages from the RDKit binstar channel.
- # install eigen from conda-forge
- - conda install -q -c conda-forge eigen
+ - conda install -q numpy pillow pandas cmake eigen # matplotlib
 
 before_script:
  # RDKit
@@ -66,7 +48,7 @@ before_script:
  - echo $RDBASE
  - export PYTHONPATH=${RDBASE}
  - export LD_LIBRARY_PATH=${RDBASE}/lib
- - export DYLD_LIBRARY_PATH=${RDBASE}/lib
+ - export DYLD_FALLBACK_LIBRARY_PATH=${RDBASE}/lib
 
  - export PYTHON=`which python`
  - echo $PYTHON
@@ -80,10 +62,9 @@ script:
   - cd $RDBASE
   - mkdir build
   - cd build
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then  export CXX="clang++-3.9" ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then  export CC="clang-3.9" ; fi
-  - cmake -D Python_ADDITIONAL_VERSIONS=$CONDA_PYTHON_VERSION -D PYTHON_EXECUTABLE=$PYTHON -D PYTHON_LIBRARY=`find $PY_PREFIX -name "libpython$CONDA_PYTHON_VERSION*.so"` -D PYTHON_NUMPY_INCLUDE_PATH=$PY_SP_DIR/numpy/core/include -D BOOST_ROOT=$PY_PREFIX -D Boost_NO_SYSTEM_PATHS=ON -D RDK_BUILD_AVALON_SUPPORT=ON -D RDK_BUILD_INCHI_SUPPORT=ON -DRDK_BUILD_THREADSAFE_SSS=on -DRDK_TEST_MULTITHREADED=on -DRDK_INSTALL_STATIC_LIBS=OFF -DRDK_BUILD_SWIG_WRAPPERS=OFF -DRDK_SWIG_STATIC=OFF -DRDK_BUILD_PYTHON_WRAPPERS=OFF -DRDK_BUILD_FREESASA_SUPPORT=ON ..
-  - make -j2 VERBOSE=3
-  - make install
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then  export CXX="g++" ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then  export CC="gcc" ; fi
+  - cmake $REGEX_EXTRA -D PYTHON_EXECUTABLE=$PYTHON -D BOOST_ROOT=$PY_PREFIX -D Boost_NO_SYSTEM_PATHS=ON -D RDK_BUILD_AVALON_SUPPORT=ON -D RDK_BUILD_INCHI_SUPPORT=ON -DRDK_BUILD_THREADSAFE_SSS=on -DRDK_TEST_MULTITHREADED=on -DRDK_INSTALL_STATIC_LIBS=OFF -DRDK_BUILD_SWIG_WRAPPERS=OFF -DRDK_SWIG_STATIC=OFF -DRDK_BUILD_PYTHON_WRAPPERS=ON -DRDK_BUILD_FREESASA_SUPPORT=ON ..
+  - make -j2 install
   - ls "$PY_PREFIX/lib"
-  - LD_LIBRARY_PATH="$PY_PREFIX/lib:$PREFIX/lib;$SRC_DIR/lib;$LD_LIBRARY_PATH" DYLD_FALLBACK_LIBRARY_PATH="$PY_PREFIX/lib:$PREFIX/lib:$SRC_DIR/lib:$DYLD_LIBRARY_PATH" ctest -j2 --output-on-failure
+  - LD_LIBRARY_PATH="$PY_PREFIX/lib:$PREFIX/lib;$SRC_DIR/lib;$LD_LIBRARY_PATH" ctest -j2 --output-on-failure

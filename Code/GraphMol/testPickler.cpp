@@ -7,7 +7,7 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-#include <RDBoost/test.h>
+#include <RDGeneral/test.h>
 #include <RDGeneral/utils.h>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/RDKitQueries.h>
@@ -231,6 +231,8 @@ void test4() {
   TEST_ASSERT(!m3.getRingInfo()->isBondInRingOfSize(0, 4));
   TEST_ASSERT(!m3.getRingInfo()->isBondInRingOfSize(4, 3));
   TEST_ASSERT(m3.getRingInfo()->isBondInRingOfSize(4, 4));
+  delete m1;
+  delete m2;
 
   BOOST_LOG(rdErrorLog) << "\tdone" << std::endl;
 }
@@ -268,6 +270,9 @@ void testIssue164() {
 
   TEST_ASSERT(m3->getNumAtoms() == m4.getNumAtoms());
   TEST_ASSERT(m3->getNumBonds() == m4.getNumBonds());
+  delete m1;
+  delete m3;
+
   BOOST_LOG(rdErrorLog) << "\tdone" << std::endl;
 }
 
@@ -295,6 +300,8 @@ void testIssue219() {
   MolPickler::molFromPickle(pickle, *m2);
   TEST_ASSERT(m1->getNumAtoms() == m2->getNumAtoms());
   TEST_ASSERT(m2->getConformer().getId() == 23);
+  delete m1;
+  delete m2;
 
   BOOST_LOG(rdErrorLog) << "\tdone" << std::endl;
 }
@@ -324,6 +331,8 @@ void testIssue220() {
                 m2->getBondWithIdx(i)->getStereoAtoms());
   }
 
+  delete m1;
+  delete m2;
   BOOST_LOG(rdErrorLog) << "\tdone" << std::endl;
 }
 
@@ -361,7 +370,8 @@ void testQueries() {
   MolPickler::molFromPickle(pickle, *m1);
   TEST_ASSERT(m1->getNumAtoms() == 1);
   TEST_ASSERT(m1->getAtomWithIdx(0)->hasQuery());
-  TEST_ASSERT(m1->getAtomWithIdx(0)->getQuery()->getDescription() == "AtomType");
+  TEST_ASSERT(m1->getAtomWithIdx(0)->getQuery()->getDescription() ==
+              "AtomType");
   // query should be for aliphatic C:
   smi = "C";
   m2 = SmilesToMol(smi);
@@ -378,6 +388,7 @@ void testQueries() {
   TEST_ASSERT(m2);
   TEST_ASSERT(!m1->getAtomWithIdx(0)->Match(m2->getAtomWithIdx(0)));
   delete m1;
+  delete m2;
 
   // atom lists:
   smi = "[C,N,O]";
@@ -417,6 +428,7 @@ void testQueries() {
   TEST_ASSERT(!m1->getAtomWithIdx(0)->Match(m2->getAtomWithIdx(1)));
   TEST_ASSERT(!m1->getAtomWithIdx(0)->Match(m2->getAtomWithIdx(2)));
   delete m1;
+  delete m2;
 
   // more complex atom queries:
   smi = "[C&D2,N&D1]";
@@ -463,6 +475,7 @@ void testQueries() {
   m2 = SmilesToMol(smi);
   TEST_ASSERT(m2);
   TEST_ASSERT(!m1->getAtomWithIdx(0)->Match(m2->getAtomWithIdx(0)));
+  delete m1;
   delete m2;
 
   // basic recursive queries:
@@ -492,6 +505,7 @@ void testQueries() {
   TEST_ASSERT(m2);
   TEST_ASSERT(SubstructMatch(*m2, *m1, matchV));
   delete m1;
+  delete m2;
 
   smi = "[R2]";
   m1 = SmartsToMol(smi);
@@ -514,6 +528,7 @@ void testQueries() {
   TEST_ASSERT(m2);
   TEST_ASSERT(m1->getAtomWithIdx(0)->Match(m2->getAtomWithIdx(0)));
   TEST_ASSERT(!m1->getAtomWithIdx(0)->Match(m2->getAtomWithIdx(1)));
+  delete m1;
   delete m2;
 
   // basic bond queries:
@@ -528,7 +543,8 @@ void testQueries() {
   TEST_ASSERT(m1->getAtomWithIdx(0)->hasQuery());
   TEST_ASSERT(m1->getAtomWithIdx(1)->hasQuery());
   TEST_ASSERT(m1->getBondWithIdx(0)->hasQuery());
-  TEST_ASSERT(m1->getBondWithIdx(0)->getQuery()->getDescription() == "SingleOrAromaticBond");
+  TEST_ASSERT(m1->getBondWithIdx(0)->getQuery()->getDescription() ==
+              "SingleOrAromaticBond");
   smi = "CC";
   m2 = SmilesToMol(smi);
   TEST_ASSERT(m2);
@@ -548,6 +564,7 @@ void testQueries() {
   m2 = SmilesToMol(smi);
   TEST_ASSERT(m2);
   TEST_ASSERT(SubstructMatch(*m2, *m1, matchV));
+  delete m1;
   delete m2;
 
   smi = "[#6]-[#6]";
@@ -582,6 +599,7 @@ void testQueries() {
   m2 = SmilesToMol(smi);
   TEST_ASSERT(m2);
   TEST_ASSERT(!SubstructMatch(*m2, *m1, matchV));
+  delete m1;
   delete m2;
 
   smi = "C=C";
@@ -594,6 +612,7 @@ void testQueries() {
   TEST_ASSERT(m1->getNumAtoms() == 2);
   smi = MolToSmarts(*m1);
   TEST_ASSERT(smi == "C=C");
+  delete m1;
 
   smi = "C=[$(C=O)]";
   m1 = SmartsToMol(smi);
@@ -606,6 +625,7 @@ void testQueries() {
   smi = MolToSmarts(*m1);
   BOOST_LOG(rdErrorLog) << smi << std::endl;
   TEST_ASSERT(smi == "C=[$(C=O)]");
+  delete m1;
 
   smi = "S(=O)(=O)-[C;H2]([F,Br,I,Cl])";
   m1 = SmartsToMol(smi);
@@ -618,6 +638,7 @@ void testQueries() {
   smi2 = MolToSmarts(*m1);
   BOOST_LOG(rdErrorLog) << smi << " " << smi2 << std::endl;
   TEST_ASSERT(smi == smi2);
+  delete m1;
 
   // more complex recursive queries:
   smi = "[$(C)]";
@@ -646,6 +667,7 @@ void testQueries() {
   TEST_ASSERT(m2);
   TEST_ASSERT(!SubstructMatch(*m2, *m1, matchV));
   delete m1;
+  delete m2;
 
   // more complex recursive queries:
   smi = "[$(C=O);$(C-N)]";
@@ -667,9 +689,9 @@ void testQueries() {
   m2 = SmilesToMol(smi);
   TEST_ASSERT(m2);
   TEST_ASSERT(SubstructMatch(*m2, *m1, matchV));
+  delete m1;
   delete m2;
 
-  delete m1;
   BOOST_LOG(rdErrorLog) << "\tdone" << std::endl;
 }
 
@@ -689,6 +711,8 @@ void testRadicals() {
   TEST_ASSERT(m1->getNumAtoms() == m2->getNumAtoms());
   TEST_ASSERT(m1->getNumBonds() == m2->getNumBonds());
   TEST_ASSERT(m2->getAtomWithIdx(1)->getNumRadicalElectrons() == 1);
+  delete m1;
+  delete m2;
 
   BOOST_LOG(rdErrorLog) << "\tdone" << std::endl;
 }
@@ -939,12 +963,14 @@ void testAtomResidues() {
   {
     auto *m = new RWMol();
 
-    m->addAtom(new Atom(6));
-    m->addAtom(new Atom(6));
+    bool updateLabel = true;
+    bool takeOwnership = true;
+    m->addAtom(new Atom(6), updateLabel, takeOwnership);
+    m->addAtom(new Atom(6), updateLabel, takeOwnership);
     m->addBond(0, 1, Bond::SINGLE);
-    m->addAtom(new Atom(6));
+    m->addAtom(new Atom(6), updateLabel, takeOwnership);
     m->addBond(1, 2, Bond::SINGLE);
-    m->addAtom(new Atom(6));
+    m->addAtom(new Atom(6), updateLabel, takeOwnership);
     m->addBond(2, 3, Bond::SINGLE);
 
     m->getAtomWithIdx(0)->setMonomerInfo(
@@ -966,6 +992,7 @@ void testAtomResidues() {
                     ->getSerialNumber() == 3);
     TEST_ASSERT(!(m2->getAtomWithIdx(2)->getMonomerInfo()));
     TEST_ASSERT(!(m2->getAtomWithIdx(3)->getMonomerInfo()));
+    delete m2;
   }
   BOOST_LOG(rdErrorLog) << "\tdone" << std::endl;
 }
@@ -1214,7 +1241,8 @@ void testGithub1563() {
       << std::endl;
   RWMol m;
   auto *qa = new QueryAtom();
-  qa->setQuery(makeAtomHeavyAtomDegreeQuery(3));
+  auto *query = makeAtomHeavyAtomDegreeQuery(3);
+  qa->setQuery(query);
   m.addAtom(qa);
   TEST_ASSERT(m.getAtomWithIdx(0)->hasQuery());
   TEST_ASSERT(m.getAtomWithIdx(0)->getQuery()->getDescription() ==
@@ -1229,7 +1257,7 @@ void testGithub1563() {
   TEST_ASSERT(nm2.getAtomWithIdx(0)->hasQuery());
   TEST_ASSERT(nm2.getAtomWithIdx(0)->getQuery()->getDescription() ==
               "AtomHeavyAtomDegree");
-
+  delete qa;
   BOOST_LOG(rdErrorLog) << "\tdone" << std::endl;
 }
 
@@ -1272,6 +1300,68 @@ void testGithub1710() {
   BOOST_LOG(rdErrorLog) << "\tdone" << std::endl;
 }
 
+void testGithub1999() {
+  BOOST_LOG(rdInfoLog) << "-----------------------\n";
+  BOOST_LOG(rdInfoLog) << "Testing Github 1999: pickling atom map numbers >127 "
+                          "gives negative values"
+                       << std::endl;
+
+  {
+    RWMol m;
+    m.addAtom(new Atom(6), false, true);
+    m.getAtomWithIdx(0)->setAtomMapNum(777);
+    std::string pkl;
+    MolPickler::pickleMol(m, pkl);
+    std::unique_ptr<RWMol> m2(new RWMol(pkl));
+    TEST_ASSERT(m2->getAtomWithIdx(0)->getAtomMapNum() == 777);
+  }
+  {
+    RWMol m;
+    m.addAtom(new Atom(6), false, true);
+    m.getAtomWithIdx(0)->setAtomMapNum(128);
+    std::string pkl;
+    MolPickler::pickleMol(m, pkl);
+    std::unique_ptr<RWMol> m2(new RWMol(pkl));
+    TEST_ASSERT(m2->getAtomWithIdx(0)->getAtomMapNum() == 128);
+  }
+  BOOST_LOG(rdErrorLog) << "\tdone" << std::endl;
+}
+
+void testEnhancedStereoChemistry() {
+  BOOST_LOG(rdInfoLog) << "-----------------------\n";
+  BOOST_LOG(rdInfoLog) << "Testing that enhanced stereochemistry is pickled"
+                       << std::endl;
+  RWMol m;
+  for (unsigned i = 0u; i < 6; ++i) {
+    m.addAtom(new Atom(6), false, true);
+  }
+
+  // add 3 stereo groups
+  {
+    std::vector<StereoGroup> groups;
+    std::vector<Atom *> atoms0 = {{m.getAtomWithIdx(0), m.getAtomWithIdx(1)}};
+    groups.emplace_back(RDKit::StereoGroupType::STEREO_ABSOLUTE,
+                        std::move(atoms0));
+    std::vector<Atom *> atoms1 = {{m.getAtomWithIdx(2), m.getAtomWithIdx(3)}};
+    groups.emplace_back(RDKit::StereoGroupType::STEREO_OR, std::move(atoms1));
+    std::vector<Atom *> atoms2 = {{m.getAtomWithIdx(4), m.getAtomWithIdx(5)}};
+    groups.emplace_back(RDKit::StereoGroupType::STEREO_AND, std::move(atoms2));
+    m.setStereoGroups(std::move(groups));
+  }
+
+  std::string pkl;
+  MolPickler::pickleMol(m, pkl);
+
+  std::unique_ptr<RWMol> roundTripped(new RWMol(pkl));
+
+  auto &ref_groups = m.getStereoGroups();
+  auto &new_groups = roundTripped->getStereoGroups();
+  TEST_ASSERT(ref_groups.size() == new_groups.size());
+  for (unsigned i = 0u; i < 3; ++i) {
+    TEST_ASSERT(ref_groups[i].getGroupType() == new_groups[i].getGroupType());
+  }
+}
+
 int main(int argc, char *argv[]) {
   RDLog::InitLogs();
   bool doLong = false;
@@ -1306,4 +1396,6 @@ int main(int argc, char *argv[]) {
   testGithub713();
   testGithub1563();
   testGithub1710();
+  testGithub1999();
+  testEnhancedStereoChemistry();
 }

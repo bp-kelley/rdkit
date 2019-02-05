@@ -149,6 +149,12 @@ ROMol *MolFromMolBlock(python::object imolBlock, bool sanitize, bool removeHs,
   return static_cast<ROMol *>(newM);
 }
 
+ROMol *MolFromSVG(python::object imolBlock, bool sanitize, bool removeHs) {
+  RWMol *res = nullptr;
+  res = RDKitSVGToMol(pyObjectToString(imolBlock), sanitize, removeHs);
+  return static_cast<ROMol *>(res);
+}
+
 ROMol *MolFromMol2File(const char *molFilename, bool sanitize = true,
                        bool removeHs = true, bool cleanupSubstructures = true) {
   RWMol *newM;
@@ -467,6 +473,31 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       python::return_value_policy<python::manage_new_object>());
 
   docString =
+      "Construct a molecule from an RDKit-generate SVG string.\n\n\
+  ARGUMENTS:\n\
+\n\
+    - svg: string containing the SVG data (must include molecule metadata)\n\
+\n\
+    - sanitize: (optional) toggles sanitization of the molecule.\n\
+      Defaults to True.\n\
+\n\
+    - removeHs: (optional) toggles removing hydrogens from the molecule.\n\
+      This only make sense when sanitization is done.\n\
+      Defaults to true.\n\
+\n\
+  RETURNS:\n\
+\n\
+    a Mol object, None on failure.\n\
+\n\
+  NOTE: this functionality should be considered beta.\n\
+\n";
+  python::def("MolFromRDKitSVG", RDKit::MolFromSVG,
+              (python::arg("molBlock"), python::arg("sanitize") = true,
+               python::arg("removeHs") = true),
+              docString.c_str(),
+              python::return_value_policy<python::manage_new_object>());
+
+  docString =
       "Construct a molecule from a Tripos Mol2 file.\n\n\
   NOTE:\n \
     The parser expects the atom-typing scheme used by Corina.\n\
@@ -698,6 +729,14 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
                python::arg("replacements") = python::dict()),
               docString.c_str(),
               python::return_value_policy<python::manage_new_object>());
+  docString = "Construct an atom from a SMILES string";
+  python::def("AtomFromSmiles", SmilesToAtom, python::arg("SMILES"),
+              docString.c_str(),
+              python::return_value_policy<python::manage_new_object>());
+  docString = "Construct a bond from a SMILES string";
+  python::def("BondFromSmiles", SmilesToBond, python::arg("SMILES"),
+              docString.c_str(),
+              python::return_value_policy<python::manage_new_object>());
 
   docString =
       "Construct a molecule from a SMARTS string.\n\n\
@@ -719,6 +758,14 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
   python::def("MolFromSmarts", RDKit::MolFromSmarts,
               (python::arg("SMARTS"), python::arg("mergeHs") = false,
                python::arg("replacements") = python::dict()),
+              docString.c_str(),
+              python::return_value_policy<python::manage_new_object>());
+  docString = "Construct an atom from a SMARTS string";
+  python::def("AtomFromSmarts", SmartsToAtom, python::arg("SMARTS"),
+              docString.c_str(),
+              python::return_value_policy<python::manage_new_object>());
+  docString = "Construct a bond from a SMARTS string";
+  python::def("BondFromSmarts", SmartsToBond, python::arg("SMILES"),
               docString.c_str(),
               python::return_value_policy<python::manage_new_object>());
 
@@ -749,7 +796,7 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       (python::arg("mol"), python::arg("isomericSmiles") = true,
        python::arg("kekuleSmiles") = false, python::arg("rootedAtAtom") = -1,
        python::arg("canonical") = true, python::arg("allBondsExplicit") = false,
-       python::arg("allHsExplicit") = false),
+       python::arg("allHsExplicit") = false, python::arg("doRandom") = false),
       docString.c_str());
 
   docString =
@@ -777,6 +824,8 @@ BOOST_PYTHON_MODULE(rdmolfiles) {
       in the output SMILES. Defaults to false.\n\
     - allHsExplicit: (optional) if true, all H counts will be explicitly indicated\n\
       in the output SMILES. Defaults to false.\n\
+    - doRandom: (optional) if true, randomized the DFS transversal graph,\n\
+      so we can generate random smiles. Defaults to false.\n\
 \n\
   RETURNS:\n\
 \n\

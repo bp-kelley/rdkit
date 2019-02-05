@@ -9,7 +9,7 @@
 //  of the RDKit source tree.
 //
 
-#include <RDBoost/test.h>
+#include <RDGeneral/test.h>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/MonomerInfo.h>
 #include <GraphMol/RDKitQueries.h>
@@ -150,16 +150,25 @@ void testProps() {
 void testDict() {
   BOOST_LOG(rdInfoLog) << "-----------------------\n dict" << std::endl;
   int val = 1;
+
   auto *d = new Dict();
+  delete d;
+
   d = new Dict();
   d->setVal<int>("foo", val);
+  delete d;
+
   d = new Dict();
   d->setVal<int>("foo", val);
   d->setVal<int>("bar", val);
+  delete d;
+
   d = new Dict();
   d->setVal<int>("foo", val);
   d->setVal<int>("bar", val);
   d->setVal<int>("baz", val);
+  delete d;
+
   BOOST_LOG(rdInfoLog) << "Finished" << std::endl;
 }
 // -------------------------------------------------------------------
