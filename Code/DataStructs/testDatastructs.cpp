@@ -1404,19 +1404,29 @@ void test16BitVectProps() {
   for(int i=0;i<32;i+=2){
     bv.setBit(i);
   }
-    
+
+  ExplicitBitVect bv2(bv.toString());
+  TEST_ASSERT(bv == bv2);
+  
   Dict d;
   d.setVal<ExplicitBitVect>("exp", bv);
   RDValue &value = d.getData()[0].val;
   
-  DataStructsExplicitBitVectPropHandler handler;
-  TEST_ASSERT(handler.canSerialize(value));
-  RDValue bad_value = 1;
-  TEST_ASSERT(!handler.canSerialize(bad_value));
-  std::stringstream ss;
-  TEST_ASSERT(handler.write(ss, value));
-  RDValue newValue;
-  TEST_ASSERT(handler.read(ss, value));
+  DataStructsExplicitBitVecPropHandler bv_handler;
+  std::vector<CustomPropHandler*> handlers = {&bv_handler,
+                                              bv_handler.clone()};
+  for(auto handler: handlers)
+  {
+    TEST_ASSERT(handler->canSerialize(value));
+    RDValue bad_value = 1;
+    TEST_ASSERT(!handler->canSerialize(bad_value));
+    std::stringstream ss;
+    TEST_ASSERT(handler->write(ss, value));
+    RDValue newValue;
+    TEST_ASSERT(handler->read(ss, newValue));
+    TEST_ASSERT(from_rdvalue<ExplicitBitVect>(newValue) == bv);
+  }
+  delete handlers[1];
 }
 
 
