@@ -139,7 +139,7 @@ class RDKIT_GRAPHMOL_EXPORT MolPickler {
   static void setDefaultPickleProperties(unsigned int);
 
   static CustomPropHandlerVec getCustomPropHandlers();
-  static void addCustomPropHandler(CustomPropHandler handler);
+  static void addCustomPropHandler(const CustomPropHandler &handler);
 
   //! pickles a molecule and sends the results to stream \c ss
   static void pickleMol(const ROMol *mol, std::ostream &ss);
