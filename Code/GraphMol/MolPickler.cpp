@@ -106,7 +106,7 @@ CustomPropHandlerVec MolPickler::getCustomPropHandlers() {
   return defaultPropHandlers;
 }
 
-void MolPickler::addCustomPropHandler(CustomPropHandler handler) {
+void MolPickler::addCustomPropHandler(const CustomPropHandler &handler) {
 #ifdef RDK_THREADSAFE_SSS
   std::lock_guard<std::mutex> lock(GetPropMutex());
 #endif
