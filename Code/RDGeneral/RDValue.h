@@ -54,7 +54,7 @@ inline std::string & rdvalue_cast<std::string&>(RDValue_cast_t v) {
   throw boost::bad_any_cast();
 }
 
-// Special Vecor Casts
+// Special Vector Casts
 template<>
 inline std::vector<double> rdvalue_cast<std::vector<double> >(RDValue_cast_t v) {
   if(rdvalue_is<std::vector<double> >(v))
