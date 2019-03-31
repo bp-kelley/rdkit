@@ -82,6 +82,10 @@
 }
 #endif
 
+
+%include <GraphMol/SubstructLibrary/MolHolders.h>
+%include <GraphMol/SubstructLibrary/FPHolders.h>
+%include <GraphMol/SubstructLibrary/KeyHolder.h>
 %include <GraphMol/SubstructLibrary/SubstructLibrary.h>
 
 %pragma(java) modulecode=%{

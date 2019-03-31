@@ -21,6 +21,7 @@ rdkit_library(SubstructLibrary
               GraphMol RDGeometryLib Catalogs RDGeneral DataStructs ${RDKit_SERIALIZATION_LIBS})
 
 rdkit_headers(SubstructLibrary.h
+              Holders.h MolHolders.h FPHolders.h KeyHolder.h
               SubstructLibrarySerialization.h
               DEST GraphMol/SubstructLibrary)
 
