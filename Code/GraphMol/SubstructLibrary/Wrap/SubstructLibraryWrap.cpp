@@ -273,7 +273,9 @@ struct substructlibrary_wrapper {
         .def(python::init<boost::shared_ptr<MolHolderBase>,
                           boost::shared_ptr<FPHolderBase>>())
         .def(python::init<std::string>())
-        .def("AddMol", &SubstructLibrary::addMol, (python::arg("mol")),
+        .def("AddMol", (unsigned int(SubstructLibrary::*)(const ROMol&))
+                        &SubstructLibrary::addMol,
+             (python::arg("mol")),
              "Adds a molecule to the substruct library")
 
         .def("GetMatches", (std::vector<unsigned int>(SubstructLibrary::*)(

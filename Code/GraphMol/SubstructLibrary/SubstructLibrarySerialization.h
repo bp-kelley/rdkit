@@ -45,13 +45,130 @@
 BOOST_SERIALIZATION_ASSUME_ABSTRACT(RDKit::MolHolderBase)
 BOOST_SERIALIZATION_ASSUME_ABSTRACT(RDKit::FPHolderBase)
 
+
+
 namespace boost {
 namespace serialization {
-  
+
+template <class Archive>
+inline bool writeRDValue(Archive &ar, const RDKit::RDValue &value) {
+  switch (value.getTag()) {
+    case RDKit::RDTypeTag::StringTag:
+      ar << RDKit::DTags::StringTag;
+      ar << RDKit::rdvalue_cast<std::string>(value);
+      break;
+    case RDKit::RDTypeTag::IntTag:
+      ar << RDKit::DTags::IntTag;
+      ar << RDKit::rdvalue_cast<int>(value);
+      break;
+    case RDKit::RDTypeTag::UnsignedIntTag:
+      ar << RDKit::DTags::UnsignedIntTag;
+      ar << RDKit::rdvalue_cast<unsigned int>(value);
+      break;
+    case RDKit::RDTypeTag::BoolTag:
+      ar << RDKit::DTags::BoolTag;
+      ar << RDKit::rdvalue_cast<bool>(value);
+      break;
+    case RDKit::RDTypeTag::FloatTag:
+      ar << RDKit::DTags::FloatTag;
+      ar << RDKit::rdvalue_cast<float>(value);
+      break;
+    case RDKit::RDTypeTag::DoubleTag:
+      ar << RDKit::DTags::DoubleTag;
+      ar << RDKit::rdvalue_cast<double>(value);
+      break;
+
+    case RDKit::RDTypeTag::VecStringTag:
+      ar << RDKit::DTags::VecStringTag;
+      ar << RDKit::rdvalue_cast<std::vector<std::string>>(value);
+      break;
+    case RDKit::RDTypeTag::VecDoubleTag:
+      ar << RDKit::DTags::VecDoubleTag;
+      ar << RDKit::rdvalue_cast<std::vector<double>>(value);
+      break;
+    case RDKit::RDTypeTag::VecFloatTag:
+      ar << RDKit::DTags::VecFloatTag;
+      ar << RDKit::rdvalue_cast<std::vector<float>>(value);
+      break;
+    case RDKit::RDTypeTag::VecIntTag:
+      ar << RDKit::DTags::VecIntTag;
+      ar << RDKit::rdvalue_cast<std::vector<int>>(value);
+      break;
+    case RDKit::RDTypeTag::VecUnsignedIntTag:
+      ar << RDKit::DTags::VecUIntTag;
+      ar << RDKit::rdvalue_cast<std::vector<unsigned int>>(value);
+      break;
+    default:
+      throw ValueErrorException("Unable to write RDValue to pickle");
+      return false;
+  }
+  return true;
+}
+
+// This should be refactored into StreamOps.h, but that deals directly
+//  with dict serialization not RDValue
+template<class Archive, class T>
+void _readRDValue(Archive &ar, RDKit::RDValue &value) {
+  T v;
+  ar >> v;
+  value = v;
+}
+
+template<class Archive>
+inline bool readRDValue(Archive &ar, RDKit::RDValue &value) {
+  unsigned char type;
+  ar >> type;
+  switch(type) {
+    case RDKit::DTags::IntTag: _readRDValue<Archive, int>(ar, value); break;
+    case RDKit::DTags::UnsignedIntTag: _readRDValue<Archive, unsigned int>(ar, value); break;
+    case RDKit::DTags::BoolTag: _readRDValue<Archive, bool>(ar, value); break;
+    case RDKit::DTags::FloatTag: _readRDValue<Archive, float>(ar, value); break;
+    case RDKit::DTags::DoubleTag: _readRDValue<Archive, double>(ar, value); break;
+
+    case RDKit::DTags::StringTag:
+      _readRDValue<Archive, std::string>(ar, value);
+      break;
+    case RDKit::DTags::VecStringTag:
+      _readRDValue<Archive, std::vector<std::string>>(ar, value);
+      break;
+    case RDKit::DTags::VecIntTag:
+      _readRDValue<Archive, std::vector<int>>(ar, value);
+      break;
+    case RDKit::DTags::VecUIntTag:
+      _readRDValue<Archive, std::vector<unsigned int>>(ar, value);
+      break;
+    case RDKit::DTags::VecFloatTag:
+      _readRDValue<Archive, std::vector<float>>(ar, value);
+      break;
+    case RDKit::DTags::VecDoubleTag:
+      _readRDValue<Archive, std::vector<double>>(ar, value);
+      break;
+
+    default:
+      throw ValueErrorException("Unable to read RDValue from pickle");
+      return false;
+  }
+  return true;
+}
+
 template <class Archive>
 void serialize(Archive &ar, RDKit::MolHolderBase &, const unsigned int version) {
   RDUNUSED_PARAM(version);
   RDUNUSED_PARAM(ar);
+}
+
+template <class Archive>
+void save(Archive &ar, const RDKit::RDValue& value,
+          const unsigned int version) {
+  RDUNUSED_PARAM(version);
+  writeRDValue(ar, value);
+}
+  
+template <class Archive>
+void load(Archive &ar, RDKit::RDValue& value,
+          const unsigned int version) {
+  RDUNUSED_PARAM(version);
+  readRDValue(ar, value);
 }
 
 template <class Archive>
@@ -150,6 +267,14 @@ void serialize(Archive &ar, RDKit::PatternHolder &pattern_holder,
 }
 
 template <class Archive>
+void serialize(Archive &ar, RDKit::KeyHolder &key_holder,
+               const unsigned int version) {
+  RDUNUSED_PARAM(version);
+  std::vector<RDKit::RDValue> &keys = key_holder.getKeys();
+  ar & keys;
+}
+
+template <class Archive>
 void registerSubstructLibraryTypes(Archive &ar) {
   ar.register_type(static_cast<RDKit::MolHolder *>(NULL));
   ar.register_type(static_cast<RDKit::CachedMolHolder *>(NULL));
@@ -175,7 +300,6 @@ void load(Archive &ar, RDKit::SubstructLibrary &slib,
   registerSubstructLibraryTypes(ar);
   ar & slib.getMolHolder();
   ar & slib.getFpHolder();
-  slib.resetHolders();
 }
 
 } // end namespace serialization

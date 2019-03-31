@@ -77,9 +77,9 @@ struct Bits {
 };
 
 unsigned int SubstructLibrary::addMol(const ROMol &m) {
-  unsigned int size = mols->addMol(m);
-  if (fps) {
-    unsigned int fpsize = fps->addMol(m);
+  unsigned int size = molholder->addMol(m);
+  if (fpholder.get()) {
+    unsigned int fpsize = fpholder->addMol(m);
     CHECK_INVARIANT(size == fpsize,
                     "#mols different than #fingerprints in SubstructLibrary");
   }
@@ -225,7 +225,8 @@ int internalMatchCounter(const ROMol &query, MolHolderBase &mols,
 std::vector<unsigned int> SubstructLibrary::getMatches(
     const ROMol &query, bool recursionPossible, bool useChirality,
     bool useQueryQueryMatches, int numThreads, int maxResults) {
-  return getMatches(query, 0, mols->size(), recursionPossible, useChirality,
+  PRECONDITION(molholder.get(), "molholder is null in SubstructLibrary");  
+  return getMatches(query, 0, molholder->size(), recursionPossible, useChirality,
                     useQueryQueryMatches, numThreads, maxResults);
 }
 
@@ -233,7 +234,8 @@ std::vector<unsigned int> SubstructLibrary::getMatches(
     const ROMol &query, unsigned int startIdx, unsigned int endIdx,
     bool recursionPossible, bool useChirality, bool useQueryQueryMatches,
     int numThreads, int maxResults) {
-  return internalGetMatches(query, *mols, fps, startIdx, endIdx,
+  PRECONDITION(molholder.get(), "molholder is null in SubstructLibrary");  
+  return internalGetMatches(query, *molholder.get(), fpholder.get(), startIdx, endIdx,
                             recursionPossible, useChirality,
                             useQueryQueryMatches, numThreads, maxResults);
 }
@@ -243,7 +245,7 @@ unsigned int SubstructLibrary::countMatches(const ROMol &query,
                                             bool useChirality,
                                             bool useQueryQueryMatches,
                                             int numThreads) {
-  return countMatches(query, 0, mols->size(), recursionPossible, useChirality,
+  return countMatches(query, 0, molholder->size(), recursionPossible, useChirality,
                       useQueryQueryMatches, numThreads);
 }
 
@@ -251,7 +253,8 @@ unsigned int SubstructLibrary::countMatches(
     const ROMol &query, unsigned int startIdx, unsigned int endIdx,
     bool recursionPossible, bool useChirality, bool useQueryQueryMatches,
     int numThreads) {
-  return internalMatchCounter(query, *mols, fps, startIdx, endIdx,
+  PRECONDITION(molholder.get(), "molholder is null in SubstructLibrary");  
+  return internalMatchCounter(query, *molholder.get(), fpholder.get(), startIdx, endIdx,
                               recursionPossible, useChirality,
                               useQueryQueryMatches, numThreads);
 }
@@ -273,6 +276,51 @@ bool SubstructLibrary::hasMatch(const ROMol &query, unsigned int startIdx,
   return getMatches(query, startIdx, endIdx, recursionPossible, useChirality,
                     useQueryQueryMatches, numThreads, maxResults)
              .size() > 0;
+}
+
+
+SubstructLibrary SubstructLibrary::filter(const std::vector<unsigned int> &indices) {
+  PRECONDITION(molholder.get(), "molholder is null in SubstructLibrary");
+  boost::shared_ptr<MolHolderBase> mols = molholder->filter_holder(indices);
+  boost::shared_ptr<FPHolderBase> fps;
+  boost::shared_ptr<KeyHolder> keys;
+  if (fpholder.get())
+    fps = fpholder->filter_holder(indices);
+  if(keyholder.get())
+    keys = keyholder->filter_holder(indices);
+
+  return SubstructLibrary(mols, fps, keys);
+}
+
+SubstructLibrary SubstructLibrary::filter_remove(const std::vector<unsigned int> &indices) {
+  PRECONDITION(molholder.get(), "molholder is null in SubstructLibrary");
+  boost::shared_ptr<MolHolderBase> mols = molholder->filter_remove_holder(indices);
+  boost::shared_ptr<FPHolderBase> fps;
+  boost::shared_ptr<KeyHolder> keys;
+  if (fpholder.get())
+    fps = fpholder->filter_remove_holder(indices);
+  if(keyholder.get())
+    keys = keyholder->filter_remove_holder(indices);
+
+  return SubstructLibrary(mols, fps, keys);
+}
+
+SubstructLibrary SubstructLibrary::keep_indices(const std::vector<unsigned int> &indices) {
+  PRECONDITION(molholder.get(), "molholder is null in SubstructLibrary");
+  molholder->filter_indices(indices);
+  if (fpholder.get())
+    fpholder->filter_indices(indices);
+  if(keyholder.get())
+    keyholder->filter_indices(indices);
+}
+
+SubstructLibrary SubstructLibrary::remove_indices(const std::vector<unsigned int> &indices) {
+  PRECONDITION(molholder.get(), "molholder is null in SubstructLibrary");
+  molholder->remove_indices(indices);
+  if (fpholder.get())
+    fpholder->remove_indices(indices);
+  if(keyholder.get())
+    keyholder->remove_indices(indices);
 }
 
 void SubstructLibrary::toStream(std::ostream &ss) const {
