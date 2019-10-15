@@ -49,7 +49,6 @@
 %}
 
 %template(FilterCatalogEntry_Vect) std::vector< boost::shared_ptr<RDKit::FilterCatalogEntry> >;
-%template(FilterCatalogEntry_Vect_Vect) std::vector< std::vector<boost::shared_ptr<RDKit::FilterCatalogEntry> > >;
 
 %template(FilterCatalogEntryVect) std::vector< const RDKit::FilterCatalogEntry* >;
 %template(UChar_Vect) std::vector<unsigned char>;
@@ -157,7 +156,7 @@
 
 //%ignore RDKit::FilterCatalogEntry::getPropList;
 %ignore RDKit::Dict::getPropList;
-
+%ignore RDKit::RunFilterCatalog;
 
 #ifdef SWIGJAVA
 %typemap(jni) std::string RDKit::FilterCatalog::Serialize "jbyteArray"
