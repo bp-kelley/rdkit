@@ -345,17 +345,20 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT PropHolder {
    unsigned int size() const {
      return rdcast<unsigned int>(properties.size());
    }
+   
    const RDProps &getProp(unsigned int idx) const {
      if(idx >= properties.size())
        throw IndexErrorException(idx);
      return properties[idx];
    }
-   RDProps &getProp(unsigned int idx) {
+   
+   /*RDProps &getProp(unsigned int idx) {
      if(idx >= properties.size())
        throw IndexErrorException(idx);
      
      return properties[idx];
-   }
+     }*/
+   
    void setProp(unsigned int idx, const RDProps &props) {
      if(idx >= properties.size())
        throw IndexErrorException(idx);
@@ -475,7 +478,10 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
         fps(nullptr) {}
 
   SubstructLibrary(boost::shared_ptr<MolHolderBase> molecules)
-     : molholder(molecules), fpholder(), propholder(), mols(molholder.get()), fps(0) {}
+     : molholder(molecules), fpholder(), propholder(), mols(molholder.get()), fps(0) {
+    if(!molecules.get())
+      throw ValueErrorException("No molecule holder");
+  }
 
   SubstructLibrary(boost::shared_ptr<MolHolderBase> molecules,
                    boost::shared_ptr<FPHolderBase> fingerprints)
@@ -484,7 +490,10 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
         propholder(),
         mols(molholder.get()),
         fps(fpholder.get()) {
-    if(mols->size() != fps->size())
+    if(!molecules.get())
+      throw ValueErrorException("No molecule holder");
+    
+    if(fps && mols->size() != fps->size())
       throw ValueErrorException("number of molecules doesn't equal number of fingerprints");
 
   }
@@ -496,7 +505,10 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
         propholder(props),
         mols(molholder.get()),
         fps(fpholder.get()) {
-    if(mols->size() != props.get()->size())
+    if(!molecules.get())
+      throw ValueErrorException("No molecule holder");
+    
+    if(props.get() && mols->size() != props.get()->size())
       throw ValueErrorException("number of molecules doesn't equal number of properties");
   }
 
@@ -508,9 +520,12 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
         propholder(props),
         mols(molholder.get()),
         fps(fpholder.get()) {
-    if(!fps || mols->size() != fps->size())
+    if(!molecules.get())
+      throw ValueErrorException("No molecule holder");
+    
+    if(fps && mols->size() != fps->size())
       throw ValueErrorException("number of molecules doesn't equal number of fingerprints");
-    if(!props.get() || mols->size() != props.get()->size())
+    if(props.get() && mols->size() != props.get()->size())
       throw ValueErrorException("number of molecules doesn't equal number of properties");    
   }
   
@@ -533,9 +548,14 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
   //! Get the underlying molecule holder implementation
   boost::shared_ptr<FPHolderBase> &getFpHolder() { return fpholder; }
 
-  //! Get the underlying molecule holder implementation
+  //! Get the underlying fingerprint holder implementation
   const boost::shared_ptr<FPHolderBase> &getFpHolder() const {
     return fpholder;
+  }
+
+  //! Get the underlying property holder implementation
+  const boost::shared_ptr<PropHolder> &getPropHolder() const {
+    return propholder;
   }
 
   const MolHolderBase &getMolecules() const {
@@ -557,7 +577,7 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
     return *fps;
   }
 
-  const PropHolder &getPropHolder() const {
+  const PropHolder &getProps() const {
     if (!propholder.get())
       throw ValueErrorException("Substruct Library does not have a property holder");
     return *propholder.get();
@@ -703,12 +723,12 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
     return mols->getMol(idx);
   }
 
-  const RDProps &getProp(unsigned int idx) {
+  const RDProps &getProp(unsigned int idx) const {
     if(!propholder.get())
       throw ValueErrorException("Substruct library doesn't have a property holder");
     return propholder->getProp(idx);
-       
   }
+  
   //! return the number of molecules in the library
   unsigned int size() const {
     PRECONDITION(mols, "molholder is null in SubstructLibrary");

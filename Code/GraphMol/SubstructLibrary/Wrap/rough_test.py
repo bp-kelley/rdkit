@@ -500,6 +500,20 @@ class TestCase(unittest.TestCase):
     lib.Remove(ids)
     self.assertEqual(1, len(lib))
       
+  def testPropHolder(self):
+    molholder = rdSubstructLibrary.CachedMolHolder()
+    patternholder = None#rdSubstructLibrary.PatternHolder()
+    propholder = rdSubstructLibrary.PropHolder()
+    lib = rdSubstructLibrary.SubstructLibrary(molholder, patternholder, propholder)
     
+    smiles = []
+    for i in range(100):
+      smi = "C" * (i+1)
+      m = Chem.MolFromSmiles(smi)
+      m.SetProp("key", str(i))
+      lib.AddMol(m, True)
+    for i in range(100):
+      self.assertEqual(propholder.GetProp(i).GetProp("key"), str(i))
+
 if __name__ == '__main__':
   unittest.main()

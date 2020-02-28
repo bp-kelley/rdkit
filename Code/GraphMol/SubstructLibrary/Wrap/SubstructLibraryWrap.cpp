@@ -96,6 +96,7 @@ const char *CachedTrustedSmilesMolHolderDoc =
 
 const char *PatternHolderDoc =
     "Holds fingerprints used for filtering of molecules.";
+const char *PropHolderDoc = "";
 const char *SubstructLibraryDoc =
     "SubstructLibrary: This provides a simple API for substructure searching "
     "large datasets\n"
@@ -238,6 +239,11 @@ boost::shared_ptr<FPHolderBase> GetFpHolder(SubstructLibrary &sslib)
   return sslib.getFpHolder();
 }
 
+boost::shared_ptr<PropHolder> GetPropHolder(SubstructLibrary &sslib)
+{
+  // need to convert from a ref to a real shared_ptr
+  return sslib.getPropHolder();
+}
 
 
 struct substructlibrary_wrapper {
@@ -316,16 +322,34 @@ struct substructlibrary_wrapper {
                    python::bases<FPHolderBase>>(
         "PatternHolder", PatternHolderDoc, python::init<>());
 
+    
+    python::class_<PropHolder, boost::shared_ptr<PropHolder>>(
+		"PropHolder", PropHolderDoc, python::init<>())
+      .def("GetProp", &PropHolder::getProp,//(RDProps&(PropHolder::*)(unsigned int))&PropHolder::getProp,
+	   (python::args("idx")),
+	   python::return_internal_reference<
+	   1, python::with_custodian_and_ward_postcall<0, 1>>()
+	   )
+      .def("SetProp", &PropHolder::setProp,
+	   (python::args("idx"), python::args("prop")))
+	   ;
+    
     python::class_<SubstructLibrary, SubstructLibrary *,
                    const SubstructLibrary *>(
         "SubstructLibrary", SubstructLibraryDoc, python::init<>())
         .def(python::init<boost::shared_ptr<MolHolderBase>>())
         .def(python::init<boost::shared_ptr<MolHolderBase>,
                           boost::shared_ptr<FPHolderBase>>())
+        .def(python::init<boost::shared_ptr<MolHolderBase>,
+                          boost::shared_ptr<PropHolder>>())
+        .def(python::init<boost::shared_ptr<MolHolderBase>,
+	                  boost::shared_ptr<FPHolderBase>,
+	                  boost::shared_ptr<PropHolder>>())
         .def(python::init<std::string>())
       
-        .def("GetMolHolder", &GetMolHolder)
-        .def("GetFpHolder", &GetFpHolder)      
+        .def("GetMolHolder",  &GetMolHolder)
+        .def("GetFpHolder",   &GetFpHolder)      
+      //.def("GetPropHolder", &GetPropHolder)      
       
         .def("AddMol", &SubstructLibrary::addMol,
 	     (python::arg("mol"), python::arg("keep_props")=false),
