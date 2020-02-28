@@ -63,6 +63,10 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT MolHolderBase {
 
   //! Get the current library size
   virtual unsigned int size() const = 0;
+
+  //! Remove the molecule at idx, this reduces the number of molecules by 1
+  //!  Note: The order of molecules is NOT retained
+  virtual void remove(unsigned int idx) = 0;
 };
 
 //! Concrete class that holds molecules in memory
@@ -92,6 +96,10 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT MolHolder : public MolHolderBase {
 
   std::vector<boost::shared_ptr<ROMol>> &getMols() { return mols; }
   const std::vector<boost::shared_ptr<ROMol>> &getMols() const { return mols; }
+  virtual void remove(unsigned int idx) {
+    mols[idx] = mols.back();
+    mols.pop_back();
+  }
 };
 
 //! Concrete class that holds binary cached molecules in memory
@@ -134,6 +142,14 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT CachedMolHolder : public MolHolderBase {
 
   std::vector<std::string> &getMols() { return mols; }
   const std::vector<std::string> &getMols() const { return mols; }
+
+  //! Remove the molecule at idx, this reduces the number of molecules by 1
+  //!  Note: The order of molecules is NOT retained
+  virtual void remove(unsigned int idx) {
+    mols[idx] = mols.back();
+    mols.pop_back();
+  }
+
 };
 
 //! Concrete class that holds smiles strings in memory
@@ -178,6 +194,13 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT CachedSmilesMolHolder
 
   std::vector<std::string> &getMols() { return mols; }
   const std::vector<std::string> &getMols() const { return mols; }
+
+  //! Remove the molecule at idx, this reduces the number of molecules by 1
+  //!  Note: The order of molecules is NOT retained
+  virtual void remove(unsigned int idx) {
+    mols[idx] = mols.back();
+    mols.pop_back();
+  }  
 };
 
 //! Concrete class that holds trusted smiles strings in memory
@@ -228,6 +251,12 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT CachedTrustedSmilesMolHolder
 
   std::vector<std::string> &getMols() { return mols; }
   const std::vector<std::string> &getMols() const { return mols; }
+  //! Remove the molecule at idx, this reduces the number of molecules by 1
+  //!  Note: The order of molecules is NOT retained
+  virtual void remove(unsigned int idx) {
+    mols[idx] = mols.back();
+    mols.pop_back();
+  }    
 };
 
 //! Base FPI for the fingerprinter used to rule out impossible matches
@@ -275,6 +304,15 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT FPHolderBase {
 
   std::vector<ExplicitBitVect *> &getFingerprints() { return fps; }
   const std::vector<ExplicitBitVect *> &getFingerprints() const { return fps; }
+  
+  //! Remove the molecule at idx, this reduces the number of molecules by 1
+  //!  Note: The order of molecules is NOT retained
+  virtual void remove(unsigned int idx) {
+    delete fps[idx];
+    fps[idx] = fps.back();
+    fps.pop_back();
+  }  
+
 };
 
 //! Uses the pattern fingerprinter to rule out matches
@@ -581,6 +619,34 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
     fps = fpholder.get();
   }
 
+  //! Remove the molecule at idx
+  //!  Note: The original order of molecules is NOT retained
+  /* 
+     \param idx    Index to remove
+  */
+  void remove(unsigned int idx) {
+    PRECONDITION(idx < mols->size(), "Supplied index out of range");
+    // note -> the removal algorithm should change the orders in the
+    //  same fashion for all holders.  The current algo swaps idx with
+    //  the last item, so all probalby should
+    if (mols) mols->remove(idx);
+    if (fps) fps->remove(idx);
+  }
+
+  //! Remove the specified indices
+  //!  Note: The original order of molecules is NOT retained
+  /*
+      \param indices  The indices to remove
+  */
+  void remove(std::vector<unsigned int> indices) {
+    // sort in reverse order
+    // This will probably  not work if an index is repeated
+    std::sort(indices.rbegin(), indices.rend());   
+    for(auto idx: indices) {
+      remove(idx);
+    }
+  }
+  
   //! serializes (pickles) to a stream
   void toStream(std::ostream &ss) const;
   //! returns a string with a serialized (pickled) representation

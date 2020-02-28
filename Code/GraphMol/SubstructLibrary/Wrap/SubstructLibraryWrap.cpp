@@ -187,6 +187,21 @@ python::object SubstructLibrary_Serialize(const SubstructLibrary &cat) {
   return retval;
 }
 
+void remove_tuple(SubstructLibrary &cat, python::tuple indices) {
+  std::vector<unsigned int> ids;
+  for(int i=0; i<len(indices); ++i) {
+    ids.push_back(boost::python::extract<unsigned int>(indices[i]));
+  }
+  cat.remove(ids);
+}
+void remove_list(SubstructLibrary &cat, python::list indices) {
+  std::vector<unsigned int> ids;
+  for(int i=0; i<len(indices); ++i) {
+    ids.push_back(boost::python::extract<unsigned int>(indices[i]));
+  }
+  cat.remove(ids);
+}
+
 struct substructlibrary_pickle_suite : python::pickle_suite {
   static python::tuple getinitargs(const SubstructLibrary &self) {
     std::string res;
@@ -222,6 +237,8 @@ boost::shared_ptr<FPHolderBase> GetFpHolder(SubstructLibrary &sslib)
   // need to convert from a ref to a real shared_ptr
   return sslib.getFpHolder();
 }
+
+
 
 struct substructlibrary_wrapper {
   static void wrap() {
@@ -406,7 +423,11 @@ struct substructlibrary_wrapper {
              "  NOTE: molecule indices start at 0\n")
 
         .def("__len__", &SubstructLibrary::size)
-
+        .def("Remove", (void (SubstructLibrary::*)(unsigned int)) &SubstructLibrary::remove)
+        .def("Remove", (void (SubstructLibrary::*)(std::vector<unsigned int>)) &SubstructLibrary::remove)
+        .def("Remove", remove_tuple)
+        .def("Remove", remove_list)
+      
         .def("ToStream", &toStream,
 	     python::arg("stream"),
 	     "Serialize a substructure library to a python text stream.\n"

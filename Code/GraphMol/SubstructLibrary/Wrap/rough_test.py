@@ -465,5 +465,41 @@ class TestCase(unittest.TestCase):
       for smi in pdb_ligands:
         self.assertTrue( lib.CountMatches(Chem.MolFromSmiles(smi)) )
 
+  def test_remove(self):
+    smiles = []
+    for i in range(100):
+      smi = "C" * (i+1)
+      smiles.append(smi)
+
+    lib = rdSubstructLibrary.SubstructLibrary(rdSubstructLibrary.CachedSmilesMolHolder(),
+                                              rdSubstructLibrary.PatternHolder())
+    mols = []
+    for smi in smiles:
+      mol = Chem.MolFromSmiles(smi)
+      mols.append(mol)
+      lib.AddMol(mol)
+
+    self.assertTrue(lib.CountMatches(mols[-1]))
+    with self.assertRaises(RuntimeError):
+      lib.Remove(len(mols))
+
+    lib.Remove(len(mols)-1)
+    self.assertFalse(lib.CountMatches(mols[-1]))
+    
+    # remove a whole bunch
+    remove = [45,34,10,55,78,56]
+    lib.Remove(remove)
+    numatoms = set([100] + [x+1 for x in remove])
+    fps = lib.GetFpHolder()
+    for idx in range(len(lib)):
+      mol = lib.GetMol(idx)
+      self.assertTrue(mol.GetNumAtoms() not in numatoms)
+      self.assertEqual(fps.MakeFingerprint(mol), fps.GetFingerprint(idx))
+
+    ids = lib.GetMatches(Chem.MolFromSmiles("CC"))
+    lib.Remove(ids)
+    self.assertEqual(1, len(lib))
+      
+    
 if __name__ == '__main__':
   unittest.main()
