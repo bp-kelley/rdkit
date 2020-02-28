@@ -78,13 +78,27 @@ struct Bits {
   }
 };
 
-unsigned int SubstructLibrary::addMol(const ROMol &m) {
+unsigned int SubstructLibrary::addMol(const ROMol &m, bool keep_props) {
+  if(keep_props) {
+    if (!propholder.get())
+      throw ValueErrorException("Retaining Properties requires constructing with a property holder");
+  }
+	
   unsigned int size = mols->addMol(m);
   if (fps) {
     unsigned int fpsize = fps->addMol(m);
     CHECK_INVARIANT(size == fpsize,
                     "#mols different than #fingerprints in SubstructLibrary");
   }
+  if(propholder) {
+    if (keep_props) {
+      propholder.get()->addProps(m);
+    }
+    else {
+      propholder.get()->addProps();
+    }
+  }
+    
   return size;
 }
 

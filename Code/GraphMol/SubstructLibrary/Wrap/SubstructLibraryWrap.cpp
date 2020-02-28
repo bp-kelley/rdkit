@@ -327,7 +327,8 @@ struct substructlibrary_wrapper {
         .def("GetMolHolder", &GetMolHolder)
         .def("GetFpHolder", &GetFpHolder)      
       
-        .def("AddMol", &SubstructLibrary::addMol, (python::arg("mol")),
+        .def("AddMol", &SubstructLibrary::addMol,
+	     (python::arg("mol"), python::arg("keep_props")=false),
              "Adds a molecule to the substruct library")
 
         .def("GetMatches", (std::vector<unsigned int>(SubstructLibrary::*)(

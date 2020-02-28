@@ -97,6 +97,9 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT MolHolder : public MolHolderBase {
   std::vector<boost::shared_ptr<ROMol>> &getMols() { return mols; }
   const std::vector<boost::shared_ptr<ROMol>> &getMols() const { return mols; }
   virtual void remove(unsigned int idx) {
+    if(idx >= mols.size())
+       throw IndexErrorException(idx);
+    
     mols[idx] = mols.back();
     mols.pop_back();
   }
@@ -146,6 +149,9 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT CachedMolHolder : public MolHolderBase {
   //! Remove the molecule at idx, this reduces the number of molecules by 1
   //!  Note: The order of molecules is NOT retained
   virtual void remove(unsigned int idx) {
+    if(idx >= mols.size())
+       throw IndexErrorException(idx);
+    
     mols[idx] = mols.back();
     mols.pop_back();
   }
@@ -198,6 +204,9 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT CachedSmilesMolHolder
   //! Remove the molecule at idx, this reduces the number of molecules by 1
   //!  Note: The order of molecules is NOT retained
   virtual void remove(unsigned int idx) {
+    if(idx >= mols.size())
+       throw IndexErrorException(idx);
+    
     mols[idx] = mols.back();
     mols.pop_back();
   }  
@@ -254,6 +263,9 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT CachedTrustedSmilesMolHolder
   //! Remove the molecule at idx, this reduces the number of molecules by 1
   //!  Note: The order of molecules is NOT retained
   virtual void remove(unsigned int idx) {
+    if(idx >= mols.size())
+       throw IndexErrorException(idx);
+
     mols[idx] = mols.back();
     mols.pop_back();
   }    
@@ -308,6 +320,9 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT FPHolderBase {
   //! Remove the molecule at idx, this reduces the number of molecules by 1
   //!  Note: The order of molecules is NOT retained
   virtual void remove(unsigned int idx) {
+    if(idx >= fps.size())
+       throw IndexErrorException(idx);
+
     delete fps[idx];
     fps[idx] = fps.back();
     fps.pop_back();
@@ -323,6 +338,48 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT PatternHolder : public FPHolderBase {
     return PatternFingerprintMol(m, 2048);
   }
 };
+
+class RDKIT_SUBSTRUCTLIBRARY_EXPORT PropHolder {
+   std::vector<RDProps> properties;
+ public:
+   unsigned int size() const {
+     return rdcast<unsigned int>(properties.size());
+   }
+   const RDProps &getProp(unsigned int idx) const {
+     if(idx >= properties.size())
+       throw IndexErrorException(idx);
+     return properties[idx];
+   }
+   RDProps &getProp(unsigned int idx) {
+     if(idx >= properties.size())
+       throw IndexErrorException(idx);
+     
+     return properties[idx];
+   }
+   void setProp(unsigned int idx, const RDProps &props) {
+     if(idx >= properties.size())
+       throw IndexErrorException(idx);
+     
+     properties[idx] = props;
+   }
+
+   void addProps() {
+     properties.push_back(RDProps());
+   }
+
+   void addProps(const RDProps &props) {
+     properties.push_back(props);
+   }
+   
+   void remove(unsigned int idx) {
+     if(idx >= properties.size())
+       throw IndexErrorException(idx);
+
+     properties[idx] = properties.back();
+     properties.pop_back();
+  }  
+};
+
 
 //! Substructure Search a library of molecules
 /*!  This class allows for multithreaded substructure searches os
@@ -405,6 +462,7 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT PatternHolder : public FPHolderBase {
 class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
   boost::shared_ptr<MolHolderBase> molholder;
   boost::shared_ptr<FPHolderBase> fpholder;
+  boost::shared_ptr<PropHolder> propholder;
   MolHolderBase *mols;  // used for a small optimization
   FPHolderBase *fps;
 
@@ -412,22 +470,54 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
   SubstructLibrary()
       : molholder(new MolHolder),
         fpholder(),
+        propholder(),
         mols(molholder.get()),
         fps(nullptr) {}
 
   SubstructLibrary(boost::shared_ptr<MolHolderBase> molecules)
-      : molholder(molecules), fpholder(), mols(molholder.get()), fps(0) {}
+     : molholder(molecules), fpholder(), propholder(), mols(molholder.get()), fps(0) {}
 
   SubstructLibrary(boost::shared_ptr<MolHolderBase> molecules,
                    boost::shared_ptr<FPHolderBase> fingerprints)
       : molholder(molecules),
         fpholder(fingerprints),
+        propholder(),
         mols(molholder.get()),
-        fps(fpholder.get()) {}
+        fps(fpholder.get()) {
+    if(mols->size() != fps->size())
+      throw ValueErrorException("number of molecules doesn't equal number of fingerprints");
 
+  }
+
+  SubstructLibrary(boost::shared_ptr<MolHolderBase> molecules,
+		   boost::shared_ptr<PropHolder> props)
+      : molholder(molecules),
+        fpholder(),
+        propholder(props),
+        mols(molholder.get()),
+        fps(fpholder.get()) {
+    if(mols->size() != props.get()->size())
+      throw ValueErrorException("number of molecules doesn't equal number of properties");
+  }
+
+  SubstructLibrary(boost::shared_ptr<MolHolderBase> molecules,
+                   boost::shared_ptr<FPHolderBase> fingerprints,
+		   boost::shared_ptr<PropHolder> props)
+      : molholder(molecules),
+        fpholder(fingerprints),
+        propholder(props),
+        mols(molholder.get()),
+        fps(fpholder.get()) {
+    if(!fps || mols->size() != fps->size())
+      throw ValueErrorException("number of molecules doesn't equal number of fingerprints");
+    if(!props.get() || mols->size() != props.get()->size())
+      throw ValueErrorException("number of molecules doesn't equal number of properties");    
+  }
+  
   SubstructLibrary(const std::string &pickle)
       : molholder(new MolHolder),
         fpholder(),
+        propholder(),
         mols(molholder.get()),
         fps(nullptr) {
     initFromString(pickle);
@@ -467,13 +557,19 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
     return *fps;
   }
 
+  const PropHolder &getPropHolder() const {
+    if (!propholder.get())
+      throw ValueErrorException("Substruct Library does not have a property holder");
+    return *propholder.get();
+  }
+  
   //! Add a molecule to the library
   /*!
     \param mol Molecule to add
-
+    \param keep_props If true keep the molecules properties (requires a PropertyHolder) [default false]
     returns index for the molecule in the library
   */
-  unsigned int addMol(const ROMol &mol);
+  unsigned int addMol(const ROMol &mol, bool keep_propes=false);
 
   //! Get the matching indices for the query
   /*!
@@ -607,6 +703,12 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
     return mols->getMol(idx);
   }
 
+  const RDProps &getProp(unsigned int idx) {
+    if(!propholder.get())
+      throw ValueErrorException("Substruct library doesn't have a property holder");
+    return propholder->getProp(idx);
+       
+  }
   //! return the number of molecules in the library
   unsigned int size() const {
     PRECONDITION(mols, "molholder is null in SubstructLibrary");
