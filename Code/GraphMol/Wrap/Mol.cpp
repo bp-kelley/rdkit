@@ -319,6 +319,152 @@ struct mol_wrapper {
            The function should return true or false indicating whether or not
            that match should be accepted.)DOC");
 
+    python::class_<RDProps>("RDProps", "")
+              .def("SetProp", MolSetProp<RDProps, std::string>,
+             (python::arg("self"), python::arg("key"), python::arg("val"),
+              python::arg("computed") = false),
+             "Sets a molecular property\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to be set (a string).\n"
+             "    - value: the property value (a string).\n"
+             "    - computed: (optional) marks the property as being "
+             "computed.\n"
+             "                Defaults to False.\n\n")
+        .def("SetDoubleProp", MolSetProp<RDProps, double>,
+             (python::arg("self"), python::arg("key"), python::arg("val"),
+              python::arg("computed") = false),
+             "Sets a double valued molecular property\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to be set (a string).\n"
+             "    - value: the property value as a double.\n"
+             "    - computed: (optional) marks the property as being "
+             "computed.\n"
+             "                Defaults to 0.\n\n")
+        .def("SetIntProp", MolSetProp<RDProps, int>,
+             (python::arg("self"), python::arg("key"), python::arg("val"),
+              python::arg("computed") = false),
+             "Sets an integer valued molecular property\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to be set (an unsigned "
+             "number).\n"
+             "    - value: the property value as an integer.\n"
+             "    - computed: (optional) marks the property as being "
+             "computed.\n"
+             "                Defaults to False.\n\n")
+        .def("SetUnsignedProp", MolSetProp<RDProps, unsigned int>,
+             (python::arg("self"), python::arg("key"), python::arg("val"),
+              python::arg("computed") = false),
+             "Sets an unsigned integer valued molecular property\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to be set (a string).\n"
+             "    - value: the property value as an unsigned integer.\n"
+             "    - computed: (optional) marks the property as being "
+             "computed.\n"
+             "                Defaults to False.\n\n")
+        .def("SetBoolProp", MolSetProp<RDProps, bool>,
+             (python::arg("self"), python::arg("key"), python::arg("val"),
+              python::arg("computed") = false),
+             "Sets a boolean valued molecular property\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to be set (a string).\n"
+             "    - value: the property value as a bool.\n"
+             "    - computed: (optional) marks the property as being "
+             "computed.\n"
+             "                Defaults to False.\n\n")
+        .def("HasProp", MolHasProp<RDProps>,
+             "Queries a molecule to see if a particular property has been "
+             "assigned.\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to check for (a string).\n")
+        .def("GetProp", GetProp<RDProps, std::string>,
+             "Returns the value of the property.\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to return (a string).\n\n"
+             "  RETURNS: a string\n\n"
+             "  NOTE:\n"
+             "    - If the property has not been set, a KeyError exception "
+             "will be raised.\n")
+        .def("GetDoubleProp", GetProp<RDProps, double>,
+             "Returns the double value of the property if possible.\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to return (a string).\n\n"
+             "  RETURNS: a double\n\n"
+             "  NOTE:\n"
+             "    - If the property has not been set, a KeyError exception "
+             "will be raised.\n")
+        .def("GetIntProp", GetProp<RDProps, int>,
+             "Returns the integer value of the property if possible.\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to return (a string).\n\n"
+             "  RETURNS: an integer\n\n"
+             "  NOTE:\n"
+             "    - If the property has not been set, a KeyError exception "
+             "will be raised.\n")
+        .def("GetUnsignedProp", GetProp<RDProps, unsigned int>,
+             "Returns the unsigned int value of the property if possible.\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to return (a string).\n\n"
+             "  RETURNS: an unsigned integer\n\n"
+             "  NOTE:\n"
+             "    - If the property has not been set, a KeyError exception "
+             "will be raised.\n")
+        .def("GetBoolProp", GetProp<RDProps, bool>,
+             "Returns the Bool value of the property if possible.\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to return (a string).\n\n"
+             "  RETURNS: a bool\n\n"
+             "  NOTE:\n"
+             "    - If the property has not been set, a KeyError exception "
+             "will be raised.\n")
+        .def("ClearProp", MolClearProp<RDProps>,
+             "Removes a property from the molecule.\n\n"
+             "  ARGUMENTS:\n"
+             "    - key: the name of the property to clear (a string).\n")
+
+      .def("GetPropNames", &RDProps::getPropList,
+             (python::arg("self"), python::arg("includePrivate") = false,
+              python::arg("includeComputed") = false),
+             "Returns a tuple with all property names for this molecule.\n\n"
+             "  ARGUMENTS:\n"
+             "    - includePrivate: (optional) toggles inclusion of private "
+             "properties in the result set.\n"
+             "                      Defaults to 0.\n"
+             "    - includeComputed: (optional) toggles inclusion of computed "
+             "properties in the result set.\n"
+             "                      Defaults to 0.\n\n"
+             "  RETURNS: a tuple of strings\n")
+
+        .def("ClearComputedProps", MolClearComputedProps<RDProps>,
+             "Removes all computed properties from the molecule.\n\n")
+        .def("GetPropNames", &RDProps::getPropList,
+             (python::arg("self"), python::arg("includePrivate") = false,
+              python::arg("includeComputed") = false),
+             "Returns a tuple with all property names for this molecule.\n\n"
+             "  ARGUMENTS:\n"
+             "    - includePrivate: (optional) toggles inclusion of private "
+             "properties in the result set.\n"
+             "                      Defaults to 0.\n"
+             "    - includeComputed: (optional) toggles inclusion of computed "
+             "properties in the result set.\n"
+             "                      Defaults to 0.\n\n"
+             "  RETURNS: a tuple of strings\n")
+
+        .def("GetPropsAsDict", GetPropsAsDict<RDProps>,
+             (python::arg("self"), python::arg("includePrivate") = false,
+              python::arg("includeComputed") = false),
+             "Returns a dictionary populated with the molecules properties.\n"
+             " n.b. Some properties are not able to be converted to python "
+             "types.\n\n"
+             "  ARGUMENTS:\n"
+             "    - includePrivate: (optional) toggles inclusion of private "
+             "properties in the result set.\n"
+             "                      Defaults to False.\n"
+             "    - includeComputed: (optional) toggles inclusion of computed "
+             "properties in the result set.\n"
+             "                      Defaults to False.\n\n"
+             "  RETURNS: a dictionary\n")
+      ;
+    
     python::class_<ROMol, ROMOL_SPTR, boost::noncopyable>(
         "Mol", molClassDoc.c_str(),
         python::init<>("Constructor, takes no arguments"))
