@@ -34,7 +34,7 @@
 #include <RDBoost/python_streambuf.h>
 
 #include <GraphMol/SubstructLibrary/SubstructLibrary.h>
-#include <GraphMol/SubstructLibrary/pattern_factory.h>
+#include <GraphMol/SubstructLibrary/PatternFactory.h>
 
 namespace python = boost::python;
 using boost_adaptbx::python::streambuf;
@@ -244,7 +244,6 @@ boost::shared_ptr<PropHolder> GetPropHolder(SubstructLibrary &sslib)
   // need to convert from a ref to a real shared_ptr
   return sslib.getPropHolder();
 }
-
 
 struct substructlibrary_wrapper {
   static void wrap() {
