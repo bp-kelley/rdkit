@@ -331,7 +331,11 @@ struct substructlibrary_wrapper {
 	   )
       .def("SetProp", &PropHolder::setProp,
 	   (python::args("idx"), python::args("prop")))
+      .def("GetIdx", (unsigned int (PropHolder::*)(const std::string &))&PropHolder::getIdx))
+      .def("GetIntIdx", (unsigned int (PropHolder::*)(const int &))&PropHolder::getIdx))
+      .def("GetUnsignedIntIdx", (unsigned int (PropHolder::*)(const unsigned int &))&PropHolder::getIdx))
 	   ;
+    
     
     python::class_<SubstructLibrary, SubstructLibrary *,
                    const SubstructLibrary *>(

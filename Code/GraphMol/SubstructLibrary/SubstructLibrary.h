@@ -341,7 +341,13 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT PatternHolder : public FPHolderBase {
 
 class RDKIT_SUBSTRUCTLIBRARY_EXPORT PropHolder {
    std::vector<RDProps> properties;
+   std::map<std::string, unsigned int> index;
+   std::string index_key;
+   
  public:
+   PropHolder(const std::string &property_index="") : index_key(property_index) {
+   }
+   
    unsigned int size() const {
      return rdcast<unsigned int>(properties.size());
    }
@@ -351,13 +357,46 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT PropHolder {
        throw IndexErrorException(idx);
      return properties[idx];
    }
+
+   //! index on a property
+   bool setIndex(const std::string &propname) {
+     index_key = propname;
+     try {
+       for(unsigned int i=0; i<properties.size(); ++i)  {
+	 std::string value;
+	 if(properties[i].getPropIfPresent(index_key, value)) {
+	   if(index.find(value) != index.end()) {
+	     throw IndexErrorException(i);
+	   }
+	   index[value] = i;
+	 } else {
+	   // error log?  missing propname?
+	   throw IndexErrorException(i);
+	 }
+       }
+     }
+     catch(IndexErrorException &e) {
+       index_key = "";
+       index.clear();
+       return false;
+     }
+     return true;
+   }
+
+   template<class T>
+   unsigned int getIdx(const T&value) const {
+     std::string val = boost::lexical_cast<T>(value);
+     return getIdx(value);
+   }
    
-   /*RDProps &getProp(unsigned int idx) {
-     if(idx >= properties.size())
-       throw IndexErrorException(idx);
-     
-     return properties[idx];
-     }*/
+   unsigned int getIdx(const std::string &value) const {
+     auto it = index.find(value);
+     if(it != index.end()) {
+       return it->second;
+     }
+     throw ValueErrorException(value + " not found in index");
+     return rdcast<unsigned int>(-1);
+   }
    
    void setProp(unsigned int idx, const RDProps &props) {
      if(idx >= properties.size())
@@ -367,17 +406,43 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT PropHolder {
    }
 
    void addProps() {
+     PRECONDITION(index_key.size() == 0, "Can't add empty property to indexed PropHolder");
      properties.push_back(RDProps());
    }
 
    void addProps(const RDProps &props) {
      properties.push_back(props);
+
+     if (index_key.size()) {
+       std::string value;
+       if(props.getPropIfPresent(index_key, value)) {
+	 if(index.find(value) != index.end()) {
+	   throw ValueErrorException(index_key + " has duplicate value: " + value);
+	 }
+	 index[value] = properties.size() - 1;
+       } else {
+	 throw ValueErrorException(index_key + " missing from property");
+       }
+     }
    }
    
    void remove(unsigned int idx) {
      if(idx >= properties.size())
        throw IndexErrorException(idx);
+     if (index_key.size()) {
+       std::string value;
+       if(properties[idx].getPropIfPresent(index_key, value)) {
+	 index.erase(value);
+       } else {
+	 // WARNING LOG?  our index is probably borked now
+       }
 
+       if(properties.back().getPropIfPresent(index_key, value)) {
+	 // if (index.find(value) != index.end())
+	 //  Check for duplicate indices?
+	 index[value] = idx;
+       }
+     }
      properties[idx] = properties.back();
      properties.pop_back();
   }  
