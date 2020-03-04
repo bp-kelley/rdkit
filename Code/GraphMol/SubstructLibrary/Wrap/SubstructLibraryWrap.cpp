@@ -324,16 +324,17 @@ struct substructlibrary_wrapper {
     
     python::class_<PropHolder, boost::shared_ptr<PropHolder>>(
 		"PropHolder", PropHolderDoc, python::init<>())
-      .def("GetProp", &PropHolder::getProp,//(RDProps&(PropHolder::*)(unsigned int))&PropHolder::getProp,
+      .def("GetProp", (RDProps &(PropHolder::*)(unsigned int))&PropHolder::getProp,
 	   (python::args("idx")),
 	   python::return_internal_reference<
 	   1, python::with_custodian_and_ward_postcall<0, 1>>()
 	   )
       .def("SetProp", &PropHolder::setProp,
 	   (python::args("idx"), python::args("prop")))
-      .def("GetIdx", (unsigned int (PropHolder::*)(const std::string &))&PropHolder::getIdx))
-      .def("GetIntIdx", (unsigned int (PropHolder::*)(const int &))&PropHolder::getIdx))
-      .def("GetUnsignedIntIdx", (unsigned int (PropHolder::*)(const unsigned int &))&PropHolder::getIdx))
+      .def("GetIdx", (unsigned int (PropHolder::*)(const std::string &)const)&PropHolder::getIdx)
+      .def("GetIntIdx", (unsigned int (PropHolder::*)(const int &)const)&PropHolder::getIdx)
+      .def("GetUnsignedIntIdx", (unsigned int (PropHolder::*)(const unsigned int &)const)&PropHolder::getIdx)
+      .def("SetIndex", &PropHolder::setIndex)
 	   ;
     
     
@@ -352,7 +353,7 @@ struct substructlibrary_wrapper {
       
         .def("GetMolHolder",  &GetMolHolder)
         .def("GetFpHolder",   &GetFpHolder)      
-      //.def("GetPropHolder", &GetPropHolder)      
+        .def("GetPropHolder", &GetPropHolder)      
       
         .def("AddMol", &SubstructLibrary::addMol,
 	     (python::arg("mol"), python::arg("keep_props")=false),

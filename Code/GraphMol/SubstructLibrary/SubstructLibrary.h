@@ -385,7 +385,7 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT PropHolder {
 
    template<class T>
    unsigned int getIdx(const T&value) const {
-     std::string val = boost::lexical_cast<T>(value);
+     std::string val = boost::lexical_cast<std::string>(value);
      return getIdx(value);
    }
    
@@ -396,6 +396,13 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT PropHolder {
      }
      throw ValueErrorException(value + " not found in index");
      return rdcast<unsigned int>(-1);
+   }
+   
+   RDProps &getProp(unsigned int idx) {
+     if(idx >= properties.size())
+       throw IndexErrorException(idx);
+     
+     return properties[idx];
    }
    
    void setProp(unsigned int idx, const RDProps &props) {
@@ -818,6 +825,7 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
     //  the last item, so all probalby should
     if (mols) mols->remove(idx);
     if (fps) fps->remove(idx);
+    if (propholder.get()) propholder.get()->remove(idx);
   }
 
   //! Remove the specified indices
