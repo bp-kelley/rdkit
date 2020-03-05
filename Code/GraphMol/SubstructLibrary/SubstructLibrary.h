@@ -836,8 +836,14 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
   void remove(std::vector<unsigned int> indices) {
     // sort in reverse order
     // This will probably  not work if an index is repeated
-    std::sort(indices.rbegin(), indices.rend());   
+    std::sort(indices.rbegin(), indices.rend());
+    unsigned int last = UINT_MAX;
     for(auto idx: indices) {
+      // skip duplicate indices
+      if (idx == last) {
+	continue;
+      }
+      last = idx;
       remove(idx);
     }
   }
