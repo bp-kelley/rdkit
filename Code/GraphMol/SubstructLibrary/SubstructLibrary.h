@@ -385,7 +385,7 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT PropHolder {
 
    template<class T>
    unsigned int getIdx(const T&value) const {
-     std::string val = boost::lexical_cast<T>(value);
+     std::string val = boost::lexical_cast<std::string>(value);
      return getIdx(value);
    }
    
