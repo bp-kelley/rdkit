@@ -43,6 +43,7 @@ from rdkit.Chem import rdSubstructLibrary
 import time
 import pickle
 import tempfile
+import random
 
 def load_tests(loader, tests, ignore):
   tests.addTests(doctest.DocTestSuite(rdSubstructLibrary))
@@ -423,6 +424,8 @@ class TestCase(unittest.TestCase):
     molholder = rdSubstructLibrary.CachedMolHolder()
     patternholder = None#rdSubstructLibrary.PatternHolder()
     propholder = rdSubstructLibrary.PropHolder()
+    propholder.SetIndexKey("key")
+    
     lib = rdSubstructLibrary.SubstructLibrary(molholder, patternholder, propholder)
     
     smiles = []
@@ -433,7 +436,38 @@ class TestCase(unittest.TestCase):
       lib.AddMol(m, True)
     for i in range(100):
       self.assertEqual(propholder.GetProp(i).GetProp("key"), str(i))
+      self.assertEqual(propholder.GetIdx(str(i)), i)
+      
+  def testIntPropHolder(self):
+    for i in range(10):
+      molholder = rdSubstructLibrary.CachedMolHolder()
+      patternholder = None#rdSubstructLibrary.PatternHolder()
+      propholder = rdSubstructLibrary.PropHolder()
+      propholder.SetIndexKey("key")
 
+      lib = rdSubstructLibrary.SubstructLibrary(molholder, patternholder, propholder)
+
+      smiles = []
+      for i in range(100):
+        smi = "C" * (i+1)
+        m = Chem.MolFromSmiles(smi)
+        m.SetIntProp("key", i)
+        lib.AddMol(m, True)
+      for i in range(100):
+        self.assertEqual(propholder.GetProp(i).GetProp("key"), str(i))
+        self.assertEqual(propholder.GetIdx(str(i)), i)
+
+      retained = set([propholder.GetProp(i).GetProp("key") for i in range(len(lib))])
+      self.assertEqual(retained, set([str(i) for i in range(100)]))
+
+      deletes = list(set([random.randint(0,len(lib)-1) for i in range(10)]))
+      random.shuffle(deletes)
+      lib.Remove(deletes)
+      deletes = set([str(x) for x in deletes])
+      retained = set([propholder.GetProp(i).GetProp("key") for i in range(len(lib))])
+      self.assertEqual(retained.intersection(deletes), set())
+      self.assertEqual(retained.union(deletes), set([str(i) for i in range(100)]))
+     
   def test_remove(self):
     smiles = []
     for i in range(100):
