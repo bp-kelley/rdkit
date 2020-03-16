@@ -18,6 +18,7 @@ rdkit_library(SubstructLibrary
 rdkit_headers(SubstructLibrary.h
               SubstructLibrarySerialization.h
               PatternFactory.h
+	      KeyHolder.h
               DEST GraphMol/SubstructLibrary)
 
 if(RDK_BUILD_PYTHON_WRAPPERS)

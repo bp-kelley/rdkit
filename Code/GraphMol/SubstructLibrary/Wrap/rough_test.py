@@ -420,49 +420,29 @@ class TestCase(unittest.TestCase):
         self.assertTrue(l1)
         self.assertEqual(l1,l2)
                          
-  def testPropHolder(self):
+  def testKeyHolder(self):
     molholder = rdSubstructLibrary.CachedMolHolder()
-    patternholder = None#rdSubstructLibrary.PatternHolder()
-    propholder = rdSubstructLibrary.PropHolder()
-    propholder.SetIndexKey("key")
-    
-    lib = rdSubstructLibrary.SubstructLibrary(molholder, patternholder, propholder)
+    #patternholder = None#rdSubstructLibrary.PatternHolder()
+    keyholder = rdSubstructLibrary.StringKeyHolder("key")
+    lib = rdSubstructLibrary.SubstructLibrary(molholder, keyholder)
     
     smiles = []
     for i in range(100):
       smi = "C" * (i+1)
       m = Chem.MolFromSmiles(smi)
       m.SetProp("key", str(i))
-      lib.AddMol(m, True)
+      lib.AddMol(m)
     for i in range(100):
-      self.assertEqual(propholder.GetProp(i).GetProp("key"), str(i))
-      self.assertEqual(propholder.GetIdx(str(i)), i)
+      self.assertEqual(keyholder.GetKey(i), str(i))
+      self.assertEqual(keyholder.GetIdx(str(i)), i)
       
-  def testIntPropHolder(self):
-    molholder = rdSubstructLibrary.CachedMolHolder()
-    patternholder = None#rdSubstructLibrary.PatternHolder()
-    propholder = rdSubstructLibrary.PropHolder()
-    propholder.SetIndexKey("key")
-
-    lib = rdSubstructLibrary.SubstructLibrary(molholder, patternholder, propholder)
-
-    smiles = []
-    for i in range(100):
-      smi = "C" * (i+1)
-      m = Chem.MolFromSmiles(smi)
-      m.SetIntProp("key", i)
-      lib.AddMol(m, True)
-    for i in range(100):
-      self.assertEqual(propholder.GetProp(i).GetProp("key"), str(i))
-      self.assertEqual(propholder.GetIdx(str(i)), i)
-
-    retained = set([propholder.GetProp(i).GetProp("key") for i in range(len(lib))])
+    retained = set([keyholder.GetKey(i)  for i in range(len(lib))])
     self.assertEqual(retained, set([str(i) for i in range(100)]))
 
     deletes = [random.randint(0,len(lib)-1) for i in range(10)]
     lib.Remove(deletes)
     deletes = set([str(x) for x in deletes])
-    retained = set([propholder.GetProp(i).GetProp("key") for i in range(len(lib))])
+    retained = set([keyholder.GetKey(i)  for i in range(len(lib))])
     self.assertEqual(retained.intersection(deletes), set())
     self.assertEqual(retained.union(deletes), set([str(i) for i in range(100)]))
      

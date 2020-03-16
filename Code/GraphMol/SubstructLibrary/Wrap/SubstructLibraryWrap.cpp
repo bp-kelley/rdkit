@@ -96,7 +96,7 @@ const char *CachedTrustedSmilesMolHolderDoc =
 
 const char *PatternHolderDoc =
     "Holds fingerprints used for filtering of molecules.";
-const char *PropHolderDoc = "";
+const char *KeyHolderDoc = "";
 const char *SubstructLibraryDoc =
     "SubstructLibrary: This provides a simple API for substructure searching "
     "large datasets\n"
@@ -239,10 +239,10 @@ boost::shared_ptr<FPHolderBase> GetFpHolder(SubstructLibrary &sslib)
   return sslib.getFpHolder();
 }
 
-boost::shared_ptr<PropHolder> GetPropHolder(SubstructLibrary &sslib)
+boost::shared_ptr<KeyHolderBase> GetKeyHolder(SubstructLibrary &sslib)
 {
   // need to convert from a ref to a real shared_ptr
-  return sslib.getPropHolder();
+  return sslib.getKeyHolder();
 }
 
 struct substructlibrary_wrapper {
@@ -322,21 +322,28 @@ struct substructlibrary_wrapper {
         "PatternHolder", PatternHolderDoc, python::init<>());
 
     
-    python::class_<PropHolder, boost::shared_ptr<PropHolder>>(
-		"PropHolder", PropHolderDoc, python::init<>())
-      .def("GetProp", (RDProps &(PropHolder::*)(unsigned int))&PropHolder::getProp,
-	   (python::args("idx")),
-	   python::return_internal_reference<
-	   1, python::with_custodian_and_ward_postcall<0, 1>>()
-	   )
-      .def("SetProp", &PropHolder::setProp,
-	   (python::args("idx"), python::args("prop")))
-      .def("GetIdx", (unsigned int (PropHolder::*)(const std::string &)const)&PropHolder::getIdx)
-      .def("GetIntIdx", (unsigned int (PropHolder::*)(const int &)const)&PropHolder::getIdx)
-      .def("GetUnsignedIntIdx", (unsigned int (PropHolder::*)(const unsigned int &)const)&PropHolder::getIdx)
-      .def("SetIndexKey", &PropHolder::setIndexKey)
+    python::class_<KeyHolderBase, boost::shared_ptr<KeyHolderBase>,
+		   boost::noncopyable>(
+				       "KeyHolderBase", KeyHolderDoc, python::no_init)
+      .def("__len__", &KeyHolderBase::size)
+      
+      .def("Add", &KeyHolderBase::add,
+	   (python::arg("key")),
+	   "Adds the next key to the index.  Associates the key with the next molecule")
+
+      .def("AddMol", &KeyHolderBase::addMol,
+	   (python::arg("mol")),
+	   "Adds the next molecule extrating the key value from the molecule, KeyErrorException on failure")
+
+      .def("GetIdx", (unsigned int (KeyHolderBase::*)(const std::string &)const)&KeyHolderBase::getIdx)
+      .def("GetKey", &KeyHolderBase::getKey)
+      .def("remove", &KeyHolderBase::remove)
 	   ;
-    
+
+    python::class_<StringKeyHolder, boost::shared_ptr<StringKeyHolder>,
+                   python::bases<KeyHolderBase>>(
+        "StringKeyHolder", PatternHolderDoc, python::init<>())
+	   .def(python::init<const std::string&>());
     
     python::class_<SubstructLibrary, SubstructLibrary *,
                    const SubstructLibrary *>(
@@ -345,18 +352,18 @@ struct substructlibrary_wrapper {
         .def(python::init<boost::shared_ptr<MolHolderBase>,
                           boost::shared_ptr<FPHolderBase>>())
         .def(python::init<boost::shared_ptr<MolHolderBase>,
-                          boost::shared_ptr<PropHolder>>())
+                          boost::shared_ptr<KeyHolderBase>>())
         .def(python::init<boost::shared_ptr<MolHolderBase>,
 	                  boost::shared_ptr<FPHolderBase>,
-	                  boost::shared_ptr<PropHolder>>())
+	                  boost::shared_ptr<KeyHolderBase>>())
         .def(python::init<std::string>())
       
         .def("GetMolHolder",  &GetMolHolder)
         .def("GetFpHolder",   &GetFpHolder)      
-        .def("GetPropHolder", &GetPropHolder)      
+        .def("GetKeyholder", &GetKeyHolder)      
       
         .def("AddMol", &SubstructLibrary::addMol,
-	     (python::arg("mol"), python::arg("keep_props")=false),
+	     (python::arg("mol")),
              "Adds a molecule to the substruct library")
 
         .def("GetMatches", (std::vector<unsigned int>(SubstructLibrary::*)(
