@@ -491,7 +491,21 @@ if (MSVC)
   add_definitions( "/wd4267" )
 endif(MSVC)
 
+TRY_COMPILE(HAS_WORKING_BOOST_SHARED_MUTEX
+"${CMAKE_CURRENT_BINARY_DIR}"
+"${CMAKE_CURRENT_SOURCE_DIR}/build_support/boost_shared_mutex.cpp")
 
+TRY_COMPILE(HAS_WORKING_SHARED_MUTEX
+"${CMAKE_CURRENT_BINARY_DIR}"
+"${CMAKE_CURRENT_SOURCE_DIR}/build_support/shared_mutex.cpp")
+
+TRY_COMPILE(HAS_WORKING_MUTEX
+"${CMAKE_CURRENT_BINARY_DIR}"
+"${CMAKE_CURRENT_SOURCE_DIR}/build_support/mutex.cpp")
+
+MESSAGE("== Has working boost shared mutex: ${HAS_WORKING_BOOST_SHARED_MUTEX}")
+MESSAGE("== Has working std shared mutex: ${HAS_WORKING_SHARED_MUTEX}")
+MESSAGE("== Has working std  mutex: ${HAS_WORKING_MUTEX}")
 add_subdirectory(External)
 add_subdirectory(Code)
 
