@@ -42,6 +42,23 @@
 
 #include "KeyHolder.h"
 
+// Clang has a bug in boost <= 1.69
+//  If we are clang and apple, assume we have better mutex support
+#if defined(__clang__)
+#include <mutex>
+#include <thread>
+typedef std::mutex READWRITE_LOCK;
+# define READERLOCK(lock) std::lock_guard<std::mutex> readerLock(lock)
+# define WRITERLOCK(lock) std::lock_guard<std::mutex> writerLock(lock);
+# else
+#include <boost/thread.hpp>
+#include <boost/thread/shared_mutex.hpp>
+typedef boost::shared_mutex READWRITE_lock;
+# define READERLOCK(lock) boost::upgrade_lock< boost::shared_mutex > lock(lock)
+# define WRITERLOCK(lock) \
+    boost::upgrade_lock< boost::shared_mutex > lock(lock);\
+    boost::upgrade_to_unique_lock< boost::shared_mutex > uniqueLock(lock)
+#endif
 namespace RDKit {
 
 RDKIT_SUBSTRUCTLIBRARY_EXPORT bool SubstructLibraryCanSerialize();
@@ -53,14 +70,18 @@ RDKIT_SUBSTRUCTLIBRARY_EXPORT bool SubstructLibraryCanSerialize();
   provides an API for adding and getting molecules from a set.
  */
 class RDKIT_SUBSTRUCTLIBRARY_EXPORT MolHolderBase {
+  MolHolderBase(const MolHolderBase&) = delete;
+  MolHolderBase &operator=(const MolHolderBase&) = delete;	   
  public:
+  READWRITE_LOCK rw_lock;
+  MolHolderBase() : rw_lock() {}
   virtual ~MolHolderBase() {}
 
   //! Add a new molecule to the substructure search library
   //!  Returns the molecules index in the library
   virtual unsigned int addMol(const ROMol &m) = 0;
 
-  // implementations should throw IndexError on out of range
+  // implementations should throw IndexErxror on out of range
   virtual boost::shared_ptr<ROMol> getMol(unsigned int) const = 0;
 
   //! Get the current library size
@@ -77,6 +98,9 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT MolHolderBase {
     However it is very memory intensive.
 */
 class RDKIT_SUBSTRUCTLIBRARY_EXPORT MolHolder : public MolHolderBase {
+  MolHolder(const MolHolder&) = delete;
+  MolHolder &operator=(const MolHolder&) = delete;	   
+
   std::vector<boost::shared_ptr<ROMol>> mols;
 
  public:
@@ -116,6 +140,9 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT MolHolder : public MolHolderBase {
   See RDKit::FPHolder
 */
 class RDKIT_SUBSTRUCTLIBRARY_EXPORT CachedMolHolder : public MolHolderBase {
+  CachedMolHolder(const CachedMolHolder&) = delete;
+  CachedMolHolder &operator=(const CachedMolHolder&) = delete;	   
+  
   std::vector<std::string> mols;
 
  public:
@@ -171,6 +198,9 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT CachedMolHolder : public MolHolderBase {
 */
 class RDKIT_SUBSTRUCTLIBRARY_EXPORT CachedSmilesMolHolder
     : public MolHolderBase {
+  CachedSmilesMolHolder(const CachedMolHolder&) = delete;
+  CachedMolHolder &operator=(const CachedMolHolder&) = delete;	   
+  
   std::vector<std::string> mols;
 
  public:
@@ -230,6 +260,9 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT CachedSmilesMolHolder
 */
 class RDKIT_SUBSTRUCTLIBRARY_EXPORT CachedTrustedSmilesMolHolder
     : public MolHolderBase {
+  CachedTrustedSmilesMolHolder(const CachedTrustedSmilesMolHolder&) = delete;
+  CachedTrustedSmilesMolHolder &operator=(const CachedTrustedSmilesMolHolder&) = delete;	   
+  
   std::vector<std::string> mols;
 
  public:
@@ -682,6 +715,7 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
   }
 
   std::string getKey(unsigned int idx) const {
+    READERLOCK(mols->rw_lock);
     if(!keyholder.get())
       throw ValueErrorException("Substruct library doesn't have a property holder");
     return keyholder->getKey(idx);
@@ -689,6 +723,7 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
   
   //! return the number of molecules in the library
   unsigned int size() const {
+    READERLOCK(mols->rw_lock);
     PRECONDITION(mols, "molholder is null in SubstructLibrary");
     return rdcast<unsigned int>(molholder->size());
   }
@@ -709,6 +744,8 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
     // note -> the removal algorithm should change the orders in the
     //  same fashion for all holders.  The current algo swaps idx with
     //  the last item, so all probalby should
+    WRITERLOCK(mols->rw_lock);
+    
     if (mols) mols->remove(idx);
     if (fps) fps->remove(idx);
     if (keyholder.get()) keyholder.get()->remove(idx);

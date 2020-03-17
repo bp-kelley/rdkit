@@ -79,6 +79,8 @@ struct Bits {
 };
 
 unsigned int SubstructLibrary::addMol(const ROMol &m) {
+  WRITERLOCK(mols->rw_lock);
+
   unsigned int size = mols->addMol(m);
   if (fps) {
     unsigned int fpsize = fps->addMol(m);
@@ -292,6 +294,7 @@ std::vector<unsigned int> SubstructLibrary::getMatches(
     const ROMol &query, unsigned int startIdx, unsigned int endIdx,
     bool recursionPossible, bool useChirality, bool useQueryQueryMatches,
     int numThreads, int maxResults) {
+  READERLOCK(mols->rw_lock);
   return internalGetMatches(query, *mols, fps, startIdx, endIdx,
                             recursionPossible, useChirality,
                             useQueryQueryMatches, numThreads, maxResults);
@@ -310,6 +313,7 @@ unsigned int SubstructLibrary::countMatches(
     const ROMol &query, unsigned int startIdx, unsigned int endIdx,
     bool recursionPossible, bool useChirality, bool useQueryQueryMatches,
     int numThreads) {
+  READERLOCK(mols->rw_lock);
   return internalMatchCounter(query, *mols, fps, startIdx, endIdx,
                               recursionPossible, useChirality,
                               useQueryQueryMatches, numThreads);
@@ -328,6 +332,7 @@ bool SubstructLibrary::hasMatch(const ROMol &query, unsigned int startIdx,
                                 unsigned int endIdx, bool recursionPossible,
                                 bool useChirality, bool useQueryQueryMatches,
                                 int numThreads) {
+  READERLOCK(mols->rw_lock);
   const int maxResults = 1;
   return getMatches(query, startIdx, endIdx, recursionPossible, useChirality,
                     useQueryQueryMatches, numThreads, maxResults)
@@ -335,6 +340,7 @@ bool SubstructLibrary::hasMatch(const ROMol &query, unsigned int startIdx,
 }
 
 void SubstructLibrary::toStream(std::ostream &ss) const {
+  READERLOCK(mols->rw_lock);
 #ifndef RDK_USE_BOOST_SERIALIZATION
   PRECONDITION(0, "Boost SERIALIZATION is not enabled")
 #else
