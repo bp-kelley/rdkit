@@ -42,6 +42,7 @@
 
 BOOST_SERIALIZATION_ASSUME_ABSTRACT(RDKit::MolHolderBase)
 BOOST_SERIALIZATION_ASSUME_ABSTRACT(RDKit::FPHolderBase)
+BOOST_SERIALIZATION_ASSUME_ABSTRACT(RDKit::KeyHolderBase)
 
 namespace boost {
 namespace serialization {
@@ -149,12 +150,23 @@ void serialize(Archive &ar, RDKit::PatternHolder &pattern_holder,
 }
 
 template <class Archive>
+void serialize(Archive &ar, RDKit::StringKeyHolder &key_holder,
+               const unsigned int version) {
+  RDUNUSED_PARAM(version);
+  ar &boost::serialization::base_object<RDKit::KeyHolderBase>(key_holder);
+  ar & index;
+  ar & index_key;
+  ar & prop_name;
+}
+
+template <class Archive>
 void registerSubstructLibraryTypes(Archive &ar) {
   ar.register_type(static_cast<RDKit::MolHolder *>(NULL));
   ar.register_type(static_cast<RDKit::CachedMolHolder *>(NULL));
   ar.register_type(static_cast<RDKit::CachedSmilesMolHolder *>(NULL));
   ar.register_type(static_cast<RDKit::CachedTrustedSmilesMolHolder *>(NULL));
   ar.register_type(static_cast<RDKit::PatternHolder *>(NULL));
+  ar.register_type(static_cast<RDKit::StringKeyHolder *>(NULL));
 }
 
 template <class Archive>
@@ -164,6 +176,8 @@ void save(Archive &ar, const RDKit::SubstructLibrary &slib,
   registerSubstructLibraryTypes(ar);
   ar &slib.getMolHolder();
   ar &slib.getFpHolder();
+  if (version > 1)
+    ar &slib.getKeyHolder();
 }
 
 template <class Archive>
@@ -173,6 +187,9 @@ void load(Archive &ar, RDKit::SubstructLibrary &slib,
   registerSubstructLibraryTypes(ar);
   ar &slib.getMolHolder();
   ar &slib.getFpHolder();
+  if (version > 1)
+    ar &slib.getKeyHolder();
+  
   slib.resetHolders();
 }
 
@@ -184,7 +201,8 @@ BOOST_CLASS_VERSION(RDKit::CachedMolHolder, 1);
 BOOST_CLASS_VERSION(RDKit::CachedSmilesMolHolder, 1);
 BOOST_CLASS_VERSION(RDKit::CachedTrustedSmilesMolHolder, 1);
 BOOST_CLASS_VERSION(RDKit::PatternHolder, 1);
-BOOST_CLASS_VERSION(RDKit::SubstructLibrary, 1);
+BOOST_CLASS_VERSION(RDKit::KeyHolder, 1);
+BOOST_CLASS_VERSION(RDKit::SubstructLibrary, 2);
 
 BOOST_SERIALIZATION_SPLIT_FREE(RDKit::MolHolder);
 BOOST_SERIALIZATION_SPLIT_FREE(RDKit::FPHolderBase);

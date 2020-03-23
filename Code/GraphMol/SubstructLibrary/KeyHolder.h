@@ -14,9 +14,18 @@
 #include <map>
 #include <vector>
 
+#ifdef RDK_USE_BOOST_SERIALIZATION
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#endif
+
 namespace RDKit {
   
 class RDKIT_SUBSTRUCTLIBRARY_EXPORT KeyHolderBase {
+#ifdef RDK_USE_BOOST_SERIALIZATION  
+  friend class boost::serialization::access;
+#endif
+						   
 public:
  virtual ~KeyHolderBase() {}
  virtual unsigned int size() const = 0;
@@ -36,6 +45,9 @@ public:
 };
 
 class RDKIT_SUBSTRUCTLIBRARY_EXPORT StringKeyHolder : public KeyHolderBase {
+#ifdef RDK_USE_BOOST_SERIALIZATION  
+  friend class boost::serialization::access;
+#endif
   std::map<std::string, unsigned int> index;
   std::vector<std::string> index_key;
   std::string prop_name;
