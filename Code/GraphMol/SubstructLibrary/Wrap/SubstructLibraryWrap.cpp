@@ -345,7 +345,7 @@ struct substructlibrary_wrapper {
 	   ;
 
     python::class_<StringKeyHolder, boost::shared_ptr<StringKeyHolder>,
-                   python::bases<KeyHolderBase>>(
+                   python::bases<KeyHolderBase>, boost::noncopyable>(
         "StringKeyHolder", PatternHolderDoc, python::init<>())
 	   .def(python::init<const std::string&>());
     
