@@ -28,7 +28,8 @@ public:
  }
  virtual unsigned int addMol(const ROMol& mol) = 0;
  virtual unsigned int add(const std::string& key) = 0;
- 
+
+ virtual void apply(ROMol &mol, unsigned int idx) const;
  virtual unsigned int getIdx(const std::string &value) const = 0;
  virtual std::string  getKey(unsigned int idx) const = 0;
  virtual void remove(unsigned int idx) = 0;
@@ -72,7 +73,12 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT StringKeyHolder : public KeyHolderBase {
     index_key.push_back(key);
     return idx;
   }
-  
+
+
+  virtual void apply(ROMol &m, unsigned int idx) {
+    m.SetProp(prop_name, getKey(idx));
+  }
+
   virtual unsigned int getIdx(const std::string &value) const {
     // do a scan of the values
     auto it = index.find(value);

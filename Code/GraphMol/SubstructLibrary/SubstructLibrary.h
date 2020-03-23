@@ -701,7 +701,12 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
   boost::shared_ptr<ROMol> getMol(unsigned int idx) const {
     // expects implementation to throw IndexError if out of range
     PRECONDITION(mols, "molholder is null in SubstructLibrary");
-    return mols->getMol(idx);
+    READERLOCK(mols->rw_lock);
+
+    boost::shared_ptr<ROMol> m(mols->getMol(idx));
+    if(keyholder.get())
+      keyholder->apply(*m.get());
+    return m;
   }
 
   //! Returns the molecule at the given index
@@ -711,13 +716,14 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
   boost::shared_ptr<ROMol> operator[](unsigned int idx) {
     // expects implementation to throw IndexError if out of range
     PRECONDITION(mols, "molholder is null in SubstructLibrary");
+    READERLOCK(mols->rw_lock);    
     return mols->getMol(idx);
   }
 
   std::string getKey(unsigned int idx) const {
     READERLOCK(mols->rw_lock);
     if(!keyholder.get())
-      throw ValueErrorException("Substruct library doesn't have a property holder");
+      throw ValueErrorException("Substruct library doesn't have a key holder");
     return keyholder->getKey(idx);
   }
   
