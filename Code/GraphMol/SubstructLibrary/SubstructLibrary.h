@@ -704,8 +704,8 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
     READERLOCK(mols->rw_lock);
 
     boost::shared_ptr<ROMol> m(mols->getMol(idx));
-    if(keyholder.get())
-      keyholder->apply(*m.get());
+    if(keyholder.get() && m.get())
+      keyholder->apply(*m.get(), idx);
     return m;
   }
 

@@ -17,16 +17,19 @@
 #ifdef RDK_USE_BOOST_SERIALIZATION
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/map.hpp>
 #endif
 
 namespace RDKit {
   
 class RDKIT_SUBSTRUCTLIBRARY_EXPORT KeyHolderBase {
-#ifdef RDK_USE_BOOST_SERIALIZATION  
-  friend class boost::serialization::access;
-#endif
-						   
+  KeyHolderBase(const KeyHolderBase&) = delete;
+  KeyHolderBase &operator=(const KeyHolderBase&) = delete;
 public:
+ KeyHolderBase () {}
  virtual ~KeyHolderBase() {}
  virtual unsigned int size() const = 0;
  
@@ -45,14 +48,13 @@ public:
 };
 
 class RDKIT_SUBSTRUCTLIBRARY_EXPORT StringKeyHolder : public KeyHolderBase {
-#ifdef RDK_USE_BOOST_SERIALIZATION  
-  friend class boost::serialization::access;
-#endif
+  StringKeyHolder(const StringKeyHolder&) = delete;
+  StringKeyHolder &operator=(const StringKeyHolder&) = delete;
+public:
   std::map<std::string, unsigned int> index;
   std::vector<std::string> index_key;
   std::string prop_name;
   
- public:
   StringKeyHolder(const std::string &prop_name="_Name") :
     KeyHolderBase(), index(), index_key(), prop_name(prop_name) {
   }
@@ -86,9 +88,8 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT StringKeyHolder : public KeyHolderBase {
     return idx;
   }
 
-
   virtual void apply(ROMol &m, unsigned int idx) {
-    m.SetProp(prop_name, getKey(idx));
+    m.setProp(prop_name, getKey(idx));
   }
 
   virtual unsigned int getIdx(const std::string &value) const {

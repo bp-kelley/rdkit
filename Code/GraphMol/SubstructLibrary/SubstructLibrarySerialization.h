@@ -150,15 +150,21 @@ void serialize(Archive &ar, RDKit::PatternHolder &pattern_holder,
 }
 
 template <class Archive>
-void serialize(Archive &ar, RDKit::StringKeyHolder &key_holder,
+void serialize(Archive &ar, RDKit::KeyHolderBase &,
                const unsigned int version) {
   RDUNUSED_PARAM(version);
-  ar &boost::serialization::base_object<RDKit::KeyHolderBase>(key_holder);
-  ar & index;
-  ar & index_key;
-  ar & prop_name;
 }
 
+template<class Archive>
+void serialize(Archive &ar, RDKit::StringKeyHolder &holder,
+	       const unsigned int version) {
+  RDUNUSED_PARAM(version);
+  ar &boost::serialization::base_object<RDKit::KeyHolderBase>(holder);
+  ar & holder.index;
+  ar & holder.index_key;
+  ar & holder.prop_name;
+ }
+ 
 template <class Archive>
 void registerSubstructLibraryTypes(Archive &ar) {
   ar.register_type(static_cast<RDKit::MolHolder *>(NULL));
@@ -183,7 +189,6 @@ void save(Archive &ar, const RDKit::SubstructLibrary &slib,
 template <class Archive>
 void load(Archive &ar, RDKit::SubstructLibrary &slib,
           const unsigned int version) {
-  RDUNUSED_PARAM(version);
   registerSubstructLibraryTypes(ar);
   ar &slib.getMolHolder();
   ar &slib.getFpHolder();
@@ -201,7 +206,7 @@ BOOST_CLASS_VERSION(RDKit::CachedMolHolder, 1);
 BOOST_CLASS_VERSION(RDKit::CachedSmilesMolHolder, 1);
 BOOST_CLASS_VERSION(RDKit::CachedTrustedSmilesMolHolder, 1);
 BOOST_CLASS_VERSION(RDKit::PatternHolder, 1);
-BOOST_CLASS_VERSION(RDKit::KeyHolder, 1);
+BOOST_CLASS_VERSION(RDKit::StringKeyHolder, 1);
 BOOST_CLASS_VERSION(RDKit::SubstructLibrary, 2);
 
 BOOST_SERIALIZATION_SPLIT_FREE(RDKit::MolHolder);
