@@ -88,7 +88,7 @@ public:
     return idx;
   }
 
-  virtual void apply(ROMol &m, unsigned int idx) {
+  virtual void apply(ROMol &m, unsigned int idx) const {
     m.setProp(prop_name, getKey(idx));
   }
 

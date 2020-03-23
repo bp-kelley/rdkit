@@ -152,6 +152,7 @@ void serialize(Archive &ar, RDKit::PatternHolder &pattern_holder,
 template <class Archive>
 void serialize(Archive &ar, RDKit::KeyHolderBase &,
                const unsigned int version) {
+  RDUNUSED_PARAM(ar);
   RDUNUSED_PARAM(version);
 }
 

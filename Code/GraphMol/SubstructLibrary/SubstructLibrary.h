@@ -546,6 +546,11 @@ class RDKIT_SUBSTRUCTLIBRARY_EXPORT SubstructLibrary {
   }
 
   //! Get the underlying property holder implementation
+  boost::shared_ptr<KeyHolderBase> &getKeyHolder() {
+    return keyholder;
+  }
+
+  //! Get the underlying property holder implementation
   const boost::shared_ptr<KeyHolderBase> &getKeyHolder() const {
     return keyholder;
   }
