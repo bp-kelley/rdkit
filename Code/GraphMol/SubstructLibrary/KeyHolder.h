@@ -41,7 +41,7 @@ public:
  virtual unsigned int addMol(const ROMol& mol) = 0;
  virtual unsigned int add(const std::string& key) = 0;
 
- virtual void apply(ROMol &mol, unsigned int idx) const;
+ virtual void apply(ROMol &mol, unsigned int idx) const = 0;
  virtual unsigned int getIdx(const std::string &value) const = 0;
  virtual std::string  getKey(unsigned int idx) const = 0;
  virtual void remove(unsigned int idx) = 0;
