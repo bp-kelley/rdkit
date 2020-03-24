@@ -46,7 +46,11 @@ bool isAtomCandForChiralH(const RWMol &mol, const Atom *atom) {
 void prepareMolForDrawing(RWMol &mol, bool kekulize, bool addChiralHs,
                           bool wedgeBonds, bool forceCoords) {
   if (kekulize) {
-    MolOps::Kekulize(mol, false);  // kekulize, but keep the aromatic flags!
+    try {
+      MolOps::Kekulize(mol, false);  // kekulize, but keep the aromatic flags!
+    } catch(const RDKit::AtomKekulizeException &e) {
+      std::cerr << e.what() << std::endl;
+    }
   }
   if (addChiralHs) {
     std::vector<unsigned int> chiralAts;
@@ -84,9 +88,14 @@ void prepareAndDrawMolecule(MolDraw2D &drawer, const ROMol &mol,
                             int confId) {
   RWMol cpy(mol);
   prepareMolForDrawing(cpy);
+  // having done the prepare, we don't want to do it again in drawMolecule.
+  bool old_prep_mol = drawer.drawOptions().prepareMolsBeforeDrawing;
+  drawer.drawOptions().prepareMolsBeforeDrawing = false;
   drawer.drawMolecule(cpy, legend, highlight_atoms, highlight_bonds,
                       highlight_atom_map, highlight_bond_map, highlight_radii,
                       confId);
+  drawer.drawOptions().prepareMolsBeforeDrawing = old_prep_mol;
+
 }
 
 void updateDrawerParamsFromJSON(MolDraw2D &drawer, const char *json) {
@@ -124,13 +133,25 @@ void updateDrawerParamsFromJSON(MolDraw2D &drawer, const std::string &json) {
   PT_OPT_GET(dummiesAreAttachments);
   PT_OPT_GET(circleAtoms);
   PT_OPT_GET(continuousHighlight);
+  PT_OPT_GET(fillHighlights);
   PT_OPT_GET(flagCloseContactsDist);
   PT_OPT_GET(includeAtomTags);
   PT_OPT_GET(clearBackground);
   PT_OPT_GET(legendFontSize);
+  PT_OPT_GET(maxFontSize);
+  PT_OPT_GET(annotationFontScale);
   PT_OPT_GET(multipleBondOffset);
   PT_OPT_GET(padding);
   PT_OPT_GET(additionalAtomLabelPadding);
+  PT_OPT_GET(bondLineWidth);
+  PT_OPT_GET(highlightBondWidthMultiplier);
+  PT_OPT_GET(prepareMolsBeforeDrawing);
+  PT_OPT_GET(fixedScale);
+  PT_OPT_GET(fixedBondLength);
+  PT_OPT_GET(rotate);
+  PT_OPT_GET(addStereoAnnotation);
+  PT_OPT_GET(atomHighlightsAreCircles);
+  PT_OPT_GET(centreMoleculesB4Drawing);
   get_colour_option(&pt, "highlightColour", opts.highlightColour);
   get_colour_option(&pt, "backgroundColour", opts.backgroundColour);
   get_colour_option(&pt, "legendColour", opts.legendColour);
@@ -208,7 +229,6 @@ void contourAndDrawGrid(MolDraw2D &drawer, const double *grid,
             fracV *= -1;
           }
         }
-        DrawColour fillColour;
         auto c1 = (gridV < 0 || params.colourMap.size() == 2)
                       ? params.colourMap[1]
                       : params.colourMap[1];
