@@ -76,7 +76,7 @@ class RDKIT_GRAPHMOL_EXPORT Atom : public RDProps {
   typedef Queries::Query<int, Atom const *, true> QUERYATOM_QUERY;
   std::vector<Bond*> _bonds;
   std::vector<Atom*> _oatoms;
-    
+  std::vector<int> _idxs;
   //! store hybridization
   typedef enum {
     UNSPECIFIED = 0,  //!< hybridization that hasn't been specified
@@ -119,6 +119,8 @@ class RDKIT_GRAPHMOL_EXPORT Atom : public RDProps {
     const std::vector<Bond*> & bonds() const { return _bonds; }
     std::vector<Atom*> & nbrs() { return _oatoms; }
     const std::vector<Atom*> & nbrs() const { return _oatoms; }
+    std::vector<int> &nbridxs() { return _idxs; }
+    const std::vector<int> &nbridxs() const { return _idxs; }
     bool hasNbr(const Atom *atm) const {
         return std::find(_oatoms.begin(), _oatoms.end(), atm) != _oatoms.end();
     }
@@ -396,6 +398,7 @@ class RDKIT_GRAPHMOL_EXPORT Atom : public RDProps {
 
   */
   int getPerturbationOrder(const INT_LIST &probe) const;
+  int getPerturbationOrder(const INT_VECT &probe) const;
 
   //! calculates any of our lazy \c properties
   /*!

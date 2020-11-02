@@ -200,8 +200,8 @@ class MolMatchFinalCheckFunctor {
         return false;
       }
 
-      INT_LIST qOrder;
-      INT_LIST mOrder;
+      INT_VECT qOrder;
+      INT_VECT mOrder;
       for (unsigned int j = 0; j < d_query.getNumAtoms(); ++j) {
         const Bond *qB = d_query_atoms[q_c[i]]->getBondTo(q_c[j]);//d_query.getBondBetweenAtoms(q_c[i], q_c[j]);
         const Bond *mB = d_mol_atoms[m_c[i]]->getBondTo(m_c[j]);//d_mol.getBondBetweenAtoms(m_c[i], m_c[j]);
@@ -220,7 +220,7 @@ class MolMatchFinalCheckFunctor {
       unsigned unmatchedNeighbors = mAt->getDegree() - mOrder.size();
       mOrder.insert(mOrder.end(), unmatchedNeighbors, -1);
 
-      INT_LIST moOrder;
+      INT_VECT moOrder;
       for (const auto *bond : mAt->bonds()) {
         int dbidx = bond->getIdx();
         if (std::find(mOrder.begin(), mOrder.end(), dbidx) != mOrder.end()) {

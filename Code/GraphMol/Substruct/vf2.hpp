@@ -36,8 +36,8 @@ template <class Graph>
 struct Pair {
   node_id n1, n2;
   //bool hasiter{false};
-    RDKit::Atom * const *nbrbeg;
-    RDKit::Atom * const *nbrend;
+    int const *nbrbeg;
+    int const *nbrend;
     //unsigned short nbrbeg, nbrend; # null node is 0xFFFF
  // RDK_ADJ_ITER nbrbeg, nbrend;
 
@@ -277,15 +277,15 @@ class VF2SubState {
        * since it must also be adajcent to this mapped atom!
        */
       if (!pair.nbrbeg) {
-        const auto &nbrs = g1[pair.n1]->nbrs();
+        const auto &nbrs = g1[pair.n1]->nbridxs();
         auto n1iter_beg = nbrs.begin();
         auto n1iter_end = nbrs.end();
-        while (n1iter_beg != n1iter_end && core_1[(*n1iter_beg)->getIdx()] == NULL_NODE)
+        while (n1iter_beg != n1iter_end && core_1[(*n1iter_beg)] == NULL_NODE)
           ++n1iter_beg;
 
         assert(n1iter_beg != n1iter_end);
-        const auto other = core_1[(*n1iter_beg)->getIdx()];
-        const auto &nbrs2 = g2[other]->nbrs();
+        const auto other = core_1[(*n1iter_beg)];
+        const auto &nbrs2 = g2[other]->nbridxs();
           //pair.hasiter = &g2[other]->nbrs()[0];//other;
           pair.nbrbeg = &nbrs2[0];
           pair.nbrend = &nbrs2[0] + nbrs2.size();
@@ -311,12 +311,12 @@ class VF2SubState {
 
     /* VF2 Plus iterator available? */
     if (pair.nbrbeg) {
-      while (pair.nbrbeg < pair.nbrend && core_2[(*pair.nbrbeg)->getIdx()] != NULL_NODE) {
+      while (pair.nbrbeg < pair.nbrend && core_2[(*pair.nbrbeg)] != NULL_NODE) {
         ++pair.nbrbeg;
       }
 
       if (pair.nbrbeg < pair.nbrend) {
-        pair.n2 = (*pair.nbrbeg)->getIdx();
+        pair.n2 = (*pair.nbrbeg);
         ++pair.nbrbeg;
       } else {
         pair.n2 = n2;

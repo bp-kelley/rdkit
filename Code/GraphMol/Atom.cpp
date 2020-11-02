@@ -548,6 +548,19 @@ int Atom::getPerturbationOrder(const INT_LIST &probe) const {
   return nSwaps;
 }
 
+int Atom::getPerturbationOrder(const INT_VECT &probe) const {
+  PRECONDITION(
+      dp_mol,
+      "perturbation order not defined for atoms not associated with molecules")
+  INT_VECT ref;
+  ref.reserve(_bonds.size());
+  for(auto *bond: bonds()) {
+    ref.push_back(bond->getIdx());
+  }
+  int nSwaps = static_cast<int>(countSwapsToInterconvert(probe, ref));
+  return nSwaps;
+}
+
 void Atom::invertChirality() {
   switch (getChiralTag()) {
     case CHI_TETRAHEDRAL_CW:

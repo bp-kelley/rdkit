@@ -141,6 +141,7 @@ void RWMol::replaceAtom(unsigned int idx, Atom *atom_pin, bool updateLabel,
  
  atom_p->_oatoms = orig->_oatoms;
  atom_p->_bonds = orig->_bonds;
+ atom_p->_idxs = orig->_idxs;
  for(auto *atom : _atoms) {
      for(auto &oatom: atom->_oatoms) {
          if(oatom == orig) {
@@ -344,8 +345,10 @@ unsigned int RWMol::addBond(unsigned int atomIdx1, unsigned int atomIdx2,
   b->setEndAtomIdx(atomIdx2);
     a1->_bonds.push_back(b);
     a1->_oatoms.push_back(a2);
+    a1->_idxs.push_back(atomIdx2);
     a2->_bonds.push_back(b);
     a2->_oatoms.push_back(a1);
+    a2->_idxs.push_back(atomIdx1);
   // if both atoms have a degree>1, reset our ring info structure,
   // because there's a non-trivial chance that it's now wrong.
   if (dp_ringInfo && dp_ringInfo->isInitialized() &&
