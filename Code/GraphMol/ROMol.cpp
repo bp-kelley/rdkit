@@ -88,13 +88,14 @@ void ROMol::initFromOther(const ROMol &other, bool quickCopy, int confId) {
                 (*xi)->bonds().push_back(_bonds[bond->getIdx()]);
             }
             for(auto *atom: (*yi)->nbrs()) {
+                (*xi)->nbridxs().push_back(atom->getIdx());
                 (*xi)->nbrs().push_back(_atoms[atom->getIdx()]);
             }
             ++xi;
             ++yi;
         }
         }
-
+    
   // ring information
   if (dp_ringInfo) {
     delete dp_ringInfo;
@@ -373,14 +374,18 @@ unsigned int ROMol::addBond(Bond *bond_pin, bool takeOwnership) {
     bond_p->setIdx(which);
     bond_p->setOwningMol(this);
   // check to see if bond has been added???
-    auto a1 = _atoms[bond_p->getBeginAtomIdx()];
-    auto a2 = _atoms[bond_p->getEndAtomIdx()];
+    const auto idx1 = bond_p->getBeginAtomIdx();
+    const auto idx2 = bond_p->getEndAtomIdx();
+    auto a1 = _atoms[idx1];
+    auto a2 = _atoms[idx2];
     a1->_bonds.push_back(bond_p);
     a2->_bonds.push_back(bond_p);
     a1->_oatoms.push_back(a2);
     a2->_oatoms.push_back(a1);
-    _bonds.push_back(bond_p);
+    a1->_idxs.push_back(idx2);
+    a2->_idxs.push_back(idx1);
     
+    _bonds.push_back(bond_p);
   return which+1;
 }
 

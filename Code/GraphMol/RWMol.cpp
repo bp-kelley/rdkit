@@ -158,7 +158,6 @@ void RWMol::replaceAtom(unsigned int idx, Atom *atom_pin, bool updateLabel,
   removeSubstanceGroupsReferencingAtom(*this, idx);
   delete orig;
   _atoms[idx] = atom_p;
-
   // FIX: do something about bookmarks
 };
 
@@ -198,7 +197,6 @@ void RWMol::replaceBond(unsigned int idx, Bond *bond_pin, bool preserveProps) {
 
     delete obond;
     // FIX: do something about bookmarks
-
   removeSubstanceGroupsReferencingBond(*this, idx);
 };
 
@@ -296,9 +294,13 @@ void RWMol::removeAtom(Atom *atom) {
     }
   }
 
-  // Finally remove the atmo
+  // Finally remove the atom and update the neighbor idxs
   _atoms.erase(_atoms.begin() + idx);
-    
+    for(auto atom: _atoms) {
+        for(size_t i=0;i<atom->_oatoms.size();++i) {
+            atom->_idxs[i] = atom->_oatoms[i]->getIdx();
+        }
+    }
   removeSubstanceGroupsReferencingAtom(*this, idx);
 
   // Remove any stereo group which includes the atom being deleted
@@ -307,7 +309,6 @@ void RWMol::removeAtom(Atom *atom) {
   // clear computed properties and reset our ring info structure
   // they are pretty likely to be wrong now:
   clearComputedProps(true);
-
   delete atom;
 }
 
@@ -349,6 +350,7 @@ unsigned int RWMol::addBond(unsigned int atomIdx1, unsigned int atomIdx2,
     a2->_bonds.push_back(b);
     a2->_oatoms.push_back(a1);
     a2->_idxs.push_back(atomIdx1);
+
   // if both atoms have a degree>1, reset our ring info structure,
   // because there's a non-trivial chance that it's now wrong.
   if (dp_ringInfo && dp_ringInfo->isInitialized() &&
@@ -421,7 +423,7 @@ void RWMol::removeBond(unsigned int aid1, unsigned int aid2) {
   bnd->setOwningMol(nullptr);
     _atoms[aid1]->removeNbr(_atoms[aid2]);
     _atoms[aid2]->removeNbr(_atoms[aid1]);
-    _bonds.erase(_bonds.begin() + bnd->getIdx());
+   _bonds.erase(_bonds.begin() + bnd->getIdx());
   delete bnd;
 }
 

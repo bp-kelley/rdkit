@@ -134,7 +134,9 @@ class RDKIT_GRAPHMOL_EXPORT Atom : public RDProps {
         auto idx = std::find(_oatoms.begin(), _oatoms.end(), atom);
         if(idx != _oatoms.end()) {
             _oatoms.erase(idx);
-            _bonds.erase(_bonds.begin() + (idx - _oatoms.begin()));
+            const auto pos = idx - _oatoms.begin();
+            _bonds.erase(_bonds.begin() + pos);
+            _idxs.erase(_idxs.begin() + pos);
             return true;
         }
         return false;
