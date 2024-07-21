@@ -733,4 +733,46 @@ RGroupDecompositionProcessResult RGroupDecompData::process(bool pruneMatches,
   return RGroupDecompositionProcessResult(true, rGroupScorer.getBestScore());
 }
 
+#ifdef RDK_USE_BOOST_SERIALIZATION
+friend class boost::serialization::access;
+template <class Archive>
+void save(Archive &ar, const unsigned int /*version*/) const {
+  ar & cores; // need to serialize RCore
+  ar & newCores;  // new "cores" found along the way
+  ar & newCoreLabel;
+  ar & perumtationProduct;
+  ar & previousMatchSize;
+  ar & prunePermutation;
+  ar & params;
+  ar & matches; // need to serialize RGroupMatch
+  ar & labels;
+  ar & perumatation;
+  ar & pruneLength;
+  ar & prunedFingerprintVarianceScoreData; // needs implementation
+  ar & userLabels;
+  ar & processRlabels;
+  ar & finalRlabelMapping;
+}
+template <class Archive>
+void load(Archive &ar, const unsigned int version) {
+    RDUNUSED_PARAM(version);
+  ar & cores;
+  ar & newCores;  // new "cores" found along the way
+  ar & newCoreLabel;
+  ar & perumtationProduct;
+  ar & previousMatchSize;
+  ar & prunePermutation;
+  ar & params;
+  ar & matches;
+  ar & labels;
+  ar & perumatation;
+  ar & pruneLength;
+  ar & prunedFingerprintVarianceScoreData; // needs implementation
+  ar & userLabels;
+  ar & processRlabels;
+  ar & finalRlabelMapping;
+ }
+
+  BOOST_SERIALIZATION_SPLIT_MEMBER();
+  
 }  // namespace RDKit

@@ -52,6 +52,44 @@ struct RDKIT_RGROUPDECOMPOSITION_EXPORT RGroupData {
   //! compute the canonical smiles for the attachments (bug: removes dupes since
   //! we are using a set...)
   std::string getSmiles() const;
+  
+#ifdef RDK_USE_BOOST_SERIALIZATION
+friend class boost::serialization::access;
+template <class Archive>
+void save(Archive &ar, const unsigned int /*version*/) const {
+}
+template <class Archive>
+void load(Archive &ar, const unsigned int /*version*/) {
+    RDUNUSED_PARAM(version);
+    save_mol(ar, combinedMol);
+    save_mols(ar, mols);
+    ar & smilesVect;
+    ar & smiles;
+    ar & attachments;
+    save_fingerprint(ar, fingerprint);
+    ar & fingerprintOnBits;
+    ar & is_hydrogen;
+    ar & single_fragment;
+    ar & is_linker;
+    ar & labelled;
+}
+template <class Archive>
+void load(Archive &ar, const unsigned int version) {
+  RDUNUSED_PARAM(version);
+  restore_mol(ar, combinedMols);
+  restore_mols(ar, mols);
+  ar & smilesVect;
+  ar & smiles;
+  ar & attachments;
+  restore_fingerprint(ar, fingerprint);
+  ar & fingerprintOnBits;
+  ar & is_hydrogen;
+  ar & single_fragment;
+  ar & is_linker;
+  ar & labelled;
+}  
+BOOST_SERIALIZATION_SPLIT_MEMBER();
+
 };
 }  // namespace RDKit
 

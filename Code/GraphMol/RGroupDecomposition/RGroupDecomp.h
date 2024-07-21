@@ -106,6 +106,9 @@ class RDKIT_RGROUPDECOMPOSITION_EXPORT RGroupDecomposition {
   RGroupRows getRGroupsAsRows() const;
   //! return rgroups in column order group[attachment_point][row] = ROMol
   RGroupColumns getRGroupsAsColumns() const;
+
+  //! serializes (pickles) to a stream
+  void toStream(std::ostream &ss) const;
 };
 
 RDKIT_RGROUPDECOMPOSITION_EXPORT unsigned int RGroupDecompose(

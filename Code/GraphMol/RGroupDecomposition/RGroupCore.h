@@ -15,6 +15,7 @@
 #include "../RDKitBase.h"
 #include "RGroupUtils.h"
 #include "GraphMol/Substruct/SubstructMatch.h"
+#include <GraphMol/MolPickler.h>
 
 // #define VERBOSE 1
 
@@ -111,6 +112,28 @@ struct RCore {
 
   // Add attachment points to unlabelled R Groups
   void addDummyAtomsToUnlabelledCoreAtoms();
+
+#ifdef RDK_USE_BOOST_SERIALIZATION
+friend class boost::serialization::access;
+template <class Archive>
+void save(Archive &ar, const unsigned int /*version*/) const {
+}
+template <class Archive>
+void load(Archive &ar, const unsigned int /*version*/) {
+    RDUNUSED_PARAM(version);
+    save_mol(ar, core);
+    save_mol(ar, matchingMol);
+    save_mol(ar, labelledCore);
+}
+template <class Archive>
+void load(Archive &ar, const unsigned int version) {
+  RDUNUSED_PARAM(version);
+  restore_mol(ar, core);
+  restore_mol(ar, matchingMol);
+  restore_mol(ar, labelledCore);
+}  
+BOOST_SERIALIZATION_SPLIT_MEMBER();
+
 };
 
 }  // namespace RDKit

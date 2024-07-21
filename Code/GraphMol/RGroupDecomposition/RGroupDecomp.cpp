@@ -680,6 +680,27 @@ RGroupColumns RGroupDecomposition::getRGroupsAsColumns() const {
   return groups;
 }
 
+void RGroupDecomposition::toStream(std::ostream &ss) const  {
+#ifndef RDK_USE_BOOST_SERIALIZATION
+  PRECONDITION(0, "Boost SERIALIZATION is not enabled")
+#else
+  boost::archive::text_oarchive ar(ss);
+  ar << *data;
+#endif  
+}
+
+void RGroupDecomposition::initFromStream(std::istream &ss) {
+#ifndef RDK_USE_BOOST_SERIALIZATION
+  PRECONDITION(0, "Boost SERIALIZATION is not enabled")
+#else
+  boost::archive::text_iarchive ar(ss);
+  ar >> *data;
+#endif
+}
+
+
+
+
 const RGroupDecompositionParameters &RGroupDecomposition::params() const {
   return data->params;
 }

@@ -41,6 +41,27 @@ struct RGroupMatch {
        << numberMissingUserRGroups << " " << rGroupsString;
     return ss.str();
   }
+
+private:
+  
+template <class Archive>
+void load(Archive &ar, const unsigned int /*version*/) {
+    RDUNUSED_PARAM(version);
+    ar & core_idx;
+    ar & numberMissingUserRGroups;
+    ar & rgroups;
+    save_mol(ar, matchedCore);
+}
+template <class Archive>
+void load(Archive &ar, const unsigned int version) {
+  RDUNUSED_PARAM(version);
+    ar & core_idx;
+    ar & numberMissingUserRGroups;
+    ar & rgroups;
+    restore_mol(ar, matchedCore);
+}  
+BOOST_SERIALIZATION_SPLIT_MEMBER();
+  
 };
 
 }  // namespace RDKit
