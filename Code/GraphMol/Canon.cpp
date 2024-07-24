@@ -712,7 +712,7 @@ void dfsBuildStack(ROMol &mol, int atomIdx, int inBondIdx,
         // this is end of the ring closure
         // we can just pull the ring index from the bond itself:
         molStack.push_back(MolStackElem(bond, atomIdx));
-        bondVisitOrders[bIdx] = molStack.size();
+        bondVisitOrders[bIdx] = static_cast<unsigned int>(molStack.size());
         molStack.push_back(MolStackElem(ringIdx));
         // don't make the ring digit immediately available again: we don't want
         // to have the same
@@ -727,7 +727,7 @@ void dfsBuildStack(ROMol &mol, int atomIdx, int inBondIdx,
           throw ValueErrorException(
               "Too many rings open at once. SMILES cannot be generated.");
         }
-        unsigned int lowestRingIdx = cAIt - cyclesAvailable.begin();
+        unsigned int lowestRingIdx = static_cast<unsigned int>(cAIt - cyclesAvailable.begin());
         cyclesAvailable[lowestRingIdx] = 0;
         ++lowestRingIdx;
         bond->setProp(common_properties::_TraversalRingClosureBond,
@@ -831,7 +831,7 @@ void dfsBuildStack(ROMol &mol, int atomIdx, int inBondIdx,
           MolStackElem("(", rdcast<int>(possiblesIt - possibles.begin())));
     }
     molStack.push_back(MolStackElem(bond, atomIdx));
-    bondVisitOrders[bond->getIdx()] = molStack.size();
+    bondVisitOrders[bond->getIdx()] = static_cast<unsigned int>(molStack.size());
     dfsBuildStack(mol, possibleIdx, bond->getIdx(), colors, cycles, ranks,
                   cyclesAvailable, molStack, atomOrders, bondVisitOrders,
                   atomRingClosures, atomTraversalBondOrder, bondsInPlay,

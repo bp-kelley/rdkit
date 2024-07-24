@@ -317,7 +317,7 @@ class RDKIT_GRAPHMOL_EXPORT PeriodicTable {
   }
 
   //! returns the maximum recognized atomic number
-  UINT getMaxAtomicNumber() const { return byanum.size() - 1; }
+  UINT getMaxAtomicNumber() const { return static_cast<UINT>(byanum.size() - 1); }
   //! returns the row of the periodic table
   UINT getRow(UINT atomicNumber) const {
     PRECONDITION(atomicNumber < byanum.size(), "Atomic number not found");

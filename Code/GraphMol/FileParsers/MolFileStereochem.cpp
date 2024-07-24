@@ -136,12 +136,14 @@ void addWavyBondsForStereoAny(ROMol &mol, bool clearDoubleBondFlags,
       continue;
     }
     sortedScores.push_back(
-        std::make_tuple(-1 * singleBondNeighbors[i].size(), score, i));
+        std::make_tuple(static_cast<int>(-1 * singleBondNeighbors[static_cast<unsigned>(i)].size()),
+                        static_cast<unsigned int>(score),
+                        i));
   }
   std::sort(sortedScores.begin(), sortedScores.end());
   for (const auto &tpl : sortedScores) {
     // FIX: check if dir is already set
-    for (auto dblBondIdx : singleBondNeighbors[std::get<2>(tpl)]) {
+    for (auto dblBondIdx : singleBondNeighbors[static_cast<unsigned>(std::get<2>(tpl))]) {
       if (doubleBondsToSet[dblBondIdx]) {
         if (addWhenImpossible) {
           if (std::get<1>(tpl) > addWhenImpossible) {

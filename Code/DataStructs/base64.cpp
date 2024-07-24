@@ -137,6 +137,6 @@ char *Base64Decode(const char *inText, unsigned int *size) {
       res[pos] = (block[2] << 6);
     }
   }
-  *size = pos;
+  *size = static_cast<unsigned int>(pos);
   return res;
 }

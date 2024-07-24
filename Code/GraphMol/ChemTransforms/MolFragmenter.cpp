@@ -653,9 +653,9 @@ unsigned int get_label(const Atom *a, const MolzipParams &p) {
       break;
 
     case MolzipLabel::AtomType:
-      idx = std::distance(p.atomSymbols.begin(),
+      idx = static_cast<unsigned int>(std::distance(p.atomSymbols.begin(),
                           std::find(p.atomSymbols.begin(), p.atomSymbols.end(),
-                                    a->getSymbol()));
+                                    a->getSymbol())));
       if (idx == p.atomSymbols.size()) {
         idx = NOLABEL;
       }
@@ -685,8 +685,7 @@ Atom *get_other_atom(Atom *a) {
   if (m.getAtomDegree(a) != 1) {
     return nullptr;
   }
-
-  return m[*m.getAtomNeighbors(a).first];
+  return a->nbrs().front();
 }
 
 int num_swaps_to_interconvert(std::vector<unsigned int> &orders) {
@@ -867,10 +866,8 @@ struct ZipBond {
           "__molzip_mark_" + std::to_string(chiral_atom->getIdx());
       chiral_atom->setProp("__molzip_chiral_mark", mark);
       int order = 0;
-      auto &m = chiral_atom->getOwningMol();
-      for (auto nbrIdx :
-           boost::make_iterator_range(m.getAtomNeighbors(chiral_atom))) {
-        m[nbrIdx]->setProp(mark, order);
+      for (auto nbr : chiral_atom->nbrs() ) {
+        nbr->setProp(mark, order);
         ++order;
       }
       new_atom->setProp(mark, dummy_atom->getProp<int>(mark));
@@ -878,9 +875,8 @@ struct ZipBond {
 
     // check bond stereo
     auto &m = chiral_atom->getOwningMol();
-    for (auto nbrIdx :
-         boost::make_iterator_range(m.getAtomNeighbors(chiral_atom))) {
-      auto bond = m.getBondBetweenAtoms(chiral_atom->getIdx(), nbrIdx);
+    for (auto nbr : chiral_atom->nbrs()) {
+      auto bond = chiral_atom->getBondTo(nbr);
       if (bond->getStereo()) {
         std::string mark = "__molzip_bond_stereo_mark";
         std::vector<Atom *> atoms;
@@ -912,10 +908,8 @@ struct ZipBond {
         chiral_atom->getProp<std::string>("__molzip_chiral_mark");
     // std::vector<unsigned int> orders1;
     std::vector<unsigned int> orders2;
-    auto &m = chiral_atom->getOwningMol();
-    for (auto nbrIdx :
-         boost::make_iterator_range(m.getAtomNeighbors(chiral_atom))) {
-      orders2.push_back(m[nbrIdx]->getProp<int>(mark));
+    for (auto nbr : chiral_atom->nbrs()) {
+      orders2.push_back(nbr->getProp<int>(mark));
     }
     if (num_swaps_to_interconvert(orders2) % 2 == 1) {
       chiral_atom->invertChirality();
@@ -951,9 +945,7 @@ std::unique_ptr<ROMol> molzip(
         bond.a = attached_atom;
         bond.a_dummy = atom;
         bond.b = newmol->getAtomWithIdx(molno);
-        for (auto nbrIdx :
-             boost::make_iterator_range(newmol->getAtomNeighbors(bond.b))) {
-          auto *nbr = (*newmol)[nbrIdx];
+        for (auto nbr : bond.b->nbrs()) {
           if (nbr->getAtomicNum() == 0 &&
               nbr->getIsotope() == attached_atom->getIdx()) {
             bond.b_dummy = nbr;

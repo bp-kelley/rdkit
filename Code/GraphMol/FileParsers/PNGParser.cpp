@@ -222,7 +222,7 @@ std::string addMetadataToPNGStream(
     }
     auto blob = blk.str();
     std::uint32_t blksize =
-        blob.size() - 4;  // we don't include the tag in the size;
+      static_cast<unsigned int>(blob.size() - 4);  // we don't include the tag in the size;
     boost::crc_32_type crc;
     crc.process_bytes((void const *)blob.c_str(), blob.size());
     std::uint32_t crcVal = crc.checksum();

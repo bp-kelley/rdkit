@@ -38,7 +38,7 @@ bool getAtropisomerAtomsAndBonds(const Bond *bond,
   // get the one or two bonds on each end
 
   for (int bondAtomIndex = 0; bondAtomIndex < 2; ++bondAtomIndex) {
-    for (const auto nbrBond :
+    for (auto nbrBond :
          mol.atomBonds(atomsAndBondVects[bondAtomIndex].first)) {
       if (nbrBond == bond) {
         continue;  // a bond is NOT its own neighbor

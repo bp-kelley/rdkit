@@ -500,8 +500,8 @@ void testMisc() {
   boost::tie(atBegin, atEnd) = m2.getVertices();
   TEST_ASSERT(atBegin != atEnd);
   while (atBegin != atEnd) {
-    const Atom *at2 = m2[*atBegin];
-    TEST_ASSERT(at2->getIdx() == *atBegin);
+    const Atom *at2 = *atBegin;
+    TEST_ASSERT(at2->getIdx() == (*atBegin)->getIdx());
     atBegin++;
   }
 
@@ -812,13 +812,10 @@ void test1() {
     testBookmarks(m);
 
     // Using operator<< on a non-sanitized molecule is a test of Issue156:
-    ROMol::ADJ_ITER ai1, ai2;
-    boost::tie(ai1, ai2) = m.getAtomNeighbors(m.getAtomWithIdx(1));
     m.updatePropertyCache();
     boost::logging::disable_logs("rdApp.info");
-    while (ai1 != ai2) {
-      BOOST_LOG(rdInfoLog) << *m.getAtomWithIdx(*ai1) << endl;
-      ai1++;
+    for(auto nbr: m.getAtomWithIdx(1)->nbrs()) {
+      BOOST_LOG(rdInfoLog) << *nbr << endl;
     }
 
     m.addAtom(new Atom(6), true, true);

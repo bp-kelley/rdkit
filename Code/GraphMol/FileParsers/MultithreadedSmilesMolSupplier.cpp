@@ -59,10 +59,10 @@ void MultithreadedSmilesMolSupplier::initFromSettings(
   d_params.numWriterThreads = getNumThreadsToUse(d_params.numWriterThreads);
   d_inputQueue =
       new ConcurrentQueue<std::tuple<std::string, unsigned int, unsigned int>>(
-          d_params.sizeInputQueue);
+          static_cast<unsigned int>(d_params.sizeInputQueue));
   d_outputQueue =
       new ConcurrentQueue<std::tuple<RWMol *, std::string, unsigned int>>(
-          d_params.sizeOutputQueue);
+          static_cast<unsigned int>(d_params.sizeOutputQueue));
   df_end = false;
   d_line = -1;
 }

@@ -354,7 +354,7 @@ bool EmbeddedFrag::matchToTemplate(const RDKit::INT_VECT &ringSystemAtoms,
   // only look for an exact match to the ring system because our method of
   // completing rings from a template isn't reliably better than not using
   // a template at all
-  if (!coordinate_templates.hasTemplateOfSize(ringSystemAtoms.size())) {
+  if (!coordinate_templates.hasTemplateOfSize(static_cast<unsigned int>(ringSystemAtoms.size()))) {
     return false;
   }
 
@@ -383,7 +383,7 @@ bool EmbeddedFrag::matchToTemplate(const RDKit::INT_VECT &ringSystemAtoms,
   RDKit::MatchVectType match;
   std::shared_ptr<RDKit::ROMol> template_mol(nullptr);
   for (const auto &mol :
-       coordinate_templates.getMatchingTemplates(ringSystemAtoms.size())) {
+       coordinate_templates.getMatchingTemplates(static_cast<unsigned int>(ringSystemAtoms.size()))) {
     // To reduce how often we have to do substructure matches, check ring info
     // and bond count first
     if (mol->getNumBonds() != rs_mol.getNumBonds()) {
@@ -493,7 +493,7 @@ void EmbeddedFrag::embedFusedRings(const RDKit::VECT_INT_VECT &fusedRings,
   RDKit::Union(fusedRings, funion);
 
   if (useRingTemplates && fusedRings.size() > 1) {
-    bool found_template = matchToTemplate(funion, fusedRings.size());
+    bool found_template = matchToTemplate(funion, static_cast<unsigned int>(fusedRings.size()));
     if (found_template) {
       return;
     }
@@ -551,7 +551,7 @@ void EmbeddedFrag::embedFusedRings(const RDKit::VECT_INT_VECT &fusedRings,
       reflectIfNecessaryDensity(embRing, aid1, aid2);
     }
 
-    this->mergeRing(embRing, commonAtomIds.size(), pinAtoms);
+    this->mergeRing(embRing, static_cast<unsigned int>(commonAtomIds.size()), pinAtoms);
     doneRings.push_back(nextId);
   }
 }
@@ -1454,10 +1454,10 @@ void EmbeddedFrag::randomSampleFlipsAndPermutations(
         }
       }
     }
-    nd4 = deg4nodes.size();
+    nd4 = static_cast<unsigned int>(deg4nodes.size());
   }
 
-  unsigned int nt = nb + nd4;
+  unsigned int nt = static_cast<unsigned int>(nb) + nd4;
 
   unsigned int nPerSample = std::min(nt, nBondsPerSample);
 
@@ -1482,8 +1482,8 @@ void EmbeddedFrag::randomSampleFlipsAndPermutations(
       if (ri < nb) {
         this->flipAboutBond(rotBonds.at(ri));
       } else {  // ri is >= nb we permute the bonds at a deg 4 node
-        unsigned int d4i =
-            ri - nb;  // so we will permute at the 'di'th degree 4 node
+        unsigned int d4i = static_cast<unsigned int>(
+            ri - nb);  // so we will permute at the 'di'th degree 4 node
         auto ai = deg4nodes.at(d4i);
         // collect the locations for the neighbors
         VECT_C_POINT nbrLocs;
@@ -1722,7 +1722,7 @@ unsigned int _findDeg1Neighbor(const RDKit::ROMol *mol, unsigned int aid) {
   PRECONDITION(mol, "");
   auto deg = getDepictDegree(mol->getAtomWithIdx(aid));
   CHECK_INVARIANT(deg == 1, "");
-  return *mol->getAtomNeighbors(mol->getAtomWithIdx(aid)).first;
+  return mol->getAtomWithIdx(aid)->nbrs().front()->getIdx();
 }
 
 unsigned int _findClosestNeighbor(const RDKit::ROMol *mol, const double *dmat,

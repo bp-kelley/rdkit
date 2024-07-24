@@ -47,7 +47,7 @@ class RDKIT_GRAPHMOL_EXPORT ResonanceMolSupplierCallback {
   ResonanceMolSupplierCallback() {}
   virtual ~ResonanceMolSupplierCallback() {}
   /*! Get the number of conjugated groups this molecule has. */
-  unsigned int getNumConjGrps() const { return d_progress.size(); }
+  unsigned int getNumConjGrps() const { return static_cast<unsigned int>(d_progress.size()); }
   /*! Get the maximum number of resonance structures the supplier
       is allowed to generate.
       \return The number of structures.

@@ -385,11 +385,9 @@ bool hasRingNbr(const ROMol &mol, const Atom *at) {
 void getNbrs(const ROMol &mol, const Atom *at, int *ids) {
   PRECONDITION(at, "bad pointer");
   PRECONDITION(ids, "bad pointer");
-  ROMol::ADJ_ITER beg, end;
-  boost::tie(beg, end) = mol.getAtomNeighbors(at);
   unsigned int idx = 0;
-  while (beg != end) {
-    ids[idx++] = static_cast<int>(*beg++);
+  for(auto nbr: at->nbrs()) {
+    ids[idx++] = nbr->getIdx();
   }
 }
 

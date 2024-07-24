@@ -175,9 +175,7 @@ void ResSubstructMatchHelper_(const ResSubstructMatchHelperArgs_ &args,
                               std::set<MatchVectType> *matches, unsigned int bi,
                               unsigned int ei);
 
-typedef std::list<
-    std::pair<MolGraph::vertex_descriptor, MolGraph::vertex_descriptor>>
-    ssPairType;
+typedef std::list<std::pair<int, int>> ssPairType;
 
 }  // namespace detail
 
@@ -272,7 +270,7 @@ bool MolMatchFinalCheckFunctor::operator()(const std::uint32_t q_c[],
     CHECK_INVARIANT(qOrder.size() == mOrder.size(), "bad matches");
     int qPermCount = qAt->getPerturbationOrder(qOrder);
 
-    unsigned unmatchedNeighbors = mAt->getDegree() - mOrder.size();
+    unsigned unmatchedNeighbors = static_cast<unsigned>(mAt->getDegree() - mOrder.size());
     mOrder.insert(mOrder.end(), unmatchedNeighbors, -1);
 
     INT_LIST moOrder;
@@ -392,10 +390,10 @@ class AtomLabelFunctor {
   bool operator()(unsigned int i, unsigned int j) const {
     bool res = false;
     if (d_params.useChirality) {
-      const Atom *qAt = d_query.getAtomWithIdx(i);
+      const Atom *qAt = d_query.atoms()[i];
       if (qAt->getChiralTag() == Atom::CHI_TETRAHEDRAL_CW ||
           qAt->getChiralTag() == Atom::CHI_TETRAHEDRAL_CCW) {
-        const Atom *mAt = d_mol.getAtomWithIdx(j);
+        const Atom *mAt = d_mol.atoms()[j];
         if (mAt->getChiralTag() != Atom::CHI_TETRAHEDRAL_CW &&
             mAt->getChiralTag() != Atom::CHI_TETRAHEDRAL_CCW) {
           return false;
@@ -413,29 +411,24 @@ class AtomLabelFunctor {
 };
 class BondLabelFunctor {
  public:
-  BondLabelFunctor(const ROMol &query, const ROMol &mol,
-                   const SubstructMatchParameters &ps)
-      : d_query(query), d_mol(mol), d_params(ps){};
-  bool operator()(MolGraph::edge_descriptor i,
-                  MolGraph::edge_descriptor j) const {
+  BondLabelFunctor(const SubstructMatchParameters &ps)
+      : d_params(ps){};
+  bool operator()(const Bond * qBnd,
+                  const Bond * mBnd) const {
     if (d_params.useChirality) {
-      const Bond *qBnd = d_query[i];
       if (qBnd->getBondType() == Bond::DOUBLE &&
           qBnd->getStereo() > Bond::STEREOANY) {
-        const Bond *mBnd = d_mol[j];
         if (mBnd->getBondType() == Bond::DOUBLE &&
             mBnd->getStereo() <= Bond::STEREOANY) {
           return false;
         }
       }
     }
-    bool res = bondCompat(d_query[i], d_mol[j], d_params);
+    bool res = bondCompat(qBnd, mBnd, d_params);
     return res;
   }
 
  private:
-  const ROMol &d_query;
-  const ROMol &d_mol;
   const SubstructMatchParameters &d_params;
 };
 void ResSubstructMatchHelper_(const ResSubstructMatchHelperArgs_ &args,
@@ -500,7 +493,7 @@ std::vector<MatchVectType> SubstructMatch(
   }
 
   detail::AtomLabelFunctor atomLabeler(query, mol, params);
-  detail::BondLabelFunctor bondLabeler(query, mol, params);
+  detail::BondLabelFunctor bondLabeler(params);
   MolMatchFinalCheckFunctor matchChecker(query, mol, params);
 
   std::list<detail::ssPairType> pms;
@@ -509,7 +502,7 @@ std::vector<MatchVectType> SubstructMatch(
 				atomLabeler,bondLabeler,pms);
 #else
   bool found =
-      boost::vf2_all(query.getTopology(), mol.getTopology(), atomLabeler,
+      boost::vf2_all(query, mol, atomLabeler,
                      bondLabeler, matchChecker, pms, params.maxMatches);
 #endif
   if (found) {
@@ -624,7 +617,7 @@ unsigned int RecursiveMatcher(const ROMol &mol, const ROMol &query,
   }
 
   detail::AtomLabelFunctor atomLabeler(query, mol, lparams);
-  detail::BondLabelFunctor bondLabeler(query, mol, lparams);
+  detail::BondLabelFunctor bondLabeler(lparams);
   MolMatchFinalCheckFunctor matchChecker(query, mol, lparams);
 
   matches.clear();
@@ -635,7 +628,7 @@ unsigned int RecursiveMatcher(const ROMol &mol, const ROMol &query,
 				    atomLabeler,bondLabeler,pms);
 #else
   bool found =
-      boost::vf2_all(query.getTopology(), mol.getTopology(), atomLabeler,
+      boost::vf2_all(query, mol, atomLabeler,
                      bondLabeler, matchChecker, pms, lparams.maxMatches);
 #endif
   unsigned int res = 0;
@@ -649,7 +642,7 @@ unsigned int RecursiveMatcher(const ROMol &mol, const ROMol &query,
         query.getProp(common_properties::_queryRootAtom, rootIdx);
         bool found = false;
         for (const auto &pairIter : pairs) {
-          if (pairIter.first == static_cast<unsigned int>(rootIdx)) {
+          if (pairIter.first == rootIdx) {
             matches.push_back(pairIter.second);
             found = true;
             break;
@@ -664,7 +657,7 @@ unsigned int RecursiveMatcher(const ROMol &mol, const ROMol &query,
         break;
       }
     }
-    res = matches.size();
+    res = static_cast<unsigned int>(matches.size());
   }
   // std::cout << " <<< RecursiveMatcher: " << int(query) << std::endl;
   return res;

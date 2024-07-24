@@ -857,7 +857,7 @@ int aromaticityHelper(RWMol &mol, const VECT_INT_VECT &srings,
     INT_INT_VECT_MAP neighMap;
     for (size_t ri = 0; ri < cRings.size(); ++ri) {
       INT_VECT fused;
-      fused.push_back(ri);
+      fused.push_back(static_cast<unsigned int>(ri));
       const unsigned int maxFused = 6;
       const unsigned int minRingSize = 0;
       applyHuckelToFused(mol, cRings, brings, fused, edon, neighMap, narom,

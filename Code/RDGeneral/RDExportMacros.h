@@ -16,7 +16,9 @@
 #pragma warning(disable : 4275)
 #endif
 
+#include "BoostStartInclude.h"
 #include <boost/config.hpp>
+#include "BoostEndInclude.h"
 
 // RDKit export macro definitions
 #ifdef RDKIT_DYN_LINK

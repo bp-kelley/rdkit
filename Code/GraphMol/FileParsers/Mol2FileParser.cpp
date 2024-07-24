@@ -54,18 +54,15 @@ namespace RDKit {
 namespace {
 void fixNitroSubstructureAndCharge(RWMol *res, unsigned int atIdx) {
   unsigned int noODblNeighbors = 0;
-  ROMol::ADJ_ITER nbrIdxIt, nbrEndIdxIt;
   unsigned int toModIdx = 0;
-  boost::tie(nbrIdxIt, nbrEndIdxIt) =
-      res->getAtomNeighbors(res->getAtomWithIdx(atIdx));
-  while (nbrIdxIt != nbrEndIdxIt) {
-    Bond *curBond = res->getBondBetweenAtoms(atIdx, *nbrIdxIt);
-    if (res->getAtomWithIdx(*nbrIdxIt)->getAtomicNum() == 8 &&
+  for(auto nbr: res->getAtomWithIdx(atIdx)->nbrs()) {
+    const auto nbrIdx = nbr->getIdx();
+    Bond *curBond = res->getBondBetweenAtoms(atIdx, nbrIdx);
+    if (nbr->getAtomicNum() == 8 &&
         curBond->getBondType() == Bond::DOUBLE) {
       ++noODblNeighbors;
-      toModIdx = *nbrIdxIt;
+      toModIdx = nbrIdx;
     }
-    ++nbrIdxIt;
   }
   if (noODblNeighbors == 2) {
     res->getBondBetweenAtoms(atIdx, toModIdx)->setBondType(Bond::SINGLE);
@@ -266,20 +263,20 @@ void guessFormalCharges(RWMol *res) {
 
 unsigned int chkNoHNeighbNOx(RWMol *res, ROMol::ADJ_ITER atIdxIt,
                              int &toModIdx) {
-  Atom *at = res->getAtomWithIdx(*atIdxIt);
+  Atom *at = (*atIdxIt);
   unsigned int noHNbrs = 0;
-  ROMol::ADJ_ITER nbrIdxIt, nbrEndIdxIt;
-  boost::tie(nbrIdxIt, nbrEndIdxIt) = res->getAtomNeighbors(at);
-  while (nbrIdxIt != nbrEndIdxIt) {
-    if (res->getAtomWithIdx(*nbrIdxIt)->getAtomicNum() == 1) {
+  //ROMol::ADJ_ITER nbrIdxIt, nbrEndIdxIt;
+  //boost::tie(nbrIdxIt, nbrEndIdxIt) = res->getAtomNeighbors(at);
+  //while (nbrIdxIt != nbrEndIdxIt) {
+  for(auto nbr: at->nbrs()) {
+    if (nbr->getAtomicNum() == 1) {
       ++noHNbrs;
-    } else if (res->getAtomWithIdx(*nbrIdxIt)->getAtomicNum() == 8 &&
-               res->getAtomDegree(res->getAtomWithIdx(*nbrIdxIt)) == 1) {
+    } else if (nbr->getAtomicNum() == 8 &&
+               res->getAtomDegree(nbr) == 1) {
       // this is a N in an N-oxide constellation
       // we can do the above if clause since mol2 have explicit hydrogens
-      toModIdx = *atIdxIt;
+      toModIdx = (*atIdxIt)->getIdx();
     }
-    ++nbrIdxIt;
   }
   return noHNbrs;
 }
@@ -382,7 +379,7 @@ bool cleanUpMol2Substructures(RWMol *res) {
       int toModIdx = -1;
       unsigned int noNNeighbors = 0;
       while (tmpIdxIt != endNbrsIdxIt) {
-        if (res->getAtomWithIdx(*tmpIdxIt)->getSymbol() == "N") {
+        if ((*tmpIdxIt)->getSymbol() == "N") {
           ++noNNeighbors;
         }
         ++tmpIdxIt;
@@ -405,24 +402,25 @@ bool cleanUpMol2Substructures(RWMol *res) {
         ROMol::ADJ_ITER idxIt1 = nbrIdxIt, idxIt2 = nbrIdxIt;
         bool firstIdent = false;
         while (nbrIdxIt != endNbrsIdxIt) {
-          if (res->getAtomWithIdx(*nbrIdxIt)->getSymbol() == "N") {
+          if ((*nbrIdxIt)->getSymbol() == "N") {
             // fix the bond to one - only the modified N will have a double bond
             // to C.cat
-            res->getBondBetweenAtoms(idx, *nbrIdxIt)->setBondType(Bond::SINGLE);
-            res->getBondBetweenAtoms(idx, *nbrIdxIt)->setIsAromatic(false);
-            res->getAtomWithIdx(*nbrIdxIt)->setIsAromatic(false);
+            auto bnd = (*nbrIdxIt)->getBondTo(idx);
+            bnd->setBondType(Bond::SINGLE);
+            bnd->setIsAromatic(false);
+            (*nbrIdxIt)->setIsAromatic(false);
             // FIX: what is happening if we hit an atom that was fixed before -
             // probably nothing.
             // since I cannot think of a case where this is a problem - throw a
             // warning
-            if (isFixed[*nbrIdxIt]) {
+            if (isFixed[(*nbrIdxIt)->getIdx()]) {
               std::string nm;
               res->getProp(common_properties::_Name, nm);
               BOOST_LOG(rdWarningLog)
                   << nm << ": warning - charged amidine and isFixed atom."
                   << std::endl;
             }
-            isFixed[*nbrIdxIt] = 1;
+            isFixed[(*nbrIdxIt)->getIdx()] = 1;
             if (firstIdent) {
               idxIt2 = nbrIdxIt;
             } else {
@@ -442,9 +440,9 @@ bool cleanUpMol2Substructures(RWMol *res) {
           // no N-oxide
           if (noHNbrs1 != noHNbrs2) {
             if (noHNbrs1 > noHNbrs2) {
-              toModIdx = *idxIt1;
+              toModIdx = (*idxIt1)->getIdx();
             } else {
-              toModIdx = *idxIt2;  // this is random if both have the same
+              toModIdx = (*idxIt2)->getIdx();  // this is random if both have the same
                                    // number of atoms
             }
           } else {
@@ -453,12 +451,12 @@ bool cleanUpMol2Substructures(RWMol *res) {
               MolOps::findSSSR(*res);
             }
             // then we check if both atoms are in a ring
-            unsigned int rIdx1 = res->getRingInfo()->numAtomRings((*idxIt1));
-            unsigned int rIdx2 = res->getRingInfo()->numAtomRings((*idxIt2));
+            unsigned int rIdx1 = res->getRingInfo()->numAtomRings((*idxIt1)->getIdx());
+            unsigned int rIdx2 = res->getRingInfo()->numAtomRings((*idxIt2)->getIdx());
             if (rIdx1 > rIdx2) {
-              toModIdx = *idxIt1;
+              toModIdx = (*idxIt1)->getIdx();
             } else {
-              toModIdx = *idxIt2;
+              toModIdx = (*idxIt2)->getIdx();
             }
           }
         }
@@ -468,19 +466,18 @@ bool cleanUpMol2Substructures(RWMol *res) {
         at->setIsAromatic(false);
       } else {
         while (nbrIdxIt != endNbrsIdxIt) {
-          if (!isFixed[*nbrIdxIt]) {
+          if (!isFixed[(*nbrIdxIt)->getIdx()]) {
             // we get in here if this N.pl3 was not seen / fixed before
-            Atom *nbr = res->getAtomWithIdx(*nbrIdxIt);
+            Atom *nbr = (*nbrIdxIt);
             // get the number of heavy atoms connected to this atom
             ROMol::ADJ_ITER nbrNbrIdxIt, nbrEndNbrsIdxIt;
             unsigned int hvyAtDeg = 0;
             boost::tie(nbrNbrIdxIt, nbrEndNbrsIdxIt) =
                 res->getAtomNeighbors(nbr);
             while (nbrNbrIdxIt != nbrEndNbrsIdxIt) {
-              if (res->getAtomWithIdx(*nbrNbrIdxIt)->getAtomicNum() > 1) {
+              if ((*nbrNbrIdxIt)->getAtomicNum() > 1) {
                 std::string nbrAT;
-                res->getAtomWithIdx(*nbrNbrIdxIt)
-                    ->getProp(common_properties::_TriposAtomType, nbrAT);
+                (*nbrNbrIdxIt)->getProp(common_properties::_TriposAtomType, nbrAT);
                 if (nbrAT == "C.cat") {
                   hvyAtDeg += 2;  // that way we reduce the risk of ionising the
                                   // N attached to another C.cat ...
@@ -492,23 +489,24 @@ bool cleanUpMol2Substructures(RWMol *res) {
             }
             // now check for lowest heavy atom degree
             if (hvyAtDeg < lowestDeg) {
-              toModIdx = *nbrIdxIt;
+              toModIdx = (*nbrIdxIt)->getIdx();
               lowestDeg = hvyAtDeg;
             }
             // modify the bond between C.Cat and the N.pl3
-            Bond *b = res->getBondBetweenAtoms(idx, *nbrIdxIt);
+            Bond *b = (*nbrIdxIt)->getBondTo(idx);
             b->setBondType(Bond::SINGLE);
             b->setIsAromatic(false);
             nbr->setIsAromatic(false);
             // set N.pl3 as fixed
-            isFixed[*nbrIdxIt] = 1;
+            isFixed[(*nbrIdxIt)->getIdx()] = 1;
           } else {
             // the N is already fixed - since we don't touch this atom make the
             // bond to single
             // FIX: check on 3-way symmetric guanidinium mol -
             //     this could produce a only single bonded C.cat for bad H mols
-            res->getBondBetweenAtoms(idx, *nbrIdxIt)->setBondType(Bond::SINGLE);
-            res->getBondBetweenAtoms(idx, *nbrIdxIt)->setIsAromatic(false);
+            Bond *b = (*nbrIdxIt)->getBondTo(idx);
+            b->setBondType(Bond::SINGLE);
+            b->setIsAromatic(false);
           }
           ++nbrIdxIt;
         }

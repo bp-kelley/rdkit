@@ -69,7 +69,7 @@ void _computeCovarianceMat(const RDGeom::Point3DConstPtrVect &refPoints,
       covMat[i][j] = 0.0;
     }
   }
-  unsigned int npt = refPoints.size();
+  unsigned int npt = static_cast<unsigned int>(refPoints.size());
   CHECK_INVARIANT(npt == probePoints.size(), "Number of points mismatch");
   CHECK_INVARIANT(npt == weights.size(),
                   "Number of points and number of weights do not match");
@@ -275,7 +275,7 @@ double AlignPoints(const RDGeom::Point3DConstPtrVect &refPoints,
                    const RDGeom::Point3DConstPtrVect &probePoints,
                    RDGeom::Transform3D &trans, const DoubleVector *weights,
                    bool reflect, unsigned int maxIterations) {
-  unsigned int npt = refPoints.size();
+  unsigned int npt = static_cast<unsigned int>(refPoints.size());
   PRECONDITION(npt == probePoints.size(), "Mismatch in number of points");
   trans.setToIdentity();
   const DoubleVector *wts;

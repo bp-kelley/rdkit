@@ -22,6 +22,8 @@
 #include <DataStructs/BitVects.h>
 #include <DataStructs/BitOps.h>
 
+#include <boost/range/algorithm.hpp>
+
 #ifdef RDK_BUILD_THREADSAFE_SSS
 #include <mutex>
 #include <utility>
@@ -83,29 +85,13 @@ static inline int queryAtomTotalDegree(Atom const *at) {
 };
 //! D and T are treated as "non-hydrogen" here
 static inline int queryAtomNonHydrogenDegree(Atom const *at) {
-  int res = 0;
-  for (const auto nbri :
-       boost::make_iterator_range(at->getOwningMol().getAtomNeighbors(at))) {
-    const auto nbr = at->getOwningMol()[nbri];
-    if (nbr->getAtomicNum() != 1 || nbr->getIsotope() > 1) {
-      res++;
-    }
-  }
-
-  return res;
+    return static_cast<int>(boost::count_if(at->nbrs(), [](Atom const *nbr){return
+        nbr->getAtomicNum() != 1 || nbr->getIsotope() > 1;}));
 };
 //! D and T are not treated as heavy atoms here
 static inline int queryAtomHeavyAtomDegree(Atom const *at) {
-  int heavyDegree = 0;
-  for (const auto nbri :
-       boost::make_iterator_range(at->getOwningMol().getAtomNeighbors(at))) {
-    const auto nbr = at->getOwningMol()[nbri];
-    if (nbr->getAtomicNum() > 1) {
-      heavyDegree++;
-    }
-  }
-
-  return heavyDegree;
+    return static_cast<int>(boost::count_if(at->nbrs(), [](Atom const *nbr){return
+        nbr->getAtomicNum() > 1;}));
 };
 static inline int queryAtomHCount(Atom const *at) {
   return at->getTotalNumHs(true);
@@ -181,59 +167,35 @@ static inline int queryAtomMissingChiralTag(Atom const *at) {
 };
 
 static inline int queryAtomHasHeteroatomNbrs(Atom const *at) {
-  ROMol::ADJ_ITER nbrIdx, endNbrs;
-  boost::tie(nbrIdx, endNbrs) = at->getOwningMol().getAtomNeighbors(at);
-  while (nbrIdx != endNbrs) {
-    const Atom *nbr = at->getOwningMol()[*nbrIdx];
+  for(auto nbr: at->nbrs()) {
     if (nbr->getAtomicNum() != 6 && nbr->getAtomicNum() != 1) {
       return 1;
     }
-    ++nbrIdx;
   }
   return 0;
 };
 
 static inline int queryAtomNumHeteroatomNbrs(Atom const *at) {
-  int res = 0;
-  ROMol::ADJ_ITER nbrIdx, endNbrs;
-  boost::tie(nbrIdx, endNbrs) = at->getOwningMol().getAtomNeighbors(at);
-  while (nbrIdx != endNbrs) {
-    const Atom *nbr = at->getOwningMol()[*nbrIdx];
-    if (nbr->getAtomicNum() != 6 && nbr->getAtomicNum() != 1) {
-      ++res;
-    }
-    ++nbrIdx;
-  }
-  return res;
+  return static_cast<int>(boost::count_if(
+        at->nbrs(),
+        [](auto nbr) {return nbr->getAtomicNum() != 6 && nbr->getAtomicNum() != 1;}));
 };
 
 static inline int queryAtomHasAliphaticHeteroatomNbrs(Atom const *at) {
-  ROMol::ADJ_ITER nbrIdx, endNbrs;
-  boost::tie(nbrIdx, endNbrs) = at->getOwningMol().getAtomNeighbors(at);
-  while (nbrIdx != endNbrs) {
-    const Atom *nbr = at->getOwningMol()[*nbrIdx];
-    if ((!nbr->getIsAromatic()) && nbr->getAtomicNum() != 6 &&
-        nbr->getAtomicNum() != 1) {
-      return 1;
+    for(auto nbr: at->nbrs()) {
+        if ((!nbr->getIsAromatic()) && nbr->getAtomicNum() != 6 &&
+            nbr->getAtomicNum() != 1) {
+            return 1;
+        }
     }
-    ++nbrIdx;
-  }
-  return 0;
+    return 0;
 };
 
 static inline int queryAtomNumAliphaticHeteroatomNbrs(Atom const *at) {
-  int res = 0;
-  ROMol::ADJ_ITER nbrIdx, endNbrs;
-  boost::tie(nbrIdx, endNbrs) = at->getOwningMol().getAtomNeighbors(at);
-  while (nbrIdx != endNbrs) {
-    const Atom *nbr = at->getOwningMol()[*nbrIdx];
-    if ((!nbr->getIsAromatic()) && nbr->getAtomicNum() != 6 &&
-        nbr->getAtomicNum() != 1) {
-      ++res;
-    }
-    ++nbrIdx;
-  }
-  return res;
+    return static_cast<int>(boost::count_if(
+          at->nbrs(),
+          [](auto nbr) {return (!nbr->getIsAromatic()) && nbr->getAtomicNum() != 6 &&
+              nbr->getAtomicNum() != 1;}));
 };
 
 RDKIT_GRAPHMOL_EXPORT unsigned int queryAtomBondProduct(Atom const *at);
@@ -282,15 +244,12 @@ static inline int queryIsAtomInRing(Atom const *at) {
   return at->getOwningMol().getRingInfo()->numAtomRings(at->getIdx()) != 0;
 };
 static inline int queryAtomHasRingBond(Atom const *at) {
-  ROMol::OBOND_ITER_PAIR atomBonds = at->getOwningMol().getAtomBonds(at);
-  while (atomBonds.first != atomBonds.second) {
-    unsigned int bondIdx =
-        at->getOwningMol().getTopology()[*atomBonds.first]->getIdx();
-    if (at->getOwningMol().getRingInfo()->numBondRings(bondIdx)) {
-      return 1;
+    for(auto bond: at->bonds()) {
+        auto bondIdx = bond->getIdx();
+        if (at->getOwningMol().getRingInfo()->numBondRings(bondIdx)) {
+          return 1;
+        }
     }
-    ++atomBonds.first;
-  }
   return 0;
 };
 RDKIT_GRAPHMOL_EXPORT int queryIsAtomBridgehead(Atom const *at);
@@ -308,14 +267,10 @@ static inline int queryBondMinRingSize(Bond const *bond) {
 static inline int queryAtomRingBondCount(Atom const *at) {
   // EFF: cache this result
   int res = 0;
-  ROMol::OBOND_ITER_PAIR atomBonds = at->getOwningMol().getAtomBonds(at);
-  while (atomBonds.first != atomBonds.second) {
-    unsigned int bondIdx =
-        at->getOwningMol().getTopology()[*atomBonds.first]->getIdx();
-    if (at->getOwningMol().getRingInfo()->numBondRings(bondIdx)) {
+  for(auto bond: at->bonds()) {
+    if (at->getOwningMol().getRingInfo()->numBondRings(bond->getIdx())) {
       res++;
     }
-    ++atomBonds.first;
   }
   return res;
 }

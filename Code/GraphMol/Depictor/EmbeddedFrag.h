@@ -304,7 +304,7 @@ class RDKIT_DEPICTOR_EXPORT EmbeddedFrag {
   }
 
   //! the number of atoms in the embedded system
-  int Size() const { return d_eatoms.size(); }
+  int Size() const { return static_cast<unsigned int>(d_eatoms.size()); }
 
   //! \brief compute a box that encloses the fragment
   void computeBox();

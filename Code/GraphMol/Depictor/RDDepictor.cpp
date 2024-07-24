@@ -287,7 +287,7 @@ void embedFusedSystems(const RDKit::ROMol &mol,
     size_t rix;
     for (rix = 0; rix < cnrs; ++rix) {
       if (!fusDone[rix]) {
-        curr = rix;
+        curr = static_cast<unsigned int>(rix);
         break;
       }
     }
@@ -1004,7 +1004,7 @@ RDKit::MatchVectType generateDepictionMatching2DStructure(
             break;
           }
           maxMatchedHeavies = nMatchedHeavies;
-          int prunedMatchSize = prunedMatch.size();
+            int prunedMatchSize = static_cast<int>(prunedMatch.size());
           if (prunedMatchSize > maxPrunedMatchSize) {
             maxPrunedMatchSize = prunedMatchSize;
             prunedMatches.clear();

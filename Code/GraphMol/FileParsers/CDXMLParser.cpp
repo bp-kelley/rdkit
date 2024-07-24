@@ -762,7 +762,7 @@ std::vector<std::unique_ptr<RWMol>> MolsFromCDXMLDataStream(
         set_reaction_data("ReactionStepAgents", CDX_AGENT_ID, scheme, agents,
                           fragments, grouped_fragments, mols);
         // Set the Atom Maps
-        int sz = scheme.ReactionStepAtomMap.size();
+        int sz = static_cast<int>(scheme.ReactionStepAtomMap.size());
         if (sz % 2) {
           BOOST_LOG(rdWarningLog)
               << "CDXMLParser: Schema " << scheme.scheme_id << " step "

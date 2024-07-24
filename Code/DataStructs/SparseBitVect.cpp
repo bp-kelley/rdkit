@@ -29,7 +29,7 @@
 SparseBitVect::SparseBitVect(const std::string &s) {
   d_size = 0;
   dp_bits = nullptr;
-  initFromText(s.c_str(), s.length());
+  initFromText(s.c_str(), static_cast<unsigned int>(s.length()));
 }
 
 // """ -------------------------------------------------------

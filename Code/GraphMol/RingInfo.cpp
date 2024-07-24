@@ -44,7 +44,7 @@ unsigned int RingInfo::minAtomRingSize(unsigned int idx) const {
         [this](int ri1, int ri2) {
           return d_atomRings.at(ri1).size() < d_atomRings.at(ri2).size();
         });
-    return d_atomRings.at(ri).size();
+    return static_cast<unsigned int>(d_atomRings.at(ri).size());
   }
   return 0;
 }
@@ -115,13 +115,13 @@ unsigned int RingInfo::minBondRingSize(unsigned int idx) const {
   PRECONDITION(df_init, "RingInfo not initialized");
 
   if (idx < d_bondMembers.size() && d_bondMembers[idx].size()) {
-    return d_bondRings
+    return static_cast<unsigned int>(d_bondRings
         .at(*std::min_element(
             d_bondMembers[idx].begin(), d_bondMembers[idx].end(),
             [this](int ri1, int ri2) {
               return d_bondRings.at(ri1).size() < d_bondRings.at(ri2).size();
             }))
-        .size();
+        .size());
   }
   return 0;
 }
@@ -180,13 +180,13 @@ unsigned int RingInfo::addRing(const INT_VECT &atomIndices,
     if (i >= static_cast<int>(d_atomMembers.size())) {
       d_atomMembers.resize(i + 1);
     }
-    d_atomMembers[i].push_back(d_atomRings.size());
+    d_atomMembers[i].push_back(static_cast<unsigned int>(d_atomRings.size()));
   }
   for (const auto &i : bondIndices) {
     if (i >= static_cast<int>(d_bondMembers.size())) {
       d_bondMembers.resize(i + 1);
     }
-    d_bondMembers[i].push_back(d_bondRings.size());
+    d_bondMembers[i].push_back(static_cast<unsigned int>(d_bondRings.size()));
   }
   d_atomRings.push_back(atomIndices);
   d_bondRings.push_back(bondIndices);
@@ -224,7 +224,7 @@ unsigned int RingInfo::numFusedBonds(unsigned int ringIdx) {
 unsigned int RingInfo::numFusedRingNeighbors(unsigned int ringIdx) {
   initFusedRings();
   PRECONDITION(ringIdx < d_fusedRings.size(), "ringIdx out of bounds");
-  return d_fusedRings[ringIdx].count();
+  return static_cast<unsigned int>(d_fusedRings[ringIdx].count());
 }
 
 std::vector<unsigned int> RingInfo::fusedRingNeighbors(unsigned int ringIdx) {
@@ -270,7 +270,7 @@ void RingInfo::initFusedRings() {
 #ifdef RDK_USE_URF
 unsigned int RingInfo::numRingFamilies() const {
   PRECONDITION(df_init, "RingInfo not initialized");
-  return d_atomRingFamilies.size();
+  return static_cast<unsigned int>(d_atomRingFamilies.size());
 };
 
 unsigned int RingInfo::numRelevantCycles() const {

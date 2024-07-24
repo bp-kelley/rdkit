@@ -276,7 +276,7 @@ class Vector {
       // we can't initialize using only clock(), because it's possible
       // that we'll get here fast enough that clock() will return 0
       // and generator.seed(0) is an error:
-      generator.seed(clock() + 1);
+      generator.seed(static_cast<int>(clock()) + 1);
     }
 
     unsigned int i;

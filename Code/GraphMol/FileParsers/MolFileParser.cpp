@@ -69,7 +69,7 @@ int toInt(const std::string_view input, bool acceptSpaces) {
   }
   // remove leading spaces
   txt = input.data();
-  unsigned int sz = input.size();
+  unsigned int sz = static_cast<unsigned int>(input.size());
   if (acceptSpaces) {
     while (*txt == ' ') {
       ++txt;
@@ -104,7 +104,7 @@ unsigned int toUnsigned(const std::string_view input, bool acceptSpaces) {
   }
   // remove leading spaces
   txt = input.data();
-  unsigned int sz = input.size();
+  unsigned int sz = static_cast<unsigned int>(input.size());
   if (acceptSpaces) {
     while (*txt == ' ') {
       ++txt;
@@ -1926,6 +1926,7 @@ bool ParseMolBlockProperties(std::istream *inStream, unsigned int &line,
     if (tempStr[0] != 'M' && tempStr[0] != 'A' && tempStr[0] != 'V' &&
         tempStr[0] != 'G' && tempStr[0] != 'S') {
       ParseOldAtomList(mol, std::string_view(tempStr.c_str()), line);
+        
     }
   }
 
@@ -1953,7 +1954,7 @@ bool ParseMolBlockProperties(std::istream *inStream, unsigned int &line,
       line++;
       tempStr = getLine(inStream);
     } else if (tempStr[0] == 'V') {
-      ParseAtomValue(mol, tempStr, line);
+        ParseAtomValue(mol, tempStr, line);
     } else if (lineBeg == "S  SKP") {
       int nToSkip = FileParserUtils::toInt(tempStr.substr(6, 3));
       if (nToSkip < 0) {
@@ -1966,84 +1967,84 @@ bool ParseMolBlockProperties(std::istream *inStream, unsigned int &line,
         tempStr = getLine(inStream);
       }
     } else if (lineBeg == "M  ALS") {
-      ParseNewAtomList(mol, tempStr, line);
+        ParseNewAtomList(mol, tempStr, line);
     } else if (lineBeg == "M  ISO") {
-      ParseIsotopeLine(mol, tempStr, line);
+        ParseIsotopeLine(mol, tempStr, line);
     } else if (lineBeg == "M  RGP") {
-      ParseRGroupLabels(mol, tempStr, line);
+        ParseRGroupLabels(mol, tempStr, line);
     } else if (lineBeg == "M  RBC") {
-      ParseRingBondCountLine(mol, tempStr, line);
+        ParseRingBondCountLine(mol, tempStr, line);
     } else if (lineBeg == "M  SUB") {
-      ParseSubstitutionCountLine(mol, tempStr, line);
+        ParseSubstitutionCountLine(mol, tempStr, line);
     } else if (lineBeg == "M  UNS") {
-      ParseUnsaturationLine(mol, tempStr, line);
+        ParseUnsaturationLine(mol, tempStr, line);
     } else if (lineBeg == "M  CHG") {
-      ParseChargeLine(mol, tempStr, firstChargeLine, line);
+        ParseChargeLine(mol, tempStr, firstChargeLine, line);
       firstChargeLine = false;
     } else if (lineBeg == "M  RAD") {
-      ParseRadicalLine(mol, tempStr, firstChargeLine, line);
+        ParseRadicalLine(mol, tempStr, firstChargeLine, line);
       firstChargeLine = false;
     } else if (lineBeg == "M  PXA") {
-      ParsePXALine(mol, tempStr, line);
+        ParsePXALine(mol, tempStr, line);
 
       /* SGroup parsing start */
     } else if (lineBeg == "M  STY") {
-      ParseSGroupV2000STYLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000STYLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SST") {
-      ParseSGroupV2000SSTLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SSTLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SLB") {
-      ParseSGroupV2000SLBLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SLBLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SCN") {
-      ParseSGroupV2000SCNLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SCNLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SDS") {
-      ParseSGroupV2000SDSLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SDSLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SAL" || lineBeg == "M  SBL" ||
                lineBeg == "M  SPA") {
       ParseSGroupV2000VectorDataLine(sGroupMap, mol, tempStr, line,
                                      strictParsing);
     } else if (lineBeg == "M  SMT") {
-      ParseSGroupV2000SMTLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SMTLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SDI") {
       ParseSGroupV2000SDILine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  CRS") {
       std::ostringstream errout;
       errout << "Unsupported SGroup subtype '" << lineBeg << "' on line "
              << line;
-      throw FileParseException(errout.str());
+        throw FileParseException(errout.str());
     } else if (lineBeg == "M  SBV") {
-      ParseSGroupV2000SBVLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SBVLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SDT") {
-      ParseSGroupV2000SDTLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SDTLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SDD") {
-      ParseSGroupV2000SDDLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SDDLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SCD" || lineBeg == "M  SED") {
       ParseSGroupV2000SCDSEDLine(sGroupMap, dataFieldsMap, mol, tempStr, line,
                                  strictParsing, SCDcounter, lastDataSGroup,
                                  currentDataField);
     } else if (lineBeg == "M  SPL") {
-      ParseSGroupV2000SPLLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SPLLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SNC") {
-      ParseSGroupV2000SNCLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SNCLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SAP") {
-      ParseSGroupV2000SAPLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SAPLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SCL") {
-      ParseSGroupV2000SCLLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SCLLine(sGroupMap, mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  SBT") {
-      ParseSGroupV2000SBTLine(sGroupMap, mol, tempStr, line, strictParsing);
+        ParseSGroupV2000SBTLine(sGroupMap, mol, tempStr, line, strictParsing);
 
       /* SGroup parsing end */
     } else if (lineBeg == "M  ZBO") {
-      ParseZBOLine(mol, tempStr, line);
+        ParseZBOLine(mol, tempStr, line);
     } else if (lineBeg == "M  ZCH") {
-      ParseZCHLine(mol, tempStr, line);
+        ParseZCHLine(mol, tempStr, line);
     } else if (lineBeg == "M  HYD") {
-      ParseHYDLine(mol, tempStr, line);
+        ParseHYDLine(mol, tempStr, line);
     } else if (lineBeg == "M  MRV") {
-      ParseMarvinSmartsLine(mol, tempStr, line);
+        ParseMarvinSmartsLine(mol, tempStr, line);
     } else if (lineBeg == "M  APO") {
-      ParseAttachPointLine(mol, tempStr, line, strictParsing);
+        ParseAttachPointLine(mol, tempStr, line, strictParsing);
     } else if (lineBeg == "M  LIN") {
-      ParseLinkNodeLine(mol, tempStr, line);
+        ParseLinkNodeLine(mol, tempStr, line);
     }
     line++;
     tempStr = getLine(inStream);
@@ -3298,7 +3299,6 @@ bool ParseV2000CTAB(std::istream *inStream, unsigned int &line, RWMol *mol,
     ParseMolBlockAtoms(inStream, line, nAtoms, mol, conf, strictParsing);
   }
   ParseMolBlockBonds(inStream, line, nBonds, mol, chiralityPossible);
-
   auto is3d = calculate3dFlag(*mol, *conf, chiralityPossible);
   conf->set3D(is3d);
   mol->addConformer(conf, true);
@@ -3306,6 +3306,7 @@ bool ParseV2000CTAB(std::istream *inStream, unsigned int &line, RWMol *mol,
 
   bool fileComplete =
       ParseMolBlockProperties(inStream, line, mol, strictParsing);
+
   return fileComplete;
 }
 
@@ -3315,6 +3316,7 @@ void finishMolProcessing(
   if (!res) {
     return;
   }
+
   res->clearAllAtomBookmarks();
   res->clearAllBondBookmarks();
 

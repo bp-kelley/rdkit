@@ -57,7 +57,7 @@ unsigned int SubstanceGroup::getIndexInMol() const {
     throw SubstanceGroupException(errout.str());
   }
 
-  return sgroupItr - sgroups.begin();
+  return static_cast<unsigned int>(sgroupItr - sgroups.begin());
 }
 
 void SubstanceGroup::setAtoms(std::vector<unsigned int> atoms) {
@@ -358,7 +358,7 @@ unsigned int addSubstanceGroup(ROMol &mol, SubstanceGroup sgroup) {
   sgroup.setOwningMol(&mol);
 
   auto &&sgroups = getSubstanceGroups(mol);
-  unsigned int id = sgroups.size();
+  unsigned int id = static_cast<unsigned int>(sgroups.size());
 
   sgroups.push_back(std::move(sgroup));
 

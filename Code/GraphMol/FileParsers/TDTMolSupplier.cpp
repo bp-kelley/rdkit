@@ -153,7 +153,7 @@ void TDTMolSupplier::checkForEnd() {
     // the -1 here is because by the time we get here we've already pushed on
     // the
     // position of the next line:
-    d_len = d_molpos.size() - 1;
+    d_len = static_cast<unsigned int>(d_molpos.size() - 1);
     return;
   }
 
@@ -168,7 +168,7 @@ void TDTMolSupplier::checkForEnd() {
     // the -1 here is because by the time we get here we've already pushed on
     // the
     // position of the next line:
-    d_len = d_molpos.size() - 1;
+    d_len = static_cast<unsigned int>(d_molpos.size() - 1);
   }
   return;
 }
@@ -269,7 +269,7 @@ std::unique_ptr<RWMol> TDTMolSupplier::next() {
   if (dp_inStream->eof()) {
     // FIX: we should probably be throwing an exception here
     df_end = true;
-    d_len = d_molpos.size();
+    d_len = static_cast<unsigned int>(d_molpos.size());
     return nullptr;
   }
 
@@ -348,7 +348,7 @@ void TDTMolSupplier::moveTo(unsigned int idx) {
     d_last = idx;
   } else {
     std::string tempStr;
-    d_last = d_molpos.size() - 1;
+    d_last = static_cast<unsigned int>(d_molpos.size() - 1);
     dp_inStream->seekg(d_molpos.back());
     while (d_last < static_cast<int>(idx) && !dp_inStream->eof() &&
            !dp_inStream->fail()) {
@@ -362,7 +362,7 @@ void TDTMolSupplier::moveTo(unsigned int idx) {
     }
     // if we reached end of file without reaching "idx" we have an index error
     if (dp_inStream->eof()) {
-      d_len = d_molpos.size();
+      d_len = static_cast<int>(d_molpos.size());
       std::ostringstream errout;
       errout << "ERROR: Index error (idx = " << idx << ") : "
              << " we do no have enough molecule blocks";
@@ -385,7 +385,7 @@ unsigned int TDTMolSupplier::length() {
     return d_len;
   } else {
     std::string tempStr;
-    d_len = d_molpos.size();
+    d_len = static_cast<unsigned int>(d_molpos.size());
     dp_inStream->seekg(d_molpos.back());
     std::string inL;
     std::getline(*dp_inStream, inL);

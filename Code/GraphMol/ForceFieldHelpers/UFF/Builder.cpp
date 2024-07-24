@@ -602,7 +602,7 @@ void addTorsions(const ROMol &mol, const AtomicParamVect &params,
     // now divide the force constant for each contribution to the torsion energy
     // about this bond by the number of contribs about this bond:
     for (auto chI = contribsHere.begin(); chI != contribsHere.end(); ++chI) {
-      (*chI)->scaleForceConstant(contribsHere.size());
+      (*chI)->scaleForceConstant(static_cast<unsigned int>(contribsHere.size()));
     }
   }
 }

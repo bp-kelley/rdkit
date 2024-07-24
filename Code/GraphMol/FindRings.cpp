@@ -586,7 +586,7 @@ int greatestComFac(long curfac, long nfac) {
   }
 
   // By here nLarge will hold the largest common factor, so just return it
-  return large;
+  return static_cast<int>(large);
 }
 
 /******************************************************************************
@@ -771,15 +771,13 @@ bool _atomSearchBFS(const ROMol &tMol, unsigned int startAtomIdx,
     bfsq.pop_front();
 
     unsigned int currAtomIdx = tv.back();
-    ROMol::ADJ_ITER nbrIdx, endNbrs;
-    boost::tie(nbrIdx, endNbrs) =
-        tMol.getAtomNeighbors(tMol.getAtomWithIdx(currAtomIdx));
-    while (nbrIdx != endNbrs) {
-      if (*nbrIdx == endAtomIdx) {
+    for(auto nbr: tMol.getAtomWithIdx(currAtomIdx)->nbrs()) {
+      auto nbrIdx = nbr->getIdx();
+      if (nbrIdx == endAtomIdx) {
         if (currAtomIdx != startAtomIdx) {
           INT_VECT nv(tv);
 
-          nv.push_back(rdcast<unsigned int>(*nbrIdx));
+          nv.push_back(nbrIdx);
           // make sure the ring we just found isn't already in our set
           // of rings (this was an extension of sf.net issue 249)
           auto invr = RingUtils::computeRingInvariant(nv, tMol.getNumAtoms());
@@ -792,15 +790,14 @@ bool _atomSearchBFS(const ROMol &tMol, unsigned int startAtomIdx,
         } else {
           // ignore this one
         }
-      } else if (ringAtoms[*nbrIdx] &&
-                 std::find(tv.begin(), tv.end(), *nbrIdx) == tv.end()) {
+      } else if (ringAtoms[nbrIdx] &&
+                 std::find(tv.begin(), tv.end(), nbrIdx) == tv.end()) {
         //} else if(ringAtoms[*nbrIdx]){
         INT_VECT nv(tv);
-        nv.push_back(rdcast<unsigned int>(*nbrIdx));
+        nv.push_back(nbrIdx);
 
         bfsq.push_back(nv);
       }
-      ++nbrIdx;
     }
   }
   return false;
@@ -873,7 +870,7 @@ int findSSSR(const ROMol &mol, VECT_INT_VECT &res, bool includeDativeBonds) {
 
   // Zero-order bonds are not candidates for rings, and dative bonds may also be
   // out
-  ROMol::EDGE_ITER firstB, lastB;
+  ROMol::CONST_EDGE_ITER firstB, lastB;
   boost::tie(firstB, lastB) = mol.getEdges();
   while (firstB != lastB) {
     const Bond *bond = mol[*firstB];
@@ -894,7 +891,7 @@ int findSSSR(const ROMol &mol, VECT_INT_VECT &res, bool includeDativeBonds) {
     int deg = atom->getDegree();
     atomDegrees[i] = deg;
     atomDegreesWithZeroOrderBonds[i] = deg;
-    for (const auto bond : mol.atomBonds(atom)) {
+    for (const auto bond : atom->bonds()) {
       if (bond->getBondType() == Bond::ZERO ||
           (!includeDativeBonds && isDative(*bond))) {
         atomDegrees[i]--;
@@ -936,7 +933,7 @@ int findSSSR(const ROMol &mol, VECT_INT_VECT &res, bool includeDativeBonds) {
     CHECK_INVARIANT(bndcnt_with_zero_order_bonds % 2 == 0,
                     "fragment graph has a dangling degree");
     bndcnt_with_zero_order_bonds = bndcnt_with_zero_order_bonds / 2;
-    int num_possible_rings = bndcnt_with_zero_order_bonds - curFrag.size() + 1;
+    int num_possible_rings = static_cast<int>(bndcnt_with_zero_order_bonds - curFrag.size() + 1);
     if (num_possible_rings < 1) {
       continue;
     }

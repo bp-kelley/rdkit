@@ -443,7 +443,7 @@ void pickleQuery(std::ostream &ss, const Query<int, T const *, true> *query) {
             qdetails);
         streamWrite(ss, std::get<0>(v));
         const auto &tset = std::get<1>(v);
-        int32_t sz = tset.size();
+        int32_t sz = static_cast<int32_t>(tset.size());
         streamWrite(ss, MolPickler::QUERY_VALUE, sz);
         for (auto val : tset) {
           streamWrite(ss, val);

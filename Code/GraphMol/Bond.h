@@ -49,6 +49,11 @@ class RDKIT_GRAPHMOL_EXPORT Bond : public RDProps {
   friend class ROMol;
 
  public:
+    struct edge_descriptor {
+        unsigned int idx;
+        edge_descriptor(unsigned int idx) : idx(idx) {}
+        edge_descriptor(const Bond*bond) : idx(bond->getIdx()) {}
+    };
   // FIX: grn...
   typedef Queries::Query<int, Bond const *, true> QUERYBOND_QUERY;
 

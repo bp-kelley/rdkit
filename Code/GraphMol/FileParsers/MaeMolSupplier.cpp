@@ -351,13 +351,13 @@ void addAtoms(const mae::IndexedBlock &atom_block, RWMol &mol,
 
   // atomic numbers, and x, y, and z coordinates
   const auto size = atomicNumbers->size();
-  auto conf = new RDKit::Conformer(size);
+  auto conf = new RDKit::Conformer(static_cast<unsigned int>(size));
   conf->setId(0);
 
   PDBInfo pdb_info(atom_block);
 
   bool nonzeroZ = false;
-  for (size_t i = 0; i < size; ++i) {
+  for (unsigned int i = 0; i < size; ++i) {
     bool removeAtom = false;
     auto atomicNumber = atomicNumbers->at(i);
     if (atomicNumber == 0 || atomicNumber == -1 || atomicNumber == -3) {

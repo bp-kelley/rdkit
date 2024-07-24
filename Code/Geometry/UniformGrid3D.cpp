@@ -73,7 +73,7 @@ void UniformGrid3D::initGrid(
 
 UniformGrid3D::UniformGrid3D(const std::string &pkl) {
   dp_storage = nullptr;
-  this->initFromText(pkl.c_str(), pkl.size());
+  this->initFromText(pkl.c_str(), static_cast<unsigned int>(pkl.size()));
 }
 UniformGrid3D::UniformGrid3D(const char *pkl, const unsigned int len) {
   dp_storage = nullptr;
@@ -335,7 +335,7 @@ std::string UniformGrid3D::toString() const {
   streamWrite(ss, d_offSet.z);
 
   std::string storePkl = dp_storage->toString();
-  std::uint32_t pklSz = storePkl.size();
+  std::uint32_t pklSz = static_cast<std::uint32_t>(storePkl.size());
   streamWrite(ss, pklSz);
   ss.write(storePkl.c_str(), pklSz * sizeof(char));
 

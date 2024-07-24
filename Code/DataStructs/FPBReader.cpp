@@ -76,7 +76,7 @@ void extractPopCounts(FPBReader_impl *dp_impl, boost::uint64_t sz,
   if (sz % 4) {
     throw ValueErrorException("POPC chunk size must be a multiple of 4 bytes");
   }
-  unsigned int nEntries = sz / 4;
+  unsigned int nEntries = static_cast<unsigned int>(sz) / 4;
   if (nEntries < 9) {
     throw ValueErrorException("POPC must contain at least 9 offsets");
   }
@@ -126,7 +126,7 @@ void extractArenaDetails(FPBReader_impl *dp_impl, boost::uint64_t sz) {
   dp_impl->numBytesStoredPerFingerprint = numBytesStoredPerFingerprint;
   boost::uint8_t spacer;
   streamRead(*dp_impl->istrm, spacer);
-  dp_impl->len = (sz - 9 - spacer) / numBytesStoredPerFingerprint;
+  dp_impl->len = static_cast<unsigned int>(sz - 9 - spacer) / numBytesStoredPerFingerprint;
 
   // streamRead(*dp_impl->istrm, spacer);
   // now move forward the length of the spacer
@@ -157,7 +157,7 @@ void extractArena(FPBReader_impl *dp_impl, boost::uint64_t sz,
   chunk += spacer;
 
   dp_impl->dp_fpData = chunk;
-  dp_impl->len = (sz - 9 - spacer) / dp_impl->numBytesStoredPerFingerprint;
+  dp_impl->len = static_cast<unsigned int>(sz - 9 - spacer) / dp_impl->numBytesStoredPerFingerprint;
 };
 
 // if dp_impl->df_lazy is true, we'll use the memory in fpData (should be large
@@ -220,7 +220,7 @@ RDKIT_DATASTRUCTS_EXPORT boost::dynamic_bitset<> *bytesToBitset(
 // caller is responsible for delete []'ing the result
 RDKIT_DATASTRUCTS_EXPORT boost::uint8_t *bitsetToBytes(
     const boost::dynamic_bitset<> &bitset) {
-  unsigned int nBits = bitset.size();
+  unsigned int nBits = static_cast<unsigned int>(bitset.size());
   unsigned int nBytes = nBits / 8;
 
   auto *res = new boost::uint8_t[nBytes];
@@ -463,9 +463,10 @@ void tanimotoNeighbors(const FPBReader_impl *dp_impl, const boost::uint8_t *bv,
   for (boost::uint64_t i = startScan; i < endScan; i += readCache) {
     unsigned int toRead = readCache;
     if (i + toRead >= endScan) {
-      toRead = endScan - i;
+      toRead = static_cast<unsigned int>(endScan - i);
     }
-    extractBytes(dp_impl, i, dbv, toRead);
+    extractBytes(dp_impl, static_cast<unsigned int>(i),
+                 dbv, static_cast<unsigned int>(toRead));
     for (unsigned int j = 0; j < toRead; ++j) {
       double tani =
           CalcBitmapTanimoto(dbv + j * dp_impl->numBytesStoredPerFingerprint,
@@ -519,7 +520,7 @@ void tverskyNeighbors(const FPBReader_impl *dp_impl, const boost::uint8_t *bv,
     dbv = new boost::uint8_t[dp_impl->numBytesStoredPerFingerprint];
   }
   for (boost::uint64_t i = startScan; i < endScan; ++i) {
-    extractBytes(dp_impl, i, dbv);
+    extractBytes(dp_impl, static_cast<unsigned int>(i), dbv);
     double sim = CalcBitmapTversky(
         dbv, bv, dp_impl->numBytesStoredPerFingerprint, ca, cb);
     // std::cerr << "  i:" << i << " " << tani << " ? " << threshold <<
@@ -552,10 +553,10 @@ void containingNeighbors(const FPBReader_impl *dp_impl,
     dbv = new boost::uint8_t[dp_impl->numBytesStoredPerFingerprint];
   }
   for (boost::uint64_t i = startScan; i < endScan; ++i) {
-    extractBytes(dp_impl, i, dbv);
+    extractBytes(dp_impl, static_cast<unsigned int>(i), dbv);
     if (CalcBitmapAllProbeBitsMatch(bv, dbv,
                                     dp_impl->numBytesStoredPerFingerprint)) {
-      res.push_back(i);
+      res.push_back(static_cast<unsigned int>(i));
     }
   }
   if (dp_impl->df_lazy) {

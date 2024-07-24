@@ -46,7 +46,7 @@ RDGeom::INT_POINT2D_MAP embedRing(const RDKit::INT_VECT &ring) {
   // where A is the angle between a and b
 
   // compute the sweep angle
-  unsigned int na = ring.size();
+  unsigned int na = static_cast<unsigned int>(ring.size());
   double ang = 2 * M_PI / na;
 
   // compute the arm length
@@ -142,7 +142,7 @@ RDKit::INT_VECT setNbrOrder(unsigned int aid, const RDKit::INT_VECT &nbrs,
 
   // swap the position of the 3rd to last and second to last items in sorted
   // list
-  unsigned int ln = thold.size();
+  unsigned int ln = static_cast<unsigned int>(thold.size());
   int tint = thold[ln - 3];
   thold[ln - 3] = thold[ln - 2];
   thold[ln - 2] = tint;
@@ -181,11 +181,11 @@ int pickFirstRingToEmbed(const RDKit::ROMol &mol,
     if (subs < minsubs) {
       res = cnt;
       minsubs = subs;
-      maxSize = fusedRing.size();
+      maxSize = static_cast<unsigned int>(fusedRing.size());
     } else if (subs == minsubs) {
       if (fusedRing.size() > maxSize) {
         res = cnt;
-        maxSize = fusedRing.size();
+        maxSize = static_cast<unsigned int>(fusedRing.size());
       }
     }
     cnt++;
@@ -273,7 +273,7 @@ RDKit::INT_VECT findNextRingToEmbed(const RDKit::INT_VECT &doneRings,
 
   // find out how many atoms from the end we need to move to the front
   unsigned int cmnLst = 0;
-  unsigned int nCmn = res.size();
+  unsigned int nCmn = static_cast<unsigned int>(res.size());
   for (unsigned int i = 0; i < nCmn; i++) {
     if (res[i] == fusedRings[nextId][i]) {
       cmnLst++;

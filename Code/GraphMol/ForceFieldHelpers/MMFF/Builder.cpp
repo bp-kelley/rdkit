@@ -634,10 +634,6 @@ void addTorsions(const ROMol &mol, MMFFMolProperties *mmffMolProperties,
                "missing atom types - invalid force-field");
 
   std::ostream &oStream = mmffMolProperties->getMMFFOStream();
-  ROMol::ADJ_ITER nbr1Idx;
-  ROMol::ADJ_ITER end1Nbrs;
-  ROMol::ADJ_ITER nbr2Idx;
-  ROMol::ADJ_ITER end2Nbrs;
   double totalTorsionEnergy = 0.0;
   RDGeom::PointPtrVect points;
   if (mmffMolProperties->getMMFFVerbosity()) {

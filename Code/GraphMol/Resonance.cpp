@@ -925,7 +925,7 @@ void ConjElectrons::enumerateNonBonded(CEMap &ceMap, CEDegCount &ceDegCount,
     // we compute the number of permutations (numComb) and a
     // binary code (v) which indicates which of the atom indices in
     // aiVec will be octet-unsatisfied for each permutation
-    ResonanceUtils::getNumCombStartV(numCand, aiVec.size(), numComb, v);
+    ResonanceUtils::getNumCombStartV(numCand, static_cast<unsigned int>(aiVec.size()), numComb, v);
     // if there are multiple permutations, make a copy of the original
     // ConjElectrons object, since the latter will be modified
     ConjElectrons *ceCopy = new ConjElectrons(*this);
@@ -1145,7 +1145,7 @@ ConjElectrons *CEVect2::getCE(unsigned int depth, unsigned int width) {
 }
 
 void CEVect2::resize(size_t size) {
-  d_ceVect.resize(size ? ceCountUntilDepth(size - 1) : 0);
+  d_ceVect.resize(size ? ceCountUntilDepth(static_cast<unsigned int>(size - 1)) : 0u);
   d_degVect.resize(size);
 }
 
@@ -1178,7 +1178,7 @@ void CEVect2::idxToDepthWidth(size_t idx, unsigned int &d, unsigned int &w) {
     idx -= d_degVect[d];
     ++d;
   }
-  w = idx;
+  w = static_cast<unsigned int>(idx);
 }
 
 // get the pointer to the BondElectrons object for bond having index bi
@@ -1334,7 +1334,7 @@ void ResonanceMolSupplier::prepEnumIdxVect() {
   std::vector<CEPerm *> cePermVect(d_length);
   for (size_t i = 0; i < d_length; ++i) {
     cePermVect[i] = new CEPerm;
-    cePermVect[i]->idx = i;
+    cePermVect[i]->idx = static_cast<unsigned int>(i);
     idxToCEPerm(i, cePermVect[i]->v);
   }
   std::sort(cePermVect.begin(), cePermVect.end(), cePermCompare);
@@ -1572,11 +1572,8 @@ void ResonanceMolSupplier::buildCEMap(CEMap &ceMap, unsigned int conjGrpIdx) {
       BondElectrons *be = nullptr;
       // loop over neighbors of the atom popped from the
       // atom index stack
-      ROMol::ADJ_ITER nbrIdx, endNbrs;
-      boost::tie(nbrIdx, endNbrs) =
-          d_mol->getAtomNeighbors(ae[BEGIN_POS]->atom());
-      for (; nbrIdx != endNbrs; ++nbrIdx) {
-        unsigned int aiNbr = *nbrIdx;
+      for(auto nbr: ae[BEGIN_POS]->atom()->nbrs()) {
+        unsigned int aiNbr = nbr->getIdx();
         // if this neighbor is not part of the conjugated group,
         // ignore it
         if (ce->parent()->getAtomConjGrpIdx(aiNbr) !=

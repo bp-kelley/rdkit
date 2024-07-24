@@ -35,7 +35,7 @@ ExplicitBitVect::ExplicitBitVect(const std::string &s) {
   d_size = 0;
   dp_bits = nullptr;
   d_numOnBits = 0;
-  initFromText(s.c_str(), s.length());
+  initFromText(s.c_str(), static_cast<unsigned int>(s.length()));
 }
 ExplicitBitVect::ExplicitBitVect(const char *data, const unsigned int dataLen) {
   d_size = 0;
@@ -101,59 +101,59 @@ bool ExplicitBitVect::getBit(const unsigned int which) const {
 ExplicitBitVect ExplicitBitVect::operator^(const ExplicitBitVect &other) const {
   ExplicitBitVect ans(d_size);
   *(ans.dp_bits) = (*dp_bits) ^ *(other.dp_bits);
-  ans.d_numOnBits = ans.dp_bits->count();
+  ans.d_numOnBits = static_cast<unsigned int>(ans.dp_bits->count());
   return (ans);
 };
 
 ExplicitBitVect ExplicitBitVect::operator&(const ExplicitBitVect &other) const {
   ExplicitBitVect ans(d_size);
   *(ans.dp_bits) = (*dp_bits) & *(other.dp_bits);
-  ans.d_numOnBits = ans.dp_bits->count();
+  ans.d_numOnBits = static_cast<unsigned int>(ans.dp_bits->count());
   return (ans);
 };
 
 ExplicitBitVect ExplicitBitVect::operator|(const ExplicitBitVect &other) const {
   ExplicitBitVect ans(d_size);
   *(ans.dp_bits) = (*dp_bits) | *(other.dp_bits);
-  ans.d_numOnBits = ans.dp_bits->count();
+  ans.d_numOnBits = static_cast<unsigned int>(ans.dp_bits->count());
   return (ans);
 };
 
 ExplicitBitVect &ExplicitBitVect::operator^=(const ExplicitBitVect &other) {
   *(dp_bits) ^= *(other.dp_bits);
-  d_numOnBits = dp_bits->count();
+  d_numOnBits = static_cast<unsigned int>(dp_bits->count());
   return *this;
 };
 
 ExplicitBitVect &ExplicitBitVect::operator&=(const ExplicitBitVect &other) {
   *(dp_bits) &= *(other.dp_bits);
-  d_numOnBits = dp_bits->count();
+  d_numOnBits = static_cast<unsigned int>(dp_bits->count());
   return *this;
 };
 
 ExplicitBitVect &ExplicitBitVect::operator|=(const ExplicitBitVect &other) {
   *(dp_bits) |= *(other.dp_bits);
-  d_numOnBits = dp_bits->count();
+  d_numOnBits = static_cast<unsigned int>(dp_bits->count());
   return *this;
 };
 
 ExplicitBitVect ExplicitBitVect::operator~() const {
   ExplicitBitVect ans(d_size);
   *(ans.dp_bits) = ~(*dp_bits);
-  ans.d_numOnBits = ans.dp_bits->count();
+  ans.d_numOnBits = static_cast<unsigned int>(ans.dp_bits->count());
   return (ans);
 };
 
 ExplicitBitVect &ExplicitBitVect::operator+=(const ExplicitBitVect &other) {
   dp_bits->resize(d_size + other.d_size);
   unsigned int original_size = d_size;
-  d_size = dp_bits->size();
+  d_size = static_cast<unsigned int>(dp_bits->size());
   for (unsigned i = 0; i < other.d_size; i++) {
     if (other[i]) {
       setBit(i + original_size);
     }
   }
-  d_numOnBits = dp_bits->count();
+  d_numOnBits = static_cast<unsigned int>(dp_bits->count());
   return *this;
 };
 

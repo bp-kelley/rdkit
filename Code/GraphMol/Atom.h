@@ -25,6 +25,7 @@
 #include <RDGeneral/types.h>
 #include <RDGeneral/RDProps.h>
 #include <GraphMol/details.h>
+#include "Bond.h"
 
 namespace RDKit {
 class Atom;
@@ -37,6 +38,7 @@ namespace RDKit {
 class ROMol;
 class RWMol;
 class AtomMonomerInfo;
+class Bond;
 
 //! The class for representing atoms
 /*!
@@ -47,7 +49,7 @@ class AtomMonomerInfo;
     - each Atom maintains a Dict of \c properties:
         - Each \c property is keyed by name and can store an
           arbitrary type.
-        - \c Properties can be marked as \c calculated, in which case
+        - \c Properties can be marked as \c calculated, in which case/Users/brian/miniforge3/conda-bld/rdkit_1721588782447/work/Code/GraphMol/Bond.h
           they will be cleared when the \c clearComputedProps() method
           is called.
         - Because they have no impact upon chemistry, all \c property
@@ -81,7 +83,6 @@ class RDKIT_GRAPHMOL_EXPORT Atom : public RDProps {
  public:
   // FIX: grn...
   typedef Queries::Query<int, Atom const *, true> QUERYATOM_QUERY;
-
   //! store hybridization
   typedef enum {
     UNSPECIFIED = 0,  //!< hybridization that hasn't been specified
@@ -129,7 +130,67 @@ class RDKIT_GRAPHMOL_EXPORT Atom : public RDProps {
     <b>Note:</b> the caller is responsible for <tt>delete</tt>ing the result
   */
   virtual Atom *copy() const;
-
+    std::vector<Bond*> & bonds() { return _bonds; }
+    const std::vector<Bond*> & bonds() const { return _bonds; }
+    std::vector<Atom*> & nbrs() {return _oatoms;}
+    const std::vector<Atom*> & nbrs() const { return _oatoms; }
+    bool hasNbr(const Atom *atm) const {
+        return std::find(_oatoms.begin(), _oatoms.end(), atm) != _oatoms.end();
+    }
+    bool hasNbr(unsigned int idx) const {
+        for(auto *atom : _oatoms) {
+            if(atom->getIdx() == idx) return true;
+        }
+        return false;
+    }
+    bool removeNbr(const Atom *atom) {
+        auto idx = std::find(_oatoms.begin(), _oatoms.end(), atom);
+        if(idx != _oatoms.end()) {
+            _oatoms.erase(idx);
+            _bonds.erase(_bonds.begin() + (idx - _oatoms.begin()));
+            return true;
+        }
+        return false;
+    }
+    Bond *getBondTo(unsigned int aidx) {
+        for(auto idx = 0u; idx<_oatoms.size(); ++idx) {
+            if (_oatoms[idx]->getIdx() == aidx)
+                return _bonds[idx];
+        }
+        return nullptr;
+    }
+    const Bond *getBondTo(unsigned int aidx) const {
+        for(auto idx = 0u; idx<_oatoms.size(); ++idx) {
+            if (_oatoms[idx]->getIdx() == aidx)
+                return _bonds[idx];
+        }
+        return nullptr;
+    }
+    Bond *getBondTo(const Atom *atom) {
+        for(auto idx = 0u; idx<_oatoms.size(); ++idx) {
+            if (_oatoms[idx] == atom)
+                return _bonds[idx];
+        }
+        return nullptr;
+    }
+    const Bond *getBondTo(const Atom *atom) const {
+        for(auto idx = 0u; idx<_oatoms.size(); ++idx) {
+            if (_oatoms[idx] == atom)
+                return _bonds[idx];
+        }
+        return nullptr;
+    }
+    /*
+    bool removeNbr(const Bond *bond) {
+        auto idx = std::find(_bonds.begin(), _bonds.end(), bond);
+        if(idx != _bonds.end()) {
+            _bonds.erase(idx);
+            _oatoms.erase(_oatoms.begin() + (idx - _bonds.begin()));
+            return true;
+        }
+        return false;
+    }*/
+    operator unsigned int() const { return d_index; }
   //! returns our atomic number
   int getAtomicNum() const { return d_atomicNum; }
   //! sets our atomic number
@@ -407,6 +468,12 @@ class RDKIT_GRAPHMOL_EXPORT Atom : public RDProps {
   }
 
  protected:
+  // Connected atoms
+  std::vector<Bond*> _bonds;
+
+  // Atom on the other end of the bond at the same idx (n.b. can be inferred)
+  std::vector<Atom*> _oatoms;
+
   //! sets our owning molecule
   void setOwningMol(ROMol *other);
   //! sets our owning molecule

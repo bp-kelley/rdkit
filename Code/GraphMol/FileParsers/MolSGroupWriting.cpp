@@ -26,7 +26,7 @@ std::string BuildV2000STYLines(const ROMol &mol) {
 
   const auto &sgroups = getSubstanceGroups(mol);
   for (auto sg = sgroups.begin(); sg != sgroups.end(); ++sg) {
-    temp << FormatV2000IntField(1 + (sg - sgroups.begin()))
+    temp << FormatV2000IntField(1 + static_cast<unsigned int>(sg - sgroups.begin()))
          << FormatV2000StringField(sg->getProp<std::string>("TYPE"), 3, true,
                                    true);
     if (++count == 8) {
@@ -56,7 +56,7 @@ std::string BuildV2000StringPropLines(const unsigned int entriesPerLine,
     std::string propValue;
     // Write field only if defined
     if (sg->getPropIfPresent(propName, propValue)) {
-      temp << FormatV2000IntField(1 + (sg - sgroups.begin()))
+      temp << FormatV2000IntField(1 + static_cast<unsigned int>(sg - sgroups.begin()))
            << FormatV2000StringField(propValue, fieldWitdh, true, true);
       if (++count == entriesPerLine) {
         ret << "M  " << propCode << FormatV2000NumEntriesField(entriesPerLine)
@@ -84,7 +84,7 @@ std::string BuildV2000SLBLines(const ROMol &mol) {
     unsigned int id;
     // Write value if assigned, else 0
     if (sg->getPropIfPresent("ID", id)) {
-      temp << FormatV2000IntField(1 + (sg - sgroups.begin()))
+      temp << FormatV2000IntField(1 + static_cast<unsigned int>(sg - sgroups.begin()))
            << FormatV2000IntField(id);
       if (++count == 8) {
         ret << "M  SLB" << FormatV2000NumEntriesField(8) << temp.str() << "\n";
@@ -110,7 +110,7 @@ std::string BuildV2000SDSLines(const ROMol &mol) {
     // Write field only if defined
     std::string eState;
     if (sg->getPropIfPresent("ESTATE", eState) && eState == "E") {
-      temp << FormatV2000IntField(1 + (sg - sgroups.begin()));
+      temp << FormatV2000IntField(1 + static_cast<unsigned int>(sg - sgroups.begin()));
       if (++count == 15) {
         ret << "M  SDS EXP" << FormatV2000NumEntriesField(15) << temp.str()
             << "\n";
@@ -137,7 +137,7 @@ std::string BuildV2000SPLLines(const ROMol &mol) {
     // Write field only if a parent is defined
     unsigned int parentIdx = -1;
     if (sg->getPropIfPresent("PARENT", parentIdx)) {
-      temp << FormatV2000IntField(1 + (sg - sgroups.begin()))
+      temp << FormatV2000IntField(1 + static_cast<unsigned int>(sg - sgroups.begin()))
            << FormatV2000IntField(parentIdx);
       if (++count == 8) {
         ret << "M  SPL" << FormatV2000NumEntriesField(8) << temp.str() << "\n";
@@ -163,7 +163,7 @@ std::string BuildV2000SNCLines(const ROMol &mol) {
     unsigned int compno;
     // Write field only if compno is set
     if (sg->getPropIfPresent("COMPNO", compno)) {
-      temp << FormatV2000IntField(1 + (sg - sgroups.begin()))
+      temp << FormatV2000IntField(1 + static_cast<unsigned int>(sg - sgroups.begin()))
            << FormatV2000IntField(compno);
       if (++count == 8) {
         ret << "M  SNC" << FormatV2000NumEntriesField(8) << temp.str() << "\n";
@@ -188,7 +188,7 @@ std::string BuildV2000SBTLines(const ROMol &mol) {
   for (auto sg = sgroups.begin(); sg != sgroups.end(); ++sg) {
     std::string bracketType;
     if (sg->getPropIfPresent("BRKTYP", bracketType)) {
-      unsigned int idx = 1 + (sg - sgroups.begin());
+      unsigned int idx = 1 + static_cast<unsigned int>(sg - sgroups.begin());
       if (bracketType == "BRACKET") {
         temp << FormatV2000IntField(idx) << FormatV2000IntField(0);
       } else if (bracketType == "PAREN") {
@@ -335,7 +335,7 @@ std::string BuildV2000SCDSEDLines(const int idx, const SubstanceGroup &sgroup) {
   STR_VECT dataFields;
   if (sgroup.getPropIfPresent("DATAFIELDS", dataFields)) {
     for (const auto &data : dataFields) {
-      unsigned int length = data.size();
+      unsigned int length = static_cast<unsigned int>(data.size());
       if (length > 200) {
         std::ostringstream errout;
         errout << "Data field '" << data << "' in SGroup " << idx
@@ -635,7 +635,7 @@ void addBlockToSGroupString(std::string block, std::string &currentLine,
     currentLine += block;
   } else {
     os << currentLine << " -\n";
-    unsigned int length = block.size();
+    unsigned int length = static_cast<unsigned int>(block.size());
     unsigned int start = 0;
     while (length - start >= 73) {
       os << "M  V30";

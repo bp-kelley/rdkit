@@ -319,7 +319,7 @@ void getExperimentalTorsions(
     CHECK_INVARIANT(rinfo, "no ring info");
     CHECK_INVARIANT(rinfo->isInitialized(), "ring info not initialized");
     for (const auto &atomRing : rinfo->atomRings()) {
-      unsigned int rSize = atomRing.size();
+      unsigned int rSize = static_cast<unsigned int>(atomRing.size());
       // we don't need to deal with 3 membered rings
       // and we do not treat rings greater than 6
       if (rSize < 4 || rSize > 6) {

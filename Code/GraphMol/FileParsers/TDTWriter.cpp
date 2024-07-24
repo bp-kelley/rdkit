@@ -107,7 +107,7 @@ void TDTWriter::write(const ROMol &mol, int confId) {
       (*dp_ostream) << "3D<";
     }
     const RDGeom::POINT3D_VECT &coords = conf.getPositions();
-    int nAts = atomOrdering.size();
+    int nAts = static_cast<int>(atomOrdering.size());
     for (int i = 0; i < nAts; i++) {
       (*dp_ostream) << std::setprecision(d_numDigits)
                     << coords[atomOrdering[i]].x << ",";

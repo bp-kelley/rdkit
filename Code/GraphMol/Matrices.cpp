@@ -196,7 +196,7 @@ double *getDistanceMat(const ROMol &mol, bool useBO, bool useAtomWts,
     dMat[i * nAts + i] = 0.0;
   }
 
-  ROMol::EDGE_ITER firstB, lastB;
+  ROMol::CONST_EDGE_ITER firstB, lastB;
   boost::tie(firstB, lastB) = mol.getEdges();
   while (firstB != lastB) {
     const Bond *bond = mol[*firstB];
@@ -348,25 +348,24 @@ INT_LIST getShortestPath(const ROMol &mol, int aid1, int aid2) {
 
   bfsQ.push_back(aid1);
   bool done = false;
-  ROMol::ADJ_ITER nbrIdx, endNbrs;
   while ((!done) && (bfsQ.size() > 0)) {
     int curAid = bfsQ.front();
-    boost::tie(nbrIdx, endNbrs) =
-        mol.getAtomNeighbors(mol.getAtomWithIdx(curAid));
-    while (!done && nbrIdx != endNbrs) {
-      switch (pred[*nbrIdx]) {
+    for(auto nbr: mol.getAtomWithIdx(curAid)->nbrs()) {
+      auto nbrIdx = nbr->getIdx();
+      switch (pred[nbrIdx]) {
         case -1:
-          pred[*nbrIdx] = curAid;
-          bfsQ.push_back(rdcast<int>(*nbrIdx));
+          pred[nbrIdx] = curAid;
+          bfsQ.push_back(nbrIdx);
           break;
         case -3:  // end found
-          pred[*nbrIdx] = curAid;
+          pred[nbrIdx] = curAid;
           done = true;
           break;
         default:  // already processed (or begin)
           break;
       }
-      ++nbrIdx;
+      if(done)
+          break;
     }
     bfsQ.pop_front();
   }

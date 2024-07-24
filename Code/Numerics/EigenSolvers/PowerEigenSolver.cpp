@@ -44,7 +44,7 @@ bool powerEigenSolver(unsigned int numEig, DoubleSymmMatrix &mat,
 
   DoubleVector v(N), z(N);
   if (seed <= 0) {
-    seed = clock();
+    seed = static_cast<int>(clock());
   }
   for (ei = 0; ei < numEig; ei++) {
     eigVal = -HUGE_EIGVAL;

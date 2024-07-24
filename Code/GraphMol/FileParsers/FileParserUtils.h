@@ -137,7 +137,7 @@ void applyMolListPropToAtoms(ROMol &mol, const std::string &pn,
   }
   for (size_t i = first_token; i < tokens.size(); ++i) {
     if (tokens[i] != mv) {
-      unsigned int atomid = i - first_token;
+      unsigned int atomid = static_cast<unsigned int>(i - first_token);
       try {
         T apv = boost::lexical_cast<T>(tokens[i]);
         mol.getAtomWithIdx(atomid)->setProp(atompn, apv);

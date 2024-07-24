@@ -258,7 +258,7 @@ void ForceField::initialize() {
   delete[] dp_distMat;
   dp_distMat = nullptr;
 
-  d_numPoints = d_positions.size();
+  d_numPoints = static_cast<unsigned int>(d_positions.size());
   d_matSize = d_numPoints * (d_numPoints + 1) / 2;
   dp_distMat = new double[d_matSize];
   this->initDistanceMatrix();
@@ -309,7 +309,7 @@ double ForceField::calcEnergy(std::vector<double> *contribs) const {
     contribs->reserve(d_contribs.size());
   }
 
-  unsigned int N = d_positions.size();
+  unsigned int N = static_cast<unsigned int>(d_positions.size());
   auto *pos = new double[d_dimension * N];
   this->scatter(pos);
   // now loop over the contribs
@@ -350,7 +350,7 @@ void ForceField::calcGrad(double *grad) const {
     return;
   }
 
-  unsigned int N = d_positions.size();
+  unsigned int N = static_cast<unsigned int>(d_positions.size());
   auto *pos = new double[d_dimension * N];
   this->scatter(pos);
   for (const auto &d_contrib : d_contribs) {

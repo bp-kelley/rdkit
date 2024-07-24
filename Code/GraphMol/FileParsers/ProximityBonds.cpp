@@ -218,12 +218,10 @@ static void ConnectTheDots_Large(RWMol *mol, unsigned int flags) {
       auto *atom_info = (AtomPDBResidueInfo *)(atom->getMonomerInfo());
       // cut all but shortest Bond
       RDGeom::Point3D p = conf->getAtomPos(i);
-      RDKit::RWMol::ADJ_ITER nbr, end_nbr;
-      boost::tie(nbr, end_nbr) = mol->getAtomNeighbors(atom);
       float best = 10000;
       unsigned int best_idx = mol->getNumAtoms() + 1;
-      while (nbr != end_nbr) {
-        RDGeom::Point3D pn = conf->getAtomPos(*nbr);
+      for(auto nbr: atom->nbrs()) {
+        RDGeom::Point3D pn = conf->getAtomPos(nbr->getIdx());
         float d = (p - pn).length();
         auto *n_info =
             (AtomPDBResidueInfo *)(mol->getAtomWithIdx(*nbr)->getMonomerInfo());
@@ -231,20 +229,18 @@ static void ConnectTheDots_Large(RWMol *mol, unsigned int flags) {
             ((!atom_info || !n_info) ||
              atom_info->getResidueNumber() == n_info->getResidueNumber())) {
           best = d;
-          best_idx = *nbr;
+          best_idx = nbr->getIdx();
         }
-        ++nbr;
       }
       // iterate again and remove all but closest
-      boost::tie(nbr, end_nbr) = mol->getAtomNeighbors(atom);
-      while (nbr != end_nbr) {
-        if (*nbr == best_idx) {
-          Bond *bond = mol->getBondBetweenAtoms(i, *nbr);
+      for(auto nbr: atom->nbrs()) {
+        const auto nbrIdx = nbr->getIdx();
+        if (nbrIdx == best_idx) {
+          Bond *bond = mol->getBondBetweenAtoms(i, nbrIdx);
           bond->setBondType(Bond::SINGLE);  // make sure this one is single
         } else {
-          mol->removeBond(i, *nbr);
+          mol->removeBond(i, nbrIdx);
         }
-        ++nbr;
       }
     }
   }

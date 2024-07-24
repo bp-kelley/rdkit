@@ -503,10 +503,11 @@ unsigned int getAtomParityFlag(const Atom *atom, const Conformer *conf) {
   const ROMol &mol = atom->getOwningMol();
   RDGeom::Point3D pos = conf->getAtomPos(atom->getIdx());
   std::vector<std::pair<unsigned int, RDGeom::Point3D>> vs;
-  ROMol::ADJ_ITER nbrIdx, endNbrs;
-  boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-  while (nbrIdx != endNbrs) {
-    const Atom *at = mol.getAtomWithIdx(*nbrIdx);
+  //ROMol::ADJ_ITER nbrIdx, endNbrs;
+  //boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
+  //  while (nbrIdx != endNbrs) {
+  for(auto at: atom->nbrs()) {
+    //const Atom *at = mol.getAtomWithIdx(*nbrIdx);
     unsigned int idx = at->getIdx();
     RDGeom::Point3D v = conf->getAtomPos(idx);
     v -= pos;
@@ -514,7 +515,6 @@ unsigned int getAtomParityFlag(const Atom *atom, const Conformer *conf) {
       idx += mol.getNumAtoms();
     }
     vs.emplace_back(idx, v);
-    ++nbrIdx;
   }
   std::sort(vs.begin(), vs.end(), Rankers::pairLess);
   double vol;
@@ -779,7 +779,7 @@ const std::string GetV3000MolFileAtomLine(
   ss << std::fixed;
   ss << std::setprecision(precision);
   ss << " " << x << " " << y << " " << z;
-  ss << std::setprecision(currentPrecision);
+  ss << std::setprecision(static_cast<int>(currentPrecision));
   ss << std::defaultfloat;
   ss << " " << atomMapNumber;
 
@@ -1240,7 +1240,7 @@ std::string outputMolToMolBlock(const RWMol &tmol, int confId,
   nLists = 0;
 
   const auto &sgroups = getSubstanceGroups(tmol);
-  unsigned int nSGroups = sgroups.size();
+  unsigned int nSGroups = static_cast<unsigned int>(sgroups.size());
 
   if (whichFormat == MolFileFormat::V2000 &&
       (nAtoms > 999 || nBonds > 999 || nSGroups > 999)) {

@@ -45,6 +45,7 @@
 #pragma GCC diagnostic ignored "-Wtype-limits"
 #pragma GCC diagnostic ignored "-Wreorder"
 #pragma GCC diagnostic ignored "-Wunused"
+#pragma GCC diagnostic ignored "-Wmacro-redefined"
 #if defined(__apple_build_version__)
 #if __apple_build_version__ >= 7000072
 #pragma GCC diagnostic ignored "-Wunused-local-typedef"

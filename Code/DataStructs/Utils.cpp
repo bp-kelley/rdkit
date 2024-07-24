@@ -63,7 +63,7 @@ void FromDaylightString(T &sbv, const std::string &s) {
       unsigned char query = 0x80;
       for (size_t k = 0; k < 8; k++) {
         if (bytes[j] & query) {
-          sbv.setBit(nBitsDone);
+          sbv.setBit(static_cast<unsigned int>(nBitsDone));
         }
         query >>= 1;
         nBitsDone++;

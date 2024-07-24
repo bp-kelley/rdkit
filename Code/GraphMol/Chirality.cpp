@@ -3087,16 +3087,14 @@ static bool assignNontetrahedralChiralTypeFrom3D(ROMol &mol,
   RDGeom::Point3D v[6];
   unsigned int count = 0;
 
-  ROMol::ADJ_ITER nbrIdx, endNbrs;
-  boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-  while (nbrIdx != endNbrs) {
+  for(auto nbr: atom->nbrs()) {
+    auto nbrIdx = nbr->getIdx();
     if (count == 6) {
       return false;
     }
-    RDGeom::Point3D p = conf.getAtomPos(*nbrIdx);
+    RDGeom::Point3D p = conf.getAtomPos(nbrIdx);
     v[count] = cen.directionVector(p);
     ++count;
-    ++nbrIdx;
   }
 
   if (count < 3) {

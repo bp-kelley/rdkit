@@ -93,7 +93,7 @@ class RDKIT_DATASTRUCTS_EXPORT MultiFPBReader {
   void init();
 
   //! returns the number of readers
-  unsigned int length() const { return d_readers.size(); }
+  unsigned int length() const { return static_cast<unsigned int>(d_readers.size()); }
   //! returns the number of bits in our fingerprints (all readers are expected
   //! to have the same length)
   unsigned int nBits() const;
@@ -124,7 +124,7 @@ class RDKIT_DATASTRUCTS_EXPORT MultiFPBReader {
     if (df_init) {
       rdr->init();
     }
-    return d_readers.size();
+    return static_cast<unsigned int>(d_readers.size());
   }
 
   //! returns tanimoto neighbors that are within a similarity threshold

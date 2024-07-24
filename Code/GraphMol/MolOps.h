@@ -945,7 +945,7 @@ class Hybridizations {
 
   // // void clear() { d_hybridizations.clear(); }
   // // void resize(unsigned int sz) { d_hybridizations.resize(sz); }
-  unsigned int size() const { return d_hybridizations.size(); }
+  unsigned int size() const { return static_cast<unsigned int>(d_hybridizations.size()); }
 
  private:
   std::vector<int> d_hybridizations;

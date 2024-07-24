@@ -130,7 +130,7 @@ void markDbondCands(RWMol &mol, const INT_VECT &allAtms,
         // valence calculation to determine the number of hydrogens below
         makeSingle.push_back(bond);
       } else {
-        int bondContrib = std::lround(bond->getValenceContrib(at));
+        int bondContrib = static_cast<int>(std::lround(bond->getValenceContrib(at)));
         sbo += bondContrib;
         if (!bondContrib) {
           ++nToIgnore;
@@ -278,9 +278,9 @@ bool kekulizeWorker(RWMol &mol, const INT_VECT &allAtms,
     } else {
       INT_DEQUE lstack;
       INT_DEQUE wedgedOpts;
-      for (const auto &nbrIdx : boost::make_iterator_range(
-               mol.getAtomNeighbors(mol.getAtomWithIdx(curr)))) {
+      for (const auto &nbr : mol.getAtomWithIdx(curr)->nbrs()) {
         // ignore if the neighbor has already been dealt with before
+        auto nbrIdx = nbr->getIdx();
         if (std::find(done.begin(), done.end(), nbrIdx) != done.end()) {
           continue;
         }

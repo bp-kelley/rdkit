@@ -89,7 +89,7 @@ void SmilesMolSupplier::setData(const std::string &text,
 // from the file:
 void SmilesMolSupplier::checkForEnd() {
   PRECONDITION(dp_inStream, "no stream");
-  int pos = this->skipComments();
+  int pos = static_cast<int>(this->skipComments());
   if (pos != -1) {
     d_line = -1;
     dp_inStream->seekg(0);
@@ -285,7 +285,7 @@ long int SmilesMolSupplier::skipComments() {
 //
 void SmilesMolSupplier::processTitleLine() {
   PRECONDITION(dp_inStream, "bad stream");
-  int pos = this->skipComments();
+  int pos = static_cast<int>(this->skipComments());
   if (pos >= 0) {
     dp_inStream->seekg(pos);
 
@@ -303,7 +303,7 @@ void SmilesMolSupplier::processTitleLine() {
 
 std::string SmilesMolSupplier::getItemText(unsigned int idx) {
   PRECONDITION(dp_inStream, "no stream");
-  unsigned int holder = d_next;
+  unsigned int holder = static_cast<unsigned int>(d_next);
   bool endHolder = df_end;
   // this throws the relevant exception if we go too far:
   moveTo(idx);
@@ -378,7 +378,7 @@ void SmilesMolSupplier::moveTo(unsigned int idx) {
       throw FileParseException(errout.str());
     } else {
       d_molpos.emplace_back(nextP);
-      d_lineNums.push_back(d_line);
+      d_lineNums.push_back(static_cast<int>(d_line));
       if (d_molpos.size() == idx + 1 && df_end) {
         // boundary condition: we could read the point we were looking for
         // but not the next one.
@@ -413,7 +413,7 @@ std::unique_ptr<RWMol> SmilesMolSupplier::next() {
   }
 
   // This throws an exception if it fails:
-  moveTo(d_next);
+  moveTo(static_cast<unsigned int>(d_next));
   CHECK_INVARIANT(static_cast<int>(d_molpos.size()) > d_next,
                   "bad index length");
 
@@ -477,7 +477,7 @@ unsigned int SmilesMolSupplier::length() {
   PRECONDITION(dp_inStream, "no stream");
   // return the number of molecule lines in the file
   if (d_len > 0) {
-    return d_len;
+    return static_cast<unsigned int>(d_len);
   } else {
     std::streampos oPos = dp_inStream->tellg();
     if (d_molpos.size()) {
@@ -492,16 +492,16 @@ unsigned int SmilesMolSupplier::length() {
         this->processTitleLine();
       }
     }
-    int pos = this->skipComments();
+    int pos = static_cast<int>(this->skipComments());
     while (pos >= 0) {
       d_molpos.emplace_back(pos);
-      d_lineNums.push_back(d_line);
-      pos = this->skipComments();
+      d_lineNums.push_back(static_cast<int>(d_line));
+      pos = static_cast<int>(this->skipComments());
     }
     // now remember to set the stream to its original position:
     dp_inStream->seekg(oPos);
     d_len = d_molpos.size();
-    return d_len;
+    return static_cast<unsigned int>(d_len);
   }
 }
 

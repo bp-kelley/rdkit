@@ -143,7 +143,7 @@ RingMembershipSize::RingMembershipSize(const ROMol &mol) {
   const VECT_INT_VECT &atomRings = ringInfo->atomRings();
   PRECONDITION(atomRings.size() < MAX_NUM_RINGS, "Too many rings");
   for (std::uint32_t ringIdx = 0; ringIdx < atomRings.size(); ++ringIdx) {
-    unsigned int ringSize = atomRings[ringIdx].size();
+    unsigned int ringSize = static_cast<unsigned int>(atomRings[ringIdx].size());
     std::uint32_t ringIdxWithAromaticFlag = ringIdx;
     bool ringIsAromatic = isRingAromatic(mol, atomRings[ringIdx]);
     if (ringIsAromatic) {

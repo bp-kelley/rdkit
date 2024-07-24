@@ -28,20 +28,14 @@ Atom *getAtomNeighborNot(ROMol *mol, const Atom *atom, const Atom *other) {
   PRECONDITION(atom, "bad atom");
   PRECONDITION(atom->getDegree() > 1, "bad degree");
   PRECONDITION(other, "bad atom");
-  Atom *res = nullptr;
-
-  ROMol::ADJ_ITER nbrIdx, endNbrs;
-  boost::tie(nbrIdx, endNbrs) = mol->getAtomNeighbors(atom);
-  while (nbrIdx != endNbrs) {
-    if (*nbrIdx != other->getIdx()) {
-      res = mol->getAtomWithIdx(*nbrIdx);
-      break;
-    }
-    ++nbrIdx;
+    for(auto nbr: atom->nbrs()) {
+        if (nbr->getIdx() != other->getIdx()) {
+            return nbr;
+        }
   }
 
-  POSTCONDITION(res, "no neighbor found");
-  return res;
+  POSTCONDITION(nullptr, "no neighbor found");
+  return nullptr;
 }
 
 void AssignHsResidueInfo(RWMol &mol) {
@@ -62,15 +56,12 @@ void AssignHsResidueInfo(RWMol &mol) {
     Atom *newAt = mol.getAtomWithIdx(aidx);
     auto *info = (AtomPDBResidueInfo *)(newAt->getMonomerInfo());
     if (info && info->getMonomerType() == AtomMonomerInfo::PDBRESIDUE) {
-      ROMol::ADJ_ITER begin, end;
-      boost::tie(begin, end) = mol.getAtomNeighbors(newAt);
-      while (begin != end) {
-        if (mol.getAtomWithIdx(*begin)->getAtomicNum() == 1) {
+      for(auto nbr: newAt->nbrs()) {
+        if (nbr->getAtomicNum() == 1) {
           // Make all Hs unique - increment id even for existing
           ++current_h_id;
           // skip if hydrogen already has PDB info
-          auto *h_info = (AtomPDBResidueInfo *)mol.getAtomWithIdx(*begin)
-                             ->getMonomerInfo();
+          auto *h_info = (AtomPDBResidueInfo *)nbr->getMonomerInfo();
           if (h_info &&
               h_info->getMonomerType() == AtomMonomerInfo::PDBRESIDUE) {
             continue;
@@ -96,11 +87,10 @@ void AssignHsResidueInfo(RWMol &mol) {
               h_label, max_serial, "", info->getResidueName(),
               info->getResidueNumber(), info->getChainId(), "", 1.0, 0.0,
               info->getIsHeteroAtom());
-          mol.getAtomWithIdx(*begin)->setMonomerInfo(newInfo);
+          nbr->setMonomerInfo(newInfo);
 
           ++max_serial;
         }
-        ++begin;
       }
     }
   }
@@ -198,7 +188,6 @@ void setTerminalAtomCoords(ROMol &mol, unsigned int idx,
 
   const Atom *nbr1 = nullptr, *nbr2 = nullptr, *nbr3 = nullptr;
   const Bond *nbrBond;
-  ROMol::ADJ_ITER nbrIdx, endNbrs;
 
   switch (otherAtom->getDegree()) {
     case 1:
@@ -301,16 +290,14 @@ void setTerminalAtomCoords(ROMol &mol, unsigned int idx,
       // --------------------------------------------------------------------------
       // Two other neighbors:
       // --------------------------------------------------------------------------
-      boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(otherAtom);
-      while (nbrIdx != endNbrs) {
-        if (*nbrIdx != idx) {
+      for(auto nbr: otherAtom->nbrs()) {
+        if (nbr->getIdx() != idx) {
           if (!nbr1) {
-            nbr1 = mol.getAtomWithIdx(*nbrIdx);
+              nbr1 = nbr;
           } else {
-            nbr2 = mol.getAtomWithIdx(*nbrIdx);
+              nbr2 = nbr;
           }
         }
-        ++nbrIdx;
       }
       TEST_ASSERT(nbr1);
       TEST_ASSERT(nbr2);
@@ -373,21 +360,18 @@ void setTerminalAtomCoords(ROMol &mol, unsigned int idx,
       // --------------------------------------------------------------------------
       // Three other neighbors:
       // --------------------------------------------------------------------------
-      boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(otherAtom);
-
       // We're using chiral tag for checking chirality, so we just take the
+      for (auto nbr: otherAtom->nbrs()) {
       // initial order
-      while (nbrIdx != endNbrs) {
-        if (*nbrIdx != idx) {
+        if (nbr->getIdx() != idx) {
           if (!nbr1) {
-            nbr1 = mol.getAtomWithIdx(*nbrIdx);
+              nbr1 = nbr;
           } else if (!nbr2) {
-            nbr2 = mol.getAtomWithIdx(*nbrIdx);
+              nbr2 = nbr;
           } else {
-            nbr3 = mol.getAtomWithIdx(*nbrIdx);
+              nbr3 = nbr;
           }
         }
-        ++nbrIdx;
       }
 
       TEST_ASSERT(nbr1);
@@ -616,9 +600,7 @@ bool adjustStereoAtomsIfRequired(RWMol &mol, const Atom *atom,
         // find the index of another atom attached to the heavy atom and
         // use it to update sAtomIt
         unsigned int dblNbrIdx = bnd->getOtherAtomIdx(heavyAtom->getIdx());
-        for (const auto &nbri :
-             boost::make_iterator_range(mol.getAtomNeighbors(heavyAtom))) {
-          const auto &nbr = mol[nbri];
+        for (const auto nbr : heavyAtom->nbrs()) {
           if (nbr->getIdx() == dblNbrIdx || nbr->getIdx() == atom->getIdx()) {
             continue;
           }
@@ -1167,22 +1149,19 @@ void mergeQueryHs(RWMol &mol, bool mergeUnmappedOnly, bool mergeIsotopes) {
     Atom *atom = mol.getAtomWithIdx(currIdx);
     if (!hatoms[currIdx]) {
       unsigned int numHsToRemove = 0;
-      ROMol::ADJ_ITER begin, end;
-      boost::tie(begin, end) = mol.getAtomNeighbors(atom);
-
-      while (begin != end) {
-        if (hatoms[*begin]) {
-          Atom &bgn = *mol.getAtomWithIdx(*begin);
+      for (auto nbr: atom->nbrs()) {
+        auto begin = nbr->getIdx();
+        if (hatoms[begin]) {
+            Atom &bgn = *nbr;
           bool checkUnmapped =
               !mergeUnmappedOnly ||
               !bgn.hasProp(common_properties::molAtomMapNumber);
           bool checkIsotope = mergeIsotopes || bgn.getIsotope() == 0;
           if (checkUnmapped && checkIsotope) {
-            atomsToRemove.push_back(rdcast<unsigned int>(*begin));
+            atomsToRemove.push_back(rdcast<unsigned int>(begin));
             ++numHsToRemove;
           }
         }
-        ++begin;
       }
       if (numHsToRemove) {
         //
@@ -1263,9 +1242,7 @@ ROMol *mergeQueryHs(const ROMol &mol, bool mergeUnmappedOnly,
 bool needsHs(const ROMol &mol) {
   for (const auto atom : mol.atoms()) {
     unsigned int nHNbrs = 0;
-    for (const auto nbri :
-         boost::make_iterator_range(mol.getAtomNeighbors(atom))) {
-      const auto nbr = mol[nbri];
+    for (const auto nbr : atom->nbrs()) {
       if (nbr->getAtomicNum() == 1) {
         ++nHNbrs;
       }

@@ -517,7 +517,7 @@ unsigned int getChiralPermutation(const Atom *cen, const INT_LIST &probe) {
     }
     auto tgt = std::find(nbrPerm.begin() + i, nbrPerm.end(), pval);
     TEST_ASSERT(tgt != nbrPerm.end());
-    perm = swap_func(perm, i, tgt - nbrPerm.begin());
+    perm = swap_func(perm, i, static_cast<unsigned int>(tgt - nbrPerm.begin()));
     std::swap(*tgt, nbrPerm[i]);
   }
 

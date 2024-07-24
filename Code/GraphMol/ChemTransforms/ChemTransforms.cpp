@@ -229,18 +229,16 @@ std::vector<ROMOL_SPTR> replaceSubstructs(
     // loop over the central atom's (the first atom in match) bonds
     // and duplicate any that connect to the remainder of the molecule:
     Atom *origAtom = newMol->getAtomWithIdx(match[0]);
-    ROMol::ADJ_ITER nbrIdx, endNbrs;
-    boost::tie(nbrIdx, endNbrs) = newMol->getAtomNeighbors(origAtom);
-    while (nbrIdx != endNbrs) {
+    for(auto nbr: origAtom->nbrs()) {
+      const auto nbrIdx = nbr->getIdx();
       // we don't want to duplicate any "intra-match" bonds:
       if (!std::binary_search(sortMatch.begin(), sortMatch.end(),
-                              int(*nbrIdx))) {
-        Bond *oBond = newMol->getBondBetweenAtoms(match[0], *nbrIdx);
+                              int(nbrIdx))) {
+        Bond *oBond = newMol->getBondBetweenAtoms(match[0], nbrIdx);
         CHECK_INVARIANT(oBond, "required bond not found");
-        newMol->addBond(numOrigAtoms + replacementConnectionPoint, *nbrIdx,
+        newMol->addBond(numOrigAtoms + replacementConnectionPoint, nbrIdx,
                         oBond->getBondType());
       }
-      nbrIdx++;
     }
 
     if (replaceAll) {
@@ -311,17 +309,15 @@ ROMol *replaceSidechains(const ROMol &mol, const ROMol &coreQuery,
     // core, we have an attachment point:
     if (newMol->getAtomWithIdx(mvit.second)->getDegree() >
         coreQuery.getAtomWithIdx(mvit.first)->getDegree()) {
-      ROMol::ADJ_ITER nbrIdx, endNbrs;
-      boost::tie(nbrIdx, endNbrs) =
-          newMol->getAtomNeighbors(newMol->getAtomWithIdx(mvit.second));
-      while (nbrIdx != endNbrs) {
-        if (!matchingIndices[*nbrIdx]) {
+      for(auto nbr: newMol->getAtomWithIdx(mvit.second)->nbrs()) {
+        const auto nbrIdx = nbr->getIdx();
+        if (!matchingIndices[nbrIdx]) {
           // this neighbor isn't in the match, convert it to a dummy atom and
           // save it
-          keepSet.set(*nbrIdx);
-          dummyIndices.push_back(*nbrIdx);
-          Atom *at = newMol->getAtomWithIdx(*nbrIdx);
-          Bond *b = newMol->getBondBetweenAtoms(mvit.second, *nbrIdx);
+          keepSet.set(nbrIdx);
+          dummyIndices.push_back(nbrIdx);
+          Atom *at = newMol->getAtomWithIdx(nbrIdx);
+          Bond *b = newMol->getBondBetweenAtoms(mvit.second, nbrIdx);
           if (b) {
             b->setIsAromatic(false);
             b->setBondType(Bond::SINGLE);
@@ -329,9 +325,8 @@ ROMol *replaceSidechains(const ROMol &mol, const ROMol &coreQuery,
           at->setAtomicNum(0);
           at->setNumExplicitHs(0);
           at->setIsAromatic(false);
-          at->setIsotope(dummyIndices.size());
+          at->setIsotope(static_cast<unsigned int>(dummyIndices.size()));
         }
-        ++nbrIdx;
       }
     }
   }
@@ -549,14 +544,18 @@ ROMol *replaceCore(const ROMol &mol, const ROMol &core,
 
       // loop over our neighbors and see if any are in the match:
       std::list<unsigned int> nbrList;
-      ROMol::ADJ_ITER nbrIter, endNbrs;
-      boost::tie(nbrIter, endNbrs) = newMol->getAtomNeighbors(sidechainAtom);
-      while (nbrIter != endNbrs && (*nbrIter) < origNumAtoms) {
+      for(auto nbr: sidechainAtom->nbrs()) {
+          const auto nbrIdx = nbr->getIdx();
+          if (nbrIdx >= origNumAtoms) {
+              nbrList.push_back(nbrIdx);
+          }              // XXX don't trust this one
+      //ROMol::ADJ_ITER nbrIter, endNbrs;
+      //boost::tie(nbrIter, endNbrs) = newMol->getAtomNeighbors(sidechainAtom);
+      //while (nbrIter != endNbrs && (*nbrIter) < origNumAtoms) {
         // we need to add bonds and atoms to the molecule while looping
         // over neighbors. This invalidates iterators, so collect a list
         // of our neighbors now:
-        nbrList.push_back(*nbrIter);
-        ++nbrIter;
+        //nbrList.push_back(nbr);
       }
       unsigned int whichNbr = 0;
       std::list<Bond *> newBonds;
@@ -700,7 +699,7 @@ ROMol *replaceCore(const ROMol &mol, const ROMol &core,
     // sort the mapping indices, but label from 1..N
     std::stable_sort(dummies.begin(), dummies.end());
     for (size_t nDummy = 0; nDummy < dummies.size(); ++nDummy) {
-      dummies[nDummy].second->setIsotope(nDummy + 1);
+      dummies[nDummy].second->setIsotope(static_cast<unsigned int>(nDummy + 1));
     }
   } else {
     // don't sort, just label by the index

@@ -54,15 +54,11 @@ bool hasLabel(const Atom *atom, unsigned int autoLabels) {
  */
 bool hasAttachedLabels(const ROMol &mol, const Atom *atom,
                        unsigned int autoLabels) {
-  RWMol::ADJ_ITER nbrIdx, endNbrs;
-  boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-  while (nbrIdx != endNbrs) {
-    const auto neighborAtom = mol.getAtomWithIdx(*nbrIdx);
+  for(const auto neighborAtom: atom->nbrs()) {
     if (neighborAtom->getAtomicNum() == 0 && neighborAtom->getDegree() == 1 &&
         hasLabel(neighborAtom, autoLabels)) {
       return true;
     }
-    ++nbrIdx;
   }
   return false;
 }

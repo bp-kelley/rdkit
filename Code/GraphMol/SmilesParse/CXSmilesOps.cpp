@@ -661,11 +661,9 @@ bool parse_linknodes(Iterator &first, Iterator last, RDKit::RWMol &mol,
       }
     } else if (VALID_ATIDX(atidx) &&
                mol.getAtomWithIdx(atidx - startAtomIdx)->getDegree() == 2) {
-      auto nbrs =
-          mol.getAtomNeighbors(mol.getAtomWithIdx(atidx - startAtomIdx));
-      idx1 = *nbrs.first;
-      nbrs.first++;
-      idx2 = *nbrs.first;
+      auto nbrs = mol.getAtomWithIdx(atidx - startAtomIdx)->nbrs();
+      idx1 = nbrs.at(0)->getIdx();
+      idx2 = nbrs.at(1)->getIdx();
     } else if (VALID_ATIDX(atidx)) {
       return false;
     }
@@ -763,7 +761,7 @@ bool parse_data_sgroup(Iterator &first, Iterator last, RDKit::RWMol &mol,
   // (the function will immediately return if already called)
   if (keepSGroup) {
     processCXSmilesLabels(mol);
-    sgroup.setProp<unsigned int>("index", getSubstanceGroups(mol).size() + 1);
+    sgroup.setProp<unsigned int>("index", static_cast<unsigned int>(getSubstanceGroups(mol).size() + 1));
     addSubstanceGroup(mol, sgroup);
   }
   return true;
@@ -945,7 +943,7 @@ bool parse_polymer_sgroup(Iterator &first, Iterator last, RDKit::RWMol &mol,
     processCXSmilesLabels(mol);
 
     finalizePolymerSGroup(mol, sgroup);
-    sgroup.setProp<unsigned int>("index", getSubstanceGroups(mol).size() + 1);
+    sgroup.setProp<unsigned int>("index", static_cast<unsigned int>(getSubstanceGroups(mol).size() + 1));
 
     addSubstanceGroup(mol, sgroup);
   }
@@ -2069,14 +2067,14 @@ std::string get_bond_config_block(
             } else {
               unsigned int swaps = 0;
 
-              unsigned int firstReorderedIdx =
+              unsigned int firstReorderedIdx = static_cast<unsigned int>(
                   std::find(atomOrder.begin(), atomOrder.end(),
                             bondNbr->getBeginAtom()->getIdx()) -
-                  atomOrder.begin();
-              unsigned int secondReorderedIdx =
+                  atomOrder.begin());
+              unsigned int secondReorderedIdx = static_cast<unsigned int>(
                   std::find(atomOrder.begin(), atomOrder.end(),
                             bondNbr->getEndAtom()->getIdx()) -
-                  atomOrder.begin();
+                  atomOrder.begin());
               if (firstReorderedIdx > secondReorderedIdx) {
                 ++swaps;
               }
@@ -2098,14 +2096,14 @@ std::string get_bond_config_block(
                           ->getOtherAtom(atomAndBondVecs[bondAtomIndex].first)
                           ->getIdx();
 
-                  unsigned int firstReorderedAtomIdx =
+                  unsigned int firstReorderedAtomIdx = static_cast<unsigned int>(
                       std::find(atomOrder.begin(), atomOrder.end(),
                                 firstOtherAtomIdx) -
-                      atomOrder.begin();
-                  unsigned int secondReorderedAtomIdx =
+                      atomOrder.begin());
+                  unsigned int secondReorderedAtomIdx = static_cast<unsigned int>(
                       std::find(atomOrder.begin(), atomOrder.end(),
                                 secondOtherAtomIdx) -
-                      atomOrder.begin();
+                      atomOrder.begin());
 
                   if (firstReorderedAtomIdx > secondReorderedAtomIdx) {
                     ++swaps;
