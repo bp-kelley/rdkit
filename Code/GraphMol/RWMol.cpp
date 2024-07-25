@@ -740,14 +740,18 @@ void RWMol::batchRemoveBonds() {
 
     bnd->setOwningMol(nullptr);
       beginAtm->removeNbr(endAtm);
-      endAtm->removeNbr(beginAtm);
-      _bonds.erase(_bonds.begin() + bnd->getIdx());
+      endAtm->removeNbr(beginAtm);_bonds.erase(_bonds.begin() + bnd->getIdx());
     delete bnd;
     --numBonds;
   }
 
   // loop over all bonds with higher indices than the minimum modified and
   // update their indices
+  unsigned int idx = 0;
+  for(auto bnd: bonds()) {
+      bnd->setIdx(idx++);
+  }
+    /*
   auto [firstB, lastB] = this->getEdges();
   unsigned int next_idx = min_idx;
   while (firstB != lastB) {
@@ -757,6 +761,7 @@ void RWMol::batchRemoveBonds() {
     }
     ++firstB;
   }
+     */
 }
 
 void RWMol::batchRemoveAtoms() {
@@ -774,7 +779,6 @@ void RWMol::batchRemoveAtoms() {
     unsigned int idx = i - 1;
     Atom *atom = getAtomWithIdx(idx);
     if (!atom) continue;
-
     // remove any bookmarks which point to this atom:
     ATOM_BOOKMARK_MAP *marks = getAtomBookmarks();
     auto markI = marks->begin();
@@ -853,8 +857,9 @@ void RWMol::batchRemoveAtoms() {
         }
  
     // finally remove the vertex itself
-    delete atom;
-      _atoms.erase(_atoms.begin() + atom->getIdx());
+    
+      _atoms.erase(_atoms.begin() + idx);
+      delete atom;
     oldIndices[idx] = nullptr;
   }
 
@@ -870,6 +875,7 @@ void RWMol::batchRemoveAtoms() {
     auto endidx = bond->getEndAtomIdx();
     Atom *bgn = oldIndices[bgnidx];
     Atom *end = oldIndices[endidx];
+      
     CHECK_INVARIANT(bgn, "Atom mapping failed");
     CHECK_INVARIANT(end, "Atom mapping failed");
     bond->setBeginAtomIdx(bgn->getIdx());
