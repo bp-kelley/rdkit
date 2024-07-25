@@ -138,10 +138,7 @@ std::vector<unsigned int> calcMQNs(const ROMol& mol, bool) {
   // ---------------------------------------------------
   // bond counts:
   unsigned int nAromatic = 0;
-  ROMol::EDGE_ITER firstB, lastB;
-  boost::tie(firstB, lastB) = mol.getEdges();
-  while (firstB != lastB) {
-    const Bond* bond = mol[*firstB];
+  for(auto bond: mol.bonds()) {
     if (bond->getIsAromatic()) {
       ++nAromatic;
     }
@@ -174,7 +171,6 @@ std::vector<unsigned int> calcMQNs(const ROMol& mol, bool) {
     if (nRings >= 2) {
       res[41]++;
     }
-    ++firstB;
   }
   // rather than do the work to kekulize the molecule, we cheat
   // by just dividing the number of aromatic bonds evenly among the
