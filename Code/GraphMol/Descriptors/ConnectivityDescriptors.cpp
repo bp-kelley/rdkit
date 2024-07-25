@@ -216,12 +216,8 @@ double calcChi1v(const ROMol &mol, bool force) {
   detail::hkDeltas(mol, hkDs, force);
 
   double res = 0.0;
-  ROMol::EDGE_ITER firstB, lastB;
-  boost::tie(firstB, lastB) = mol.getEdges();
-  while (firstB != lastB) {
-    const Bond *bond = mol[*firstB];
+  for(auto bond: mol.bonds()) {
     res += hkDs[bond->getBeginAtomIdx()] * hkDs[bond->getEndAtomIdx()];
-    ++firstB;
   }
   return res;
 };
@@ -245,12 +241,8 @@ double calcChi1n(const ROMol &mol, bool force) {
   detail::nVals(mol, nVs, force);
 
   double res = 0.0;
-  ROMol::EDGE_ITER firstB, lastB;
-  boost::tie(firstB, lastB) = mol.getEdges();
-  while (firstB != lastB) {
-    const Bond *bond = mol[*firstB];
+  for(auto bond: mol.bonds()) {
     res += nVs[bond->getBeginAtomIdx()] * nVs[bond->getEndAtomIdx()];
-    ++firstB;
   }
   return res;
 };
