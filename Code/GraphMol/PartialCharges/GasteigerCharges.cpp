@@ -125,7 +125,7 @@ void computeGasteigerCharges(const ROMol &mol, std::vector<double> &charges,
   DOUBLE_VECT energ;
   energ.resize(natms, 0.0);
 
-  ROMol::ADJ_ITER nbrIdx, endIdx;
+  //ROMol::ADJ_ITER nbrIdx, endIdx;
 
   // deal with the conjugated system - distribute the formal charges on atoms of
   // same type in each
@@ -156,13 +156,11 @@ void computeGasteigerCharges(const ROMol &mol, std::vector<double> &charges,
         } else if ((*ai)->getAtomicNum() == 16) {
           // we have a sulfur atom with no hybridization information
           // check how many oxygens we have on the sulfur
-          boost::tie(nbrIdx, endIdx) = mol.getAtomNeighbors(*ai);
           int no = 0;
-          while (nbrIdx != endIdx) {
-            if (mol.getAtomWithIdx(*nbrIdx)->getAtomicNum() == 8) {
+          for(auto nbr: (*ai)->nbrs()) {
+            if (nbr->getAtomicNum() == 8) {
               no++;
             }
-            nbrIdx++;
           }
           if (no == 2) {
             mode = "so2";
@@ -213,17 +211,16 @@ void computeGasteigerCharges(const ROMol &mol, std::vector<double> &charges,
 
     for (aix = 0; aix < natms; aix++) {
       dq = 0.0;
-      boost::tie(nbrIdx, endIdx) =
-          mol.getAtomNeighbors(mol.getAtomWithIdx(aix));
-      while (nbrIdx != endIdx) {
-        dx = energ[*nbrIdx] - energ[aix];
+
+      for(auto nbr: mol.getAtomWithIdx(aix)->nbrs()) {
+        auto nbrIdx = nbr->getIdx();
+        dx = energ[nbrIdx] - energ[aix];
         if (dx < 0.0) {
           sgn = 0;
         } else {
           sgn = 1;
         }
-        dq += dx / ((sgn * (ionX[aix] - ionX[*nbrIdx])) + ionX[*nbrIdx]);
-        nbrIdx++;
+        dq += dx / ((sgn * (ionX[aix] - ionX[nbrIdx])) + ionX[nbrIdx]);
       }
       // now loop over the implicit hydrogens and get their contributions
       // since hydrogens don't connect to anything else, update their charges at
