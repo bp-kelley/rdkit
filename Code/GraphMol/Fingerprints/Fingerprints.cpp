@@ -269,10 +269,7 @@ ExplicitBitVect *LayeredFingerprintMol(
   std::vector<const Bond *> bondCache;
   bondCache.resize(mol.getNumBonds());
   std::vector<short> isQueryBond(mol.getNumBonds(), 0);
-  ROMol::EDGE_ITER firstB, lastB;
-  boost::tie(firstB, lastB) = mol.getEdges();
-  while (firstB != lastB) {
-    const Bond *bond = mol[*firstB];
+  for(auto bond: mol.bonds()) {
     isQueryBond[bond->getIdx()] = 0x0;
     bondCache[bond->getIdx()] = bond;
     if (isComplexQuery(bond)) {
@@ -284,7 +281,6 @@ ExplicitBitVect *LayeredFingerprintMol(
     if (isComplexQuery(bond->getEndAtom())) {
       isQueryBond[bond->getIdx()] |= 0x4;
     }
-    ++firstB;
   }
 
   std::vector<bool> aromaticAtoms(mol.getNumAtoms(), false);

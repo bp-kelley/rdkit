@@ -109,17 +109,17 @@ class StereoBondEndCap {
     PRECONDITION(atom->getTotalDegree() <= 3,
                  "Stereo Bond extremes must have less than four neighbors");
 
-    const auto nbrIdxItr = mol.getAtomNeighbors(atom);
+    const auto nbrItrs = mol.getAtomNeighbors(atom);
     const unsigned otherIdx = otherDblBndAtom->getIdx();
 
-    auto isNonAnchor = [otherIdx, stereoAtomIdx](const unsigned &nbrIdx) {
-      return nbrIdx != otherIdx && nbrIdx != stereoAtomIdx;
+    auto isNonAnchor = [otherIdx, stereoAtomIdx](const Atom *nbr) {
+      return nbr->getIdx() != otherIdx && nbr->getIdx() != stereoAtomIdx;
     };
 
     auto nonAnchorItr =
-        std::find_if(nbrIdxItr.first, nbrIdxItr.second, isNonAnchor);
-    if (nonAnchorItr != nbrIdxItr.second) {
-      mp_nonAnchor = mol.getAtomWithIdx(*nonAnchorItr);
+        std::find_if(nbrItrs.first, nbrItrs.second, isNonAnchor);
+    if (nonAnchorItr != nbrItrs.second) {
+      mp_nonAnchor = (*nonAnchorItr);
     }
   }
 
@@ -372,9 +372,7 @@ RWMOL_SPTR convertTemplateToMol(const ROMOL_SPTR prodTemplateSptr) {
     updatePropsFromImplicitProps(newAtom, newAtom);
   }
   // and the bonds:
-  ROMol::BOND_ITER_PAIR bondItP = prodTemplate->getEdges();
-  while (bondItP.first != bondItP.second) {
-    const Bond *oldB = (*prodTemplate)[*(bondItP.first++)];
+  for(const auto oldB: prodTemplate->bonds()) {
     unsigned int bondIdx;
     bondIdx = res->addBond(oldB->getBeginAtomIdx(), oldB->getEndAtomIdx(),
                            oldB->getBondType()) -
@@ -440,10 +438,7 @@ ReactantProductAtomMapping *getAtomMappingsReactantProduct(
   // each other.
   // This is part of the fix for #1387
   {
-    ROMol::EDGE_ITER firstB, lastB;
-    boost::tie(firstB, lastB) = reactantTemplate.getEdges();
-    while (firstB != lastB) {
-      const Bond *bond = reactantTemplate[*firstB];
+    for(auto bond: reactantTemplate.bonds()) {
       // this will put in pairs with 0s for things that aren't mapped, but we
       // don't care about that
       int a1mapidx = bond->getBeginAtom()->getAtomMapNum();
@@ -453,7 +448,6 @@ ReactantProductAtomMapping *getAtomMappingsReactantProduct(
       }
       mapping->reactantTemplateAtomBonds[std::make_pair(a1mapidx, a2mapidx)] =
           1;
-      ++firstB;
     }
   }
 
@@ -968,9 +962,8 @@ void addReactantNeighborsToProduct(
     unsigned lreactIdx = lReactantAtom->getIdx();
     visitedAtoms[lreactIdx] = 1;
     // Check our neighbors:
-    ROMol::ADJ_ITER nbrIdx, endNbrs;
-    boost::tie(nbrIdx, endNbrs) = reactant.getAtomNeighbors(lReactantAtom);
-    while (nbrIdx != endNbrs) {
+    for(auto neighbor: lReactantAtom->nbrs()) {
+      const auto nbrIdx = neighbor->getIdx();
       // Four possibilities here. The neighbor:
       //  0) has been visited already: do nothing
       //  1) is part of the match (thus already in the product): set a bond to
@@ -984,19 +977,18 @@ void addReactantNeighborsToProduct(
       //           << " mapped: " << mapping->mappedAtoms[*nbrIdx]
       //           << " mappedO: " << mapping->mappedAtoms[lreactIdx] <<
       //           std::endl;
-      if (!visitedAtoms[*nbrIdx] && !mapping->skippedAtoms[*nbrIdx]) {
-        if (mapping->mappedAtoms[*nbrIdx]) {
+      if (!visitedAtoms[nbrIdx] && !mapping->skippedAtoms[nbrIdx]) {
+        if (mapping->mappedAtoms[nbrIdx]) {
           // this is case 1 (neighbor in match); set a bond to the neighbor if
           // this atom
           // is not also in the match (match-match bonds were set when the
           // product template was
           // copied in to start things off).;
           if (!mapping->mappedAtoms[lreactIdx]) {
-            CHECK_INVARIANT(mapping->reactProdAtomMap.find(*nbrIdx) !=
+            CHECK_INVARIANT(mapping->reactProdAtomMap.find(nbrIdx) !=
                                 mapping->reactProdAtomMap.end(),
                             "reactant atom not present in product.");
-            const Bond *origB =
-                reactant.getBondBetweenAtoms(lreactIdx, *nbrIdx);
+            const Bond *origB = lReactantAtom->getBondTo(neighbor);
             addMissingProductBonds(*origB, product, mapping);
           } else {
             // both mapped atoms are in the match.
@@ -1010,7 +1002,7 @@ void addReactantNeighborsToProduct(
             //
             // this was github #1387
             unsigned prodBeginIdx = mapping->reactProdAtomMap[lreactIdx][0];
-            unsigned prodEndIdx = mapping->reactProdAtomMap[*nbrIdx][0];
+            unsigned prodEndIdx = mapping->reactProdAtomMap[nbrIdx][0];
             if (!product->getBondBetweenAtoms(prodBeginIdx, prodEndIdx)) {
               // They must be mapped
               CHECK_INVARIANT(
@@ -1031,22 +1023,20 @@ void addReactantNeighborsToProduct(
               if (mapping->reactantTemplateAtomBonds.find(
                       std::make_pair(a1mapidx, a2mapidx)) ==
                   mapping->reactantTemplateAtomBonds.end()) {
-                const Bond *origB =
-                    reactant.getBondBetweenAtoms(lreactIdx, *nbrIdx);
+                const Bond *origB = lReactantAtom->getBondTo(neighbor);
                 addMissingProductBonds(*origB, product, mapping);
               }
             }
           }
-        } else if (mapping->reactProdAtomMap.find(*nbrIdx) !=
+        } else if (mapping->reactProdAtomMap.find(nbrIdx) !=
                    mapping->reactProdAtomMap.end()) {
           // case 2, the neighbor has been added and we just need to set a bond
           // to it:
-          const Bond *origB = reactant.getBondBetweenAtoms(lreactIdx, *nbrIdx);
+          const Bond *origB = lReactantAtom->getBondTo(neighbor);
           addMissingProductBonds(*origB, product, mapping);
         } else {
           // case 3, add the atom, a bond to it, and push the atom onto the
           // stack
-          const Atom *neighbor = reactant.getAtomWithIdx(*nbrIdx);
           for (unsigned int i : lReactantAtomProductIndex) {
             addMissingProductAtom(*neighbor, lreactIdx, i, product, reactant,
                                   mapping);
@@ -1059,7 +1049,6 @@ void addReactantNeighborsToProduct(
           }
         }
       }
-      nbrIdx++;
     }
   }  // end of atomStack traversal
 }
@@ -1097,8 +1086,8 @@ void checkAndCorrectChiralityOfMatchingAtomsInProduct(
       rOrder.push_back(reactant[nbri]->getIdx());
     }
     INT_LIST pOrder;
-    for (const auto &nbri :
-         boost::make_iterator_range(product->getAtomNeighbors(productAtom))) {
+    for(auto nbr: productAtom->nbrs()) {
+      const auto nbri = nbr->getIdx();
       if (mapping->prodReactAtomMap.find(nbri) ==
               mapping->prodReactAtomMap.end() ||
           !reactant.getBondBetweenAtoms(reactantAtom.getIdx(),
@@ -1632,8 +1621,8 @@ bool updateAtomsModifiedByReaction(
             // get the ordered vect of atom map numbers for the neighbors
             // of atom
             std::vector<int> aorder;
-            for (auto aidx :
-                 boost::make_iterator_range(reactant.getAtomNeighbors(atom))) {
+	    for(auto a: atom->nbrs()) {
+	      const auto aidx = a->getIdx();
               auto miter = std::find_if(
                   match.begin(), match.end(), [aidx](const auto &pr) {
                     return static_cast<unsigned int>(pr.second) == aidx;

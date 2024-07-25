@@ -125,8 +125,6 @@ void computeGasteigerCharges(const ROMol &mol, std::vector<double> &charges,
   DOUBLE_VECT energ;
   energ.resize(natms, 0.0);
 
-  //ROMol::ADJ_ITER nbrIdx, endIdx;
-
   // deal with the conjugated system - distribute the formal charges on atoms of
   // same type in each
   // conjugated system
@@ -157,7 +155,7 @@ void computeGasteigerCharges(const ROMol &mol, std::vector<double> &charges,
           // we have a sulfur atom with no hybridization information
           // check how many oxygens we have on the sulfur
           int no = 0;
-          for(auto nbr: (*ai)->nbrs()) {
+	  for(auto nbr: (*ai)->nbrs()) {
             if (nbr->getAtomicNum() == 8) {
               no++;
             }
@@ -211,9 +209,8 @@ void computeGasteigerCharges(const ROMol &mol, std::vector<double> &charges,
 
     for (aix = 0; aix < natms; aix++) {
       dq = 0.0;
-
       for(auto nbr: mol.getAtomWithIdx(aix)->nbrs()) {
-        auto nbrIdx = nbr->getIdx();
+	const auto nbrIdx = nbr->getIdx();
         dx = energ[nbrIdx] - energ[aix];
         if (dx < 0.0) {
           sgn = 0;

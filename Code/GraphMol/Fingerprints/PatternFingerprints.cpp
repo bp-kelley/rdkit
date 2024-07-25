@@ -279,14 +279,11 @@ void updatePatternFingerprint(const ROMol &mol, ExplicitBitVect &fp,
       }
       auto tautomerBitId = bitId;
       auto tautomerQuery = false;
-      ROMol::EDGE_ITER firstB, lastB;
-      boost::tie(firstB, lastB) = patt->getEdges();
 #ifdef VERBOSE_FINGERPRINTING
       std::cerr << " bs:|| ";
 #endif
-      while (!isQuery && firstB != lastB) {
-        const Bond *pbond = (*patt)[*firstB];
-        ++firstB;
+      for(auto pbond: patt->bonds()) {
+	//      while (!isQuery && firstB != lastB) {
         const Bond *mbond = mol.getBondBetweenAtoms(
             amap[pbond->getBeginAtomIdx()], amap[pbond->getEndAtomIdx()]);
         const auto bondIdx = mbond->getIdx();

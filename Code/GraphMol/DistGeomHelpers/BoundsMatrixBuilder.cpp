@@ -905,11 +905,10 @@ bool _checkMacrocycleAllInSameRingAmideEster14(const ROMol &mol, const Bond *,
 
   if (a2Num == 7 || a2Num == 8) {
     if (mol.getAtomDegree(atm2) == 3 && mol.getAtomDegree(atm3) == 3) {
-      for (auto nbrIdx :
-           boost::make_iterator_range(mol.getAtomNeighbors(atm2))) {
+      for(auto res: atm2->nbrs()) {
+	const auto nbrIdx = res->getIdx();
         if (nbrIdx != atm1->getIdx() && nbrIdx != atm3->getIdx()) {
-          const auto &res = mol.getAtomWithIdx(nbrIdx);
-          const auto &resbnd = mol.getBondBetweenAtoms(atm2->getIdx(), nbrIdx);
+          const auto &resbnd = atm2->getBondTo(res);
           if ((res->getAtomicNum() != 6 &&
                res->getAtomicNum() != 1) ||  // check is (methylated)amide
               resbnd->getBondType() != Bond::SINGLE) {
@@ -919,11 +918,10 @@ bool _checkMacrocycleAllInSameRingAmideEster14(const ROMol &mol, const Bond *,
         }
       }
 
-      for (auto nbrIdx :
-           boost::make_iterator_range(mol.getAtomNeighbors(atm3))) {
+      for(auto res: atm3->nbrs()) {
+	const auto nbrIdx = res->getIdx();	
         if (nbrIdx != atm2->getIdx() && nbrIdx != atm4->getIdx()) {
-          const auto &res = mol.getAtomWithIdx(nbrIdx);
-          const auto &resbnd = mol.getBondBetweenAtoms(atm3->getIdx(), nbrIdx);
+          const auto &resbnd = atm3->getBondTo(res);
           if (res->getAtomicNum() != 8 ||  // check for the carbonyl oxygen
               resbnd->getBondType() != Bond::DOUBLE) {
             return false;
