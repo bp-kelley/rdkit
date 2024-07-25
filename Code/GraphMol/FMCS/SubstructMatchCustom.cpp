@@ -14,7 +14,7 @@
 #include <GraphMol/RDKitQueries.h>
 #include "SubstructMatchCustom.h"
 
-#include "../Substruct/vf2.hpp"
+#include "fmcs_vf2.hpp"
 
 namespace RDKit {
 namespace FMCS {
@@ -101,7 +101,7 @@ bool SubstructMatchCustomTable(const FMCS::Graph& target, const ROMol& mol,
   if (!match) {
     match = &dummy_match;
   }
-  return boost::vf2(query, target, ac, bc, mc, *match);
+  return vf2(query, target, ac, bc, mc, *match);
 }
 
 //=========================================================================
@@ -185,7 +185,7 @@ bool SubstructMatchCustom(
   if (!match) {
     match = &dummy_match;
   }
-  return boost::vf2(query, target, atomLabeler, bondLabeler, matchChecker,
+  return vf2(query, target, atomLabeler, bondLabeler, matchChecker,
                     *match);
 }
 }  // namespace FMCS
