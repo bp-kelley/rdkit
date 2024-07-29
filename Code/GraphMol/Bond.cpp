@@ -12,6 +12,8 @@
 #include "ROMol.h"
 #include <RDGeneral/Invariant.h>
 #include "Atropisomers.h"
+#include <boost/pool/object_pool.hpp>
+#include "QueryBond.h"
 
 namespace RDKit {
 
@@ -63,6 +65,16 @@ Bond &Bond::operator=(const Bond &other) {
   d_props = other.d_props;
 
   return *this;
+}
+
+boost::object_pool<QueryBond> pb; // not thread safe?
+void * Bond::operator new (size_t size)
+{
+    return (Bond*)pb.malloc();
+}
+void Bond::operator delete (void * mem)
+{
+    pb.free((QueryBond*)mem);
 }
 
 Bond *Bond::copy() const {

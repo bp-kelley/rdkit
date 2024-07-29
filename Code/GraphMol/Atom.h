@@ -125,6 +125,9 @@ class RDKIT_GRAPHMOL_EXPORT Atom : public RDProps {
 
   virtual ~Atom();
 
+    void * operator new (size_t size);
+    void operator delete (void * mem);
+
   //! makes a copy of this Atom and returns a pointer to it.
   /*!
     <b>Note:</b> the caller is responsible for <tt>delete</tt>ing the result

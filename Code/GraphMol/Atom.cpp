@@ -20,6 +20,8 @@
 #include <RDGeneral/RDLog.h>
 #include <RDGeneral/types.h>
 #include <RDGeneral/Dict.h>
+#include <boost/pool/object_pool.hpp>
+#include "QueryAtom.h"
 
 namespace RDKit {
 
@@ -193,6 +195,16 @@ Atom::Atom(const std::string &what) : RDProps() {
   d_atomicNum = PeriodicTable::getTable()->getAtomicNumber(what);
   initAtom();
 };
+
+boost::object_pool<QueryAtom> p; // not thread safe?
+void * Atom::operator new (size_t size)
+{
+    return (Atom*)p.malloc();
+}
+void Atom::operator delete (void * mem)
+{
+    p.free((QueryAtom*)mem);
+}
 
 void Atom::initFromOther(const Atom &other) {
   RDProps::operator=(other);

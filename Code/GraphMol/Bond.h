@@ -131,6 +131,9 @@ class RDKIT_GRAPHMOL_EXPORT Bond : public RDProps {
     dp_mol = std::exchange(o.dp_mol, nullptr);
     dp_stereoAtoms = std::exchange(o.dp_stereoAtoms, nullptr);
   }
+    void * operator new (size_t size);
+    void operator delete (void * mem);
+    
   Bond &operator=(Bond &&o) noexcept {
     if (this == &o) {
       return *this;
