@@ -223,8 +223,8 @@ static void ConnectTheDots_Large(RWMol *mol, unsigned int flags) {
       for(auto nbr: atom->nbrs()) {
         RDGeom::Point3D pn = conf->getAtomPos(nbr->getIdx());
         float d = (p - pn).length();
-        auto *n_info =
-            (AtomPDBResidueInfo *)(mol->getAtomWithIdx(*nbr)->getMonomerInfo());
+        auto *n_info = (AtomPDBResidueInfo *)nbr->getMonomerInfo();
+
         if (d < best &&
             ((!atom_info || !n_info) ||
              atom_info->getResidueNumber() == n_info->getResidueNumber())) {
