@@ -2983,7 +2983,7 @@ M  END
   auto match = std::find_if(r2->atoms().begin(), r2->atoms().end(),
                             [](Atom *a) { return a->getAtomicNum() == 0; });
   auto dummy = *match;
-  int neighborIndex = *r2->getAtomNeighbors(dummy).first;
+  int neighborIndex = dummy->nbrs().front()->getIdx();
   auto conf = r2->getConformer();
   auto p1 = conf.getAtomPos(dummy->getIdx());
   auto p2 = conf.getAtomPos(neighborIndex);

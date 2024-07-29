@@ -58,24 +58,19 @@ void ROMol::destroy() {
 
 ROMol::ROMol(const std::string &pickle) : RDProps() {
   initMol();
-  numBonds = 0;
   MolPickler::molFromPickle(pickle, *this);
-    numBonds = static_cast<unsigned int>(_bonds.size());
 }
 
 ROMol::ROMol(const std::string &pickle, unsigned int propertyFlags)
     : RDProps() {
   initMol();
-  numBonds = 0;
   MolPickler::molFromPickle(pickle, *this, propertyFlags);
-        numBonds = static_cast<unsigned int>(_bonds.size());
 }
 
 void ROMol::initFromOther(const ROMol &other, bool quickCopy, int confId) {
   if (this == &other) {
     return;
   }
-  numBonds = 0;
   // std::cerr<<"    init from other: "<<this<<" "<<&other<<std::endl;
   // copy over the atoms
   for (const auto oatom : other.atoms()) {
@@ -288,7 +283,7 @@ void ROMol::clearBondBookmark(int mark, const Bond *bond) {
 unsigned int ROMol::getNumBonds(bool onlyHeavy) const {
   // By default return the bonds that connect only the heavy atoms
   // hydrogen connecting bonds are ignores
-  auto res = numBonds;
+  auto res = static_cast<unsigned int>(_bonds.size());;
   if (!onlyHeavy) {
     // If we need hydrogen connecting bonds add them up
     for (const auto atom : atoms()) {
@@ -389,6 +384,8 @@ unsigned int ROMol::addBond(Bond *bond_pin, bool takeOwnership) {
   } else {
     bond_p = bond_pin;
   }
+    const auto idx = _bonds.size();
+    bond_p->setIdx(idx);
     auto a1 = _atoms[bond_p->getBeginAtomIdx()];
     auto a2 = _atoms[bond_p->getEndAtomIdx()];
     assert(a1->getIdx() != a2->getIdx());
@@ -399,9 +396,7 @@ unsigned int ROMol::addBond(Bond *bond_pin, bool takeOwnership) {
     a2->_oatoms.push_back(a1);
     _bonds.push_back(bond_p);
   bond_p->setOwningMol(this);
-  bond_p->setIdx(numBonds);
-  numBonds++;
-  return numBonds;
+    return idx+1;
 }
 
 void ROMol::setStereoGroups(std::vector<StereoGroup> stereo_groups) {
@@ -639,9 +634,7 @@ void ROMol::load(Archive &ar, const unsigned int) {
   delete dp_ringInfo;
   initMol();
 
-  numBonds = 0;
   MolPickler::molFromPickle(pkl, *this, PicklerOps::AllProps);
-    numBonds = static_cast<unsigned int>(_bonds.size());
 }
 
 template RDKIT_GRAPHMOL_EXPORT void ROMol::save<boost::archive::text_oarchive>(

@@ -263,7 +263,6 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
       : RDProps() {
     dp_ringInfo = nullptr;
     initFromOther(other, quickCopy, confId);
-    numBonds = static_cast<unsigned int>(_bonds.size());//rdcast<unsigned int>(boost::num_edges(d_graph));
   }
   //! construct a molecule from a pickle string
   ROMol(const std::string &binStr);
@@ -279,8 +278,7 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
         d_bondBookmarks(std::move(o.d_bondBookmarks)),
         d_confs(std::move(o.d_confs)),
         d_sgroups(std::move(o.d_sgroups)),
-        d_stereo_groups(std::move(o.d_stereo_groups)),
-        numBonds(o.numBonds) {
+        d_stereo_groups(std::move(o.d_stereo_groups)) {
     for (auto atom : atoms()) {
       atom->setOwningMol(this);
     }
@@ -294,7 +292,6 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
       sg.setOwningMol(this);
     }
     //o.d_graph.clear();
-    o.numBonds = 0;
     dp_ringInfo = std::exchange(o.dp_ringInfo, nullptr);
     dp_delAtoms = std::exchange(o.dp_delAtoms, nullptr);
     dp_delBonds = std::exchange(o.dp_delBonds, nullptr);
@@ -319,8 +316,6 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
     d_stereo_groups = std::move(o.d_stereo_groups);
     dp_delAtoms = std::exchange(o.dp_delAtoms, nullptr);
     dp_delBonds = std::exchange(o.dp_delBonds, nullptr);
-    numBonds = o.numBonds;
-    o.numBonds = 0;
 
     for (auto atom : atoms()) {
       atom->setOwningMol(this);
@@ -379,17 +374,16 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
 
   //! \name Bonds
   //! @{
-
+  
   //! returns our number of Bonds
-  unsigned int getNumBonds() const {
-    return rdcast<unsigned int>(_bonds.size());
-  }
-
-  //! returns our number of Bonds
-  unsigned int getNumBonds(bool onlyHeavy) const;
+  unsigned int getNumBonds(bool onlyHeavy=true) const;
   //! returns a pointer to a particular Bond
   inline Bond *getBondWithIdx(unsigned int idx) {
-    return _bonds.at(idx);
+      try {
+          return _bonds.at(idx);
+      } catch (const std::out_of_range& e) {
+          POSTCONDITION(nullptr, "Invalid bond requested");
+      }
   }
   //! \overload
   inline const Bond *getBondWithIdx(unsigned int idx) const {
@@ -784,7 +778,6 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
   void clearSubstanceGroups() { d_sgroups.clear(); }
 
  protected:
-  unsigned int numBonds{0};
 #ifndef WIN32
  private:
 #endif

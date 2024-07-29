@@ -1253,7 +1253,8 @@ bool isAttachmentPoint(const Atom *atom, bool markedOnly) {
 }  // namespace details
 
 void expandAttachmentPoints(RWMol &mol, bool addAsQueries, bool addCoords) {
-  for (auto atom : mol.atoms()) {
+  for (auto i=0u; i<mol.getNumAtoms(); ++i) {
+    Atom* atom = mol.getAtomWithIdx(i);
     int value;
     if (atom->getPropIfPresent(common_properties::molAttachPoint, value)) {
       std::vector<int> tgtVals;

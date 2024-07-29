@@ -406,7 +406,7 @@ TEST_CASE("MDL five-rings") {
         std::get<2>(tpl) = std::get<1>(tpl);
       }
       auto fname = std::get<0>(tpl);
-      std::string pathName = getenv("RDBASE");
+      std::string pathName = std::string("/Users/brian/dvel/rdkit");
       pathName += "/Code/GraphMol/test_data/";
       std::unique_ptr<RWMol> qry(MolFileToMol(pathName + fname));
       REQUIRE(qry);

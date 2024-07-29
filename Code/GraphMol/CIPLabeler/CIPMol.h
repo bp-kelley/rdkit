@@ -79,7 +79,7 @@ class CIPMol {
 
   Atom *getAtom(int idx) const;
 
-  CXXAtomIterator<MolGraph, Atom *> atoms() const;
+  const std::vector<Atom *> &atoms() const;
 
   Bond *getBond(int idx) const;
 

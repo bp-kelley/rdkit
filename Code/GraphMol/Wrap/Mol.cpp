@@ -373,10 +373,12 @@ struct mol_wrapper {
              "  NOTE: the onlyHeavy argument is deprecated\n"
 
              )
-        .def("GetNumHeavyAtoms", &ROMol::getNumHeavyAtoms, python::args("self"),
-             "Returns the number of heavy atoms (atomic number >1) in the "
-             "molecule.\n\n")
-        .def("GetAtomWithIdx",
+
+        .def("GetNumHeavyAtoms",
+	     &ROMol::getNumHeavyAtoms,
+	     python::args("self"),
+             "Returns the number of heavy atoms (atomic number >1) in the molecule.\n\n")
+      .def("GetAtomWithIdx",
              (Atom * (ROMol::*)(unsigned int)) & ROMol::getAtomWithIdx,
              python::return_internal_reference<
                  1, python::with_custodian_and_ward_postcall<0, 1>>(),
@@ -385,7 +387,6 @@ struct mol_wrapper {
              "  ARGUMENTS:\n"
              "    - idx: which Atom to return\n\n"
              "  NOTE: atom indices start at 0\n")
-
         .def("GetNumBonds", &ROMol::getNumBonds,
              ((python::arg("self"), python::arg("onlyHeavy") = true)),
              "Returns the number of Bonds in the molecule.\n\n"

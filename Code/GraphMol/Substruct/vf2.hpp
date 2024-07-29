@@ -25,7 +25,7 @@ namespace boost {
 
 namespace detail {
 typedef std::uint32_t node_id;
-const node_id NULL_NODE = 0xFFFF;
+const node_id NULL_NODE = 0xFFFFFFFF;
 struct NodeInfo {
   node_id id;
   node_id in;
@@ -280,9 +280,9 @@ class VF2SubState {
         const auto &nbrs = g1[pair.n1]->nbrs();
         auto n1iter_beg = nbrs.begin();
         auto n1iter_end = nbrs.end();
-        while (n1iter_beg != n1iter_end && core_1[(*n1iter_beg)->getIdx()] == NULL_NODE)
-          ++n1iter_beg;
-
+          while (n1iter_beg != n1iter_end && core_1[(*n1iter_beg)->getIdx()] == NULL_NODE) {
+              ++n1iter_beg;
+          }
         assert(n1iter_beg != n1iter_end);
         const auto other = core_1[(*n1iter_beg)->getIdx()];
         const auto &nbrs2 = g2[other]->nbrs();

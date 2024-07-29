@@ -546,7 +546,7 @@ ROMol *replaceCore(const ROMol &mol, const ROMol &core,
       std::list<unsigned int> nbrList;
       for(auto nbr: sidechainAtom->nbrs()) {
           const auto nbrIdx = nbr->getIdx();
-          if (nbrIdx >= origNumAtoms) {
+          if (nbrIdx < origNumAtoms) {
               nbrList.push_back(nbrIdx);
           }              // XXX don't trust this one
       //ROMol::ADJ_ITER nbrIter, endNbrs;
@@ -608,6 +608,7 @@ ROMol *replaceCore(const ROMol &mol, const ROMol &core,
 
           newMol->addAtom(newAt, false, true);
           dummyAtomMap[newAt] = nbrIdx;
+
           keepList.push_back(newAt);
           Bond *bnd = connectingBond->copy();
           // If the connecting bond has stereo settings those cannot be

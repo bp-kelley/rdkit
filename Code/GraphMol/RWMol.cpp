@@ -130,7 +130,6 @@ void insertSubstanceGroups(RWMol &mol, const RWMol &other,
 RWMol &RWMol::operator=(const RWMol &other) {
   if (this != &other) {
     this->clear();
-    numBonds = 0;
     initFromOther(other, false, -1);
   }
   return *this;
@@ -298,8 +297,24 @@ void RWMol::replaceBond(unsigned int idx, Bond *bond_pin, bool preserveProps,
   auto *bond_p = bond_pin->copy();
   bond_p->setOwningMol(this);
   bond_p->setIdx(idx);
-  bond_p->setBeginAtomIdx(orig_p->getBeginAtomIdx());
-  bond_p->setEndAtomIdx(orig_p->getEndAtomIdx());
+    auto beginAtomIdx = orig_p->getBeginAtomIdx();
+    auto endAtomIdx = orig_p->getEndAtomIdx();
+    bond_p->setBeginAtomIdx(beginAtomIdx);
+    bond_p->setEndAtomIdx(endAtomIdx);
+    
+    
+    for(auto &bond: _atoms[beginAtomIdx]->_bonds) {
+        if(bond == orig_p) {
+            bond = bond_p;
+            break;
+        }
+    }
+    for(auto &bond: _atoms[endAtomIdx]->_bonds) {
+        if(bond == orig_p) {
+            bond = bond_p;
+            break;
+        }
+    }
 
   // Update explicit Hs, if set, on both ends. This was github #7128
   auto orderDifference =
@@ -524,8 +539,9 @@ unsigned int RWMol::addBond(unsigned int atomIdx1, unsigned int atomIdx2,
     a1->setIsAromatic(1);
     a2->setIsAromatic(1);
   }
-  ++numBonds;
-  b->setIdx(numBonds - 1);
+    const auto idx = _bonds.size();
+  b->setIdx(idx);
+    assert(atomIdx1 != atomIdx2);
   b->setBeginAtomIdx(atomIdx1);
   b->setEndAtomIdx(atomIdx2);
     a1->_bonds.push_back(b);
@@ -536,11 +552,11 @@ unsigned int RWMol::addBond(unsigned int atomIdx1, unsigned int atomIdx2,
   // if both atoms have a degree>1, reset our ring info structure,
   // because there's a non-trivial chance that it's now wrong.
   if (dp_ringInfo && dp_ringInfo->isInitialized() &&
-      a1->nbrs().size() > 1 && a2->nbrs().size() > 2) {
+      a1->nbrs().size() > 1 && a2->nbrs().size() > 1) {
     dp_ringInfo->reset();
   }
 
-  return numBonds;  // res;
+  return idx+1;  // res;
 }
 
 unsigned int RWMol::addBond(Atom *atom1, Atom *atom2, Bond::BondType bondType) {
@@ -623,7 +639,6 @@ void RWMol::removeBond(unsigned int aid1, unsigned int aid2) {
     _atoms[aid2]->removeNbr(_atoms[aid1]);
     _bonds.erase(_bonds.begin() + bnd->getIdx());
   delete bnd;
-  --numBonds;
 }
 
 Bond *RWMol::createPartialBond(unsigned int atomIdx1, Bond::BondType bondType) {
@@ -742,7 +757,6 @@ void RWMol::batchRemoveBonds() {
       beginAtm->removeNbr(endAtm);
       endAtm->removeNbr(beginAtm);_bonds.erase(_bonds.begin() + bnd->getIdx());
     delete bnd;
-    --numBonds;
   }
 
   // loop over all bonds with higher indices than the minimum modified and

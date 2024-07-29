@@ -392,7 +392,6 @@ TEST_CASE("Github #4558: GetSubstructMatches() loops at 43690 iterations",
   REQUIRE(mol);
 
   auto qry = "[H]O[H]"_smarts;
-
   SubstructMatchParameters ps;
   ps.uniquify = false;           // don't uniquify, it takes too long.
   ps.maxMatches = 3 * num_mols;  // exceed the numer of matches we expect

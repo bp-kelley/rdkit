@@ -233,7 +233,7 @@ static void ConnectTheDots_Large(RWMol *mol, unsigned int flags) {
         }
       }
       // iterate again and remove all but closest
-      for(auto nbr: atom->nbrs()) {
+      for(auto nbr: std::vector<Atom*>(atom->nbrs())) {
         const auto nbrIdx = nbr->getIdx();
         if (nbrIdx == best_idx) {
           Bond *bond = mol->getBondBetweenAtoms(i, nbrIdx);

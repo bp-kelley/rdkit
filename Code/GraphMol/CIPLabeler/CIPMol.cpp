@@ -32,7 +32,7 @@ unsigned CIPMol::getNumBonds() const { return d_mol.getNumBonds(); };
 
 Atom *CIPMol::getAtom(int idx) const { return d_mol.getAtomWithIdx(idx); };
 
-CXXAtomIterator<MolGraph, Atom *> CIPMol::atoms() const {
+const std::vector<Atom *> &CIPMol::atoms() const {
   return d_mol.atoms();
 }
 

@@ -957,6 +957,7 @@ bool _Valence7SCleanUp1(RWMol& mol, Atom* atom) {
       neighborsC = 100;
       break;
     }
+    ++nbr;
   }
   if (nid != end1 && (neighborsC == 1 || neighborsO == 3)) {
     (*nid)->getBondTo(atom)->setBondType(Bond::SINGLE);

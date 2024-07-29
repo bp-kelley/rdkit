@@ -420,7 +420,7 @@ void RCore::buildMatchingMol() {
         isDummyRGroupAttachment(*atom)) {
       // remove terminal user R groups and map the index of the core neighbor
       // atom to the index of the removed terminal R group
-      const int neighborIdx = *matchingMol->getAtomNeighbors(atom).first;
+      const int neighborIdx = atom->nbrs().front()->getIdx();
       terminalRGroupAtomToNeighbor.emplace(atom->getIdx(), neighborIdx);
       matchingMol->removeAtom(atom);
     }
@@ -505,11 +505,10 @@ std::vector<MatchVectType> RCore::matchTerminalUserRGroups(
       std::vector<int> available;
       // now look for neighbors of that target atom that are not mapped to a
       // core atom- the dummy atom can potentially be mapped to each of those
-      for (const auto &nbrIdx :
-          boost::make_iterator_range(target.getAtomNeighbors(targetAtom))) {
+      for(auto nbr: targetAtom->nbrs()) {
+	const auto nbrIdx = nbr->getIdx();
         if (!mappedTargetIdx.test(nbrIdx)) {
-          const auto targetBond =
-              target.getBondBetweenAtoms(targetIdx, nbrIdx);
+          const auto targetBond = targetAtom->getBondTo(nbr);
           // check for bond compatibility
           if (bondCompat(coreBond, targetBond, sssParams)) {
             available.push_back(nbrIdx);
@@ -661,9 +660,7 @@ std::vector<MatchVectType> RCore::matchTerminalUserRGroups(
     std::sort(missingDummies.begin(), missingDummies.end(),
               std::greater<int>());
     for (int index : missingDummies) {
-      auto [nbrIdx, endNbrs] =
-          checkCore->getAtomNeighbors(checkCore->getAtomWithIdx(index));
-      auto neighborAtom = checkCore->getAtomWithIdx(*nbrIdx);
+      auto neighborAtom = checkCore->getAtomWithIdx(index)->nbrs().front();
       checkCore->removeAtom(index);
       neighborAtom->updatePropertyCache(false);
     }
@@ -747,9 +744,8 @@ bool RCore::checkAllBondsToRGroupPresent(
     const std::vector<std::vector<int>> &targetToCoreIndices) const {
   const auto targetRGroupAtom = mol.getAtomWithIdx(targetRGroupIdx);
   std::set<int> coreNeighborIndices;
-  for (const auto &nbri :
-       boost::make_iterator_range(mol.getAtomNeighbors(targetRGroupAtom))) {
-    const auto &nbr = mol[nbri];
+  for(auto nbr: targetRGroupAtom->nbrs()) {
+    const auto nbri = nbr->getIdx();
     // could a neighbor to an r group attachment match another r group
     // attachment?  I don't think so.
     if (nbr->getAtomicNum() >= 1) {
