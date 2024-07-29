@@ -352,11 +352,13 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
   unsigned int getNumHeavyAtoms() const;
   //! returns a pointer to a particular Atom
   inline Atom *getAtomWithIdx(unsigned int idx) {
-    return _atoms.at(idx);
+    URANGE_CHECK(idx, _atoms.size());
+    return _atoms[idx];
   }
   //! \overload
   inline const Atom *getAtomWithIdx(unsigned int idx) const {
-    return _atoms.at(idx);
+    URANGE_CHECK(idx, _atoms.size());
+    return _atoms[idx];
   }
   //! \overload
   template <class U>
@@ -379,15 +381,13 @@ class RDKIT_GRAPHMOL_EXPORT ROMol : public RDProps {
   unsigned int getNumBonds(bool onlyHeavy=true) const;
   //! returns a pointer to a particular Bond
   inline Bond *getBondWithIdx(unsigned int idx) {
-      try {
-          return _bonds.at(idx);
-      } catch (const std::out_of_range& e) {
-          POSTCONDITION(nullptr, "Invalid bond requested");
-      }
+    URANGE_CHECK(idx, _bonds.size());
+    return _bonds[idx];
   }
   //! \overload
   inline const Bond *getBondWithIdx(unsigned int idx) const {
-    return _bonds.at(idx);
+    URANGE_CHECK(idx, _bonds.size());
+    return _bonds[idx];
   }
   //! \overload
   template <class U>

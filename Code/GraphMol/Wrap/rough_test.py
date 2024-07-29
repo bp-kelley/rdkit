@@ -4633,7 +4633,8 @@ $$$$
       details = str(e)
       if platform.system() == 'Windows':
         details = details.replace('\\', '/')
-      self.assertTrue("Code/GraphMol/ROMol.cpp".lower() in details.lower())
+      print(details)
+      self.assertTrue("Code/GraphMol/ROMol.h".lower() in details.lower())
       self.assertTrue("Failed Expression: 3 < 1" in details)
       self.assertTrue("RDKIT:" in details)
       self.assertTrue(__version__ in details)
