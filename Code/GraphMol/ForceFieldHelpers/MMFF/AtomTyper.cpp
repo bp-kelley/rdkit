@@ -1017,9 +1017,7 @@ void MMFFMolProperties::setMMFFHeavyAtomType(const RingMembershipSize &rmSize,
           unsigned int nO = 0;
           unsigned int nS = 0;
           unsigned int doubleBondedElement = 0;
-          boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-          for (; nbrIdx != endNbrs; ++nbrIdx) {
-            const Atom *nbrAtom = mol[*nbrIdx];
+          for(auto nbrAtom: atom->nbrs()) {
             // find if there is a double-bonded element
             if ((mol.getBondBetweenAtoms(nbrAtom->getIdx(), atom->getIdx()))
                     ->getBondType() == Bond::DOUBLE) {
@@ -1146,9 +1144,7 @@ void MMFFMolProperties::setMMFFHeavyAtomType(const RingMembershipSize &rmSize,
         // if the neighbor is phosphorus or sulfur
         // count the number of terminal oxygens bonded
         // to that phosphorus or sulfur atom
-        boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-        for (; nbrIdx != endNbrs; ++nbrIdx) {
-          const Atom *nbrAtom = mol[*nbrIdx];
+        for(auto nbrAtom: atom->nbrs()) {
           // count how many terminal oxygen atoms
           // are bonded to ipso
           if ((nbrAtom->getAtomicNum() == 8) &&
@@ -1258,9 +1254,7 @@ void MMFFMolProperties::setMMFFHeavyAtomType(const RingMembershipSize &rmSize,
             unsigned int nObondedToC = 0;
             unsigned int nSbondedToC = 0;
             // loop over neighbors
-            boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-            for (; nbrIdx != endNbrs; ++nbrIdx) {
-              const Atom *nbrAtom = mol[*nbrIdx];
+            for(auto nbrAtom: atom->nbrs()) {
               // if the neighbor is carbon
               if (nbrAtom->getAtomicNum() == 6) {
                 isNbrC = true;
@@ -1276,9 +1270,7 @@ void MMFFMolProperties::setMMFFHeavyAtomType(const RingMembershipSize &rmSize,
                 unsigned int nFormalCharge = 0;
                 unsigned int nInAromatic6Ring = 0;
                 // loop over carbon neighbors
-                boost::tie(nbr2Idx, end2Nbrs) = mol.getAtomNeighbors(nbrAtom);
-                for (; nbr2Idx != end2Nbrs; ++nbr2Idx) {
-                  const Atom *nbr2Atom = mol[*nbr2Idx];
+                for(auto nbr2Atom: nbrAtom->nbrs()) {
                   const Bond *bond = mol.getBondBetweenAtoms(
                       nbrAtom->getIdx(), nbr2Atom->getIdx());
                   // check if we have oxygen or sulfur double-bonded to this
@@ -1317,10 +1309,7 @@ void MMFFMolProperties::setMMFFHeavyAtomType(const RingMembershipSize &rmSize,
                     // count how many oxygens are bonded to this nitrogen
                     // with 3 neighbors
                     unsigned int nObondedToN3 = 0;
-                    boost::tie(nbr3Idx, end3Nbrs) =
-                        mol.getAtomNeighbors(nbr2Atom);
-                    for (; nbr3Idx != end3Nbrs; ++nbr3Idx) {
-                      const Atom *nbr3Atom = mol[*nbr3Idx];
+                    for(auto nbr3Atom: nbr2Atom->nbrs()) {
                       if (nbr3Atom->getAtomicNum() == 8) {
                         ++nObondedToN3;
                       }
@@ -1670,9 +1659,7 @@ void MMFFMolProperties::setMMFFHeavyAtomType(const RingMembershipSize &rmSize,
           }
           // count how many hydrogens are bound to ipso
           unsigned int nHbondedToO = 0;
-          boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-          for (; nbrIdx != endNbrs; ++nbrIdx) {
-            const Atom *nbrAtom = mol[*nbrIdx];
+          for(auto nbrAtom: atom->nbrs()) {
             if (nbrAtom->getAtomicNum() == 1) {
               ++nHbondedToO;
             }
@@ -1754,9 +1741,7 @@ void MMFFMolProperties::setMMFFHeavyAtomType(const RingMembershipSize &rmSize,
               // count how many terminal oxygen/sulfur atoms
               // or secondary nitrogens
               // are bonded to the carbon or nitrogen neighbor of ipso
-              boost::tie(nbr2Idx, end2Nbrs) = mol.getAtomNeighbors(nbrAtom);
-              for (; nbr2Idx != end2Nbrs; ++nbr2Idx) {
-                const Atom *nbr2Atom = mol[*nbr2Idx];
+              for(auto nbr2Atom: nbrAtom->nbrs()) {
                 if ((nbr2Atom->getAtomicNum() == 7) &&
                     (nbr2Atom->getTotalDegree() == 2)) {
                   ++nNbondedToCorNorS;
@@ -2251,17 +2236,9 @@ void MMFFMolProperties::setMMFFHydrogenType(const Atom *atom) {
   bool isHOP = false;
   bool isHOS = false;
   const ROMol &mol = atom->getOwningMol();
-  ROMol::ADJ_ITER nbrIdx;
-  ROMol::ADJ_ITER endNbrs;
-  ROMol::ADJ_ITER nbr2Idx;
-  ROMol::ADJ_ITER end2Nbrs;
-  ROMol::ADJ_ITER nbr3Idx;
-  ROMol::ADJ_ITER end3Nbrs;
 
   // loop over neighbors (actually there can be only one)
-  boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-  for (; nbrIdx != endNbrs; ++nbrIdx) {
-    const Atom *nbrAtom = mol[*nbrIdx];
+  for(auto nbrAtom: atom->nbrs()) {
     switch (nbrAtom->getAtomicNum()) {
       // carbon, silicon
       case 6:
@@ -2377,15 +2354,11 @@ void MMFFMolProperties::setMMFFHydrogenType(const Atom *atom) {
             // partner is bonded to sulfur. If none of these is found
             // it is either an alcohol or a generic hydroxyl hydrogen
             // loop over oxygen neighbors
-            boost::tie(nbr2Idx, end2Nbrs) = mol.getAtomNeighbors(nbrAtom);
-            for (; nbr2Idx != end2Nbrs; ++nbr2Idx) {
-              const Atom *nbr2Atom = mol[*nbr2Idx];
+            for(auto nbr2Atom: nbrAtom->nbrs()) {
               // if the neighbor of oxygen is carbon, loop over the carbon
               // neighbors
               if (nbr2Atom->getAtomicNum() == 6) {
-                boost::tie(nbr3Idx, end3Nbrs) = mol.getAtomNeighbors(nbr2Atom);
-                for (; nbr3Idx != end3Nbrs; ++nbr3Idx) {
-                  const Atom *nbr3Atom = mol[*nbr3Idx];
+                for(auto nbr3Atom: nbr2Atom->nbrs()) {
                   const Bond *bond = mol.getBondBetweenAtoms(
                       nbr2Atom->getIdx(), nbr3Atom->getIdx());
                   // if the starting oxygen is met, move on
@@ -3248,10 +3221,6 @@ void MMFFMolProperties::computeMMFFCharges(const ROMol &mol) {
   double fChg = 0.0;
   boost::dynamic_bitset<> conjNBitVect(mol.getNumAtoms());
   VECT_INT_VECT atomRings = mol.getRingInfo()->atomRings();
-  ROMol::ADJ_ITER nbrIdx;
-  ROMol::ADJ_ITER endNbrs;
-  ROMol::ADJ_ITER nbr2Idx;
-  ROMol::ADJ_ITER end2Nbrs;
   const MMFFPropCollection *mmffProp = DefaultParameters::getMMFFProp();
   const MMFFPBCICollection *mmffPBCI = DefaultParameters::getMMFFPBCI();
   const MMFFChgCollection *mmffChg = DefaultParameters::getMMFFChg();
@@ -3270,9 +3239,7 @@ void MMFFMolProperties::computeMMFFCharges(const ROMol &mol) {
         // SM
         // Anionic terminal sulfur
         // loop over neighbors
-        boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-        for (; nbrIdx != endNbrs; ++nbrIdx) {
-          const Atom *nbrAtom = mol[*nbrIdx];
+        for(auto nbrAtom: atom->nbrs()) {
           nbrAtomType = this->getMMFFAtomType(nbrAtom->getIdx());
           // loop over neighbors of the neighbor
           // count how many terminal oxygen/sulfur atoms
@@ -3280,9 +3247,7 @@ void MMFFMolProperties::computeMMFFCharges(const ROMol &mol) {
           // are bonded to the neighbor of ipso
           int nSecNbondedToNbr = 0;
           int nTermOSbondedToNbr = 0;
-          boost::tie(nbr2Idx, end2Nbrs) = mol.getAtomNeighbors(nbrAtom);
-          for (; nbr2Idx != end2Nbrs; ++nbr2Idx) {
-            const Atom *nbr2Atom = mol[*nbr2Idx];
+          for(auto nbr2Atom: nbrAtom->nbrs()) {
             // if it's nitrogen with 2 neighbors and it is not aromatic,
             // increment the counter of secondary nitrogens
             if ((nbr2Atom->getAtomicNum() == 7) &&
@@ -3446,10 +3411,7 @@ void MMFFMolProperties::computeMMFFCharges(const ROMol &mol) {
               continue;
             }
             // loop over neighbors
-            boost::tie(nbrIdx, endNbrs) =
-                mol.getAtomNeighbors(mol.getAtomWithIdx(i));
-            for (; nbrIdx != endNbrs; ++nbrIdx) {
-              const Atom *nbrAtom = mol[*nbrIdx];
+            for(auto nbrAtom: mol.getAtomWithIdx(i)->nbrs()) {
               nbrAtomType = this->getMMFFAtomType(nbrAtom->getIdx());
               // if atom type is not 80 or 57, move on
               if ((nbrAtomType != 57) && (nbrAtomType != 80)) {
@@ -3459,9 +3421,7 @@ void MMFFMolProperties::computeMMFFCharges(const ROMol &mol) {
               // if they are nitrogens of type 81, 55 or 56 and
               // they are not not marked as conjugated yet, do it
               // and increment the nConj counter by 1
-              boost::tie(nbr2Idx, end2Nbrs) = mol.getAtomNeighbors(nbrAtom);
-              for (; nbr2Idx != end2Nbrs; ++nbr2Idx) {
-                const Atom *nbr2Atom = mol[*nbr2Idx];
+              for(auto nbr2Atom: nbrAtom->nbrs()) {
                 // if atom type is not 81, 55 or 56, move on
                 nbrAtomType = this->getMMFFAtomType(nbr2Atom->getIdx());
                 if ((nbrAtomType != 55) && (nbrAtomType != 56) &&
@@ -3488,9 +3448,7 @@ void MMFFMolProperties::computeMMFFCharges(const ROMol &mol) {
 
       case 61:
         // loop over neighbors
-        boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-        for (; nbrIdx != endNbrs; ++nbrIdx) {
-          const Atom *nbrAtom = mol[*nbrIdx];
+        for(auto nbrAtom: atom->nbrs()) {
           // if it is diazonium, set a +1 formal charge on
           // the secondary nitrogen
           if (this->getMMFFAtomType(nbrAtom->getIdx()) == 42) {
@@ -3601,9 +3559,7 @@ void MMFFMolProperties::computeMMFFCharges(const ROMol &mol) {
 
     if (isDoubleZero(v)) {
       // loop over neighbors
-      boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-      for (; nbrIdx != endNbrs; ++nbrIdx) {
-        const Atom *nbrAtom = mol[*nbrIdx];
+      for(auto nbrAtom : atom->nbrs()) {
         nbrFormalCharge = this->getMMFFFormalCharge(nbrAtom->getIdx());
         // if neighbors have a negative formal charge, the latter
         // influences the charge on ipso
@@ -3615,9 +3571,7 @@ void MMFFMolProperties::computeMMFFCharges(const ROMol &mol) {
     // there is a special case for anionic divalent nitrogen
     // with positively charged neighbor
     if (atomType == 62) {
-      boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-      for (; nbrIdx != endNbrs; ++nbrIdx) {
-        const Atom *nbrAtom = mol[*nbrIdx];
+      for(auto nbrAtom: atom->nbrs()) {
         nbrFormalCharge = this->getMMFFFormalCharge(nbrAtom->getIdx());
         if (nbrFormalCharge > 0.0) {
           q0 -= (nbrFormalCharge / 2.0);
@@ -3625,9 +3579,7 @@ void MMFFMolProperties::computeMMFFCharges(const ROMol &mol) {
       }
     }
     // loop over neighbors
-    boost::tie(nbrIdx, endNbrs) = mol.getAtomNeighbors(atom);
-    for (; nbrIdx != endNbrs; ++nbrIdx) {
-      const Atom *nbrAtom = mol[*nbrIdx];
+    for(auto nbrAtom: atom->nbrs()) {
       const Bond *bond =
           mol.getBondBetweenAtoms(atom->getIdx(), nbrAtom->getIdx());
       // we need to determine the sign of bond charge

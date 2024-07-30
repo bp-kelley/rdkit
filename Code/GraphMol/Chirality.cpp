@@ -2051,10 +2051,7 @@ bool hasStereoBondDir(const Bond *bond) {
 
 const Bond *getNeighboringDirectedBond(const ROMol &mol, const Atom *atom) {
   PRECONDITION(atom, "no atom");
-  for (const auto &bondIdx :
-       boost::make_iterator_range(mol.getAtomBonds(atom))) {
-    const Bond *bond = mol[bondIdx];
-
+  for(auto bond: atom->bonds()) {
     if (bond->getBondType() != Bond::BondType::DOUBLE &&
         hasStereoBondDir(bond)) {
       return bond;
@@ -2799,11 +2796,9 @@ void findPotentialStereoBonds(ROMol &mol, bool cleanIt) {
     bool cipDone = false;
 
     ROMol::BondIterator bondIt;
-    for (bondIt = mol.beginBonds(); bondIt != mol.endBonds(); ++bondIt) {
-      if ((*bondIt)->getBondType() == Bond::DOUBLE &&
-          !(mol.getRingInfo()->numBondRings((*bondIt)->getIdx()))) {
-        // we are ignoring ring bonds here - read the FIX above
-        Bond *dblBond = *bondIt;
+    for(auto dblBond: mol.bonds()) {
+      if (dblBond->getBondType() == Bond::DOUBLE &&
+          !(mol.getRingInfo()->numBondRings(dblBond->getIdx()))) {
         // proceed only if we either want to clean the stereocode on this bond,
         // if none is set on it yet, or it is STEREOANY and we need to find
         // stereoatoms

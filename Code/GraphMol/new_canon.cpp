@@ -372,7 +372,7 @@ void rankWithFunctor(T &ftor, bool breakTies, int *order, bool useSpecial,
 namespace {
 bool hasRingNbr(const ROMol &mol, const Atom *at) {
   PRECONDITION(at, "bad pointer");
-  for (const auto nbr : mol.atomNeighbors(at)) {
+  for(const auto nbr: at->nbrs()) {
     if ((nbr->getChiralTag() == Atom::CHI_TETRAHEDRAL_CW ||
          nbr->getChiralTag() == Atom::CHI_TETRAHEDRAL_CCW) &&
         nbr->hasProp(common_properties::_ringStereoAtoms)) {
@@ -469,11 +469,7 @@ void getBonds(const ROMol &mol, const Atom *at, std::vector<bondholder> &nbrs,
               bool includeChirality,
               const std::vector<Canon::canon_atom> &atoms) {
   PRECONDITION(at, "bad pointer");
-  ROMol::OEDGE_ITER beg, end;
-  boost::tie(beg, end) = mol.getAtomBonds(at);
-  while (beg != end) {
-    const Bond *bond = (mol)[*beg];
-    ++beg;
+  for(auto bond: at->bonds()) {
     nbrs.push_back(makeBondHolder(bond, bond->getOtherAtomIdx(at->getIdx()),
                                   includeChirality, atoms));
   }

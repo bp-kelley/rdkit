@@ -289,10 +289,6 @@ void RWMol::replaceBond(unsigned int idx, Bond *bond_pin, bool preserveProps,
                         bool keepSGroups) {
   PRECONDITION(bond_pin, "bad bond passed to replaceBond");
   URANGE_CHECK(idx, getNumBonds());
-  auto bIter = getEdges();
-  for (unsigned int i = 0; i < idx; i++) {
-    ++bIter.first;
-  }
     const auto *orig_p = _bonds[idx];
   auto *bond_p = bond_pin->copy();
   bond_p->setOwningMol(this);
@@ -812,11 +808,8 @@ void RWMol::batchRemoveAtoms() {
     //   their end indices may need to be decremented and their
     //   indices will need to be handled and if they have an
     //   ENDPTS prop that includes idx, it will need updating.
-    EDGE_ITER beg, end;
-    boost::tie(beg, end) = getEdges();
     std::string sprop;
-    while (beg != end) {
-      Bond *bond = (*beg++);
+    for(auto bond: bonds()) {
       if (bond->getPropIfPresent(RDKit::common_properties::_MolFileBondEndPts,
                                  sprop)) {
         // This would ideally use ParseV3000Array but I'm buggered if I can get

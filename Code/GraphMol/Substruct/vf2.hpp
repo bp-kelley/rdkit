@@ -173,18 +173,12 @@ class VF2SubState {
 
     core_1 = new node_id[n1];
     core_2 = new node_id[n2];
-    term_1 = new node_id[n1];
-    term_2 = new node_id[n2];
+            memset((void*)core_1,0xFF,n1*sizeof(node_id));
+            memset((void*)core_2,0xFF,n2*sizeof(node_id));
+    term_1 = new node_id[n1]();
+    term_2 = new node_id[n2]();
     share_count = new long;
 
-    for (unsigned int i = 0; i < n1; i++) {
-      core_1[i] = NULL_NODE;
-      term_1[i] = 0;
-    }
-    for (unsigned int i = 0; i < n2; i++) {
-      core_2[i] = NULL_NODE;
-      term_2[i] = 0;
-    }
     vs_compared = nullptr;
     // vs_compared = new int[n1*n2];
     // memset((void *)vs_compared,0,n1*n2*sizeof(int));

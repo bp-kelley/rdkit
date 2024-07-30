@@ -588,9 +588,7 @@ bool adjustStereoAtomsIfRequired(RWMol &mol, const Atom *atom,
   if (!cbnd) {
     return false;
   }
-  for (const auto &nbri :
-       boost::make_iterator_range(mol.getAtomBonds(heavyAtom))) {
-    Bond *bnd = mol[nbri];
+  for(auto bnd: heavyAtom->bonds()) {
     if (bnd->getBondType() == Bond::DOUBLE &&
         bnd->getStereo() > Bond::STEREOANY) {
       auto sAtomIt = std::find(bnd->getStereoAtoms().begin(),
@@ -709,9 +707,7 @@ void molRemoveH(RWMol &mol, unsigned int idx, bool updateExplicitCount) {
       // bond stereochemistry possibly being lost. This was github #754
       bool foundADir = false;
       Bond *oBond = nullptr;
-      for (const auto &nbri :
-           boost::make_iterator_range(mol.getAtomBonds(heavyAtom))) {
-        Bond *nbnd = mol[nbri];
+      for(auto nbnd: heavyAtom->bonds()) {
         if (nbnd->getIdx() != bond->getIdx() &&
             nbnd->getBondType() == Bond::SINGLE) {
           if (nbnd->getBondDir() == Bond::NONE) {

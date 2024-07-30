@@ -38,10 +38,7 @@ void getNbrsList(const ROMol &mol, bool useHs, INT_INT_VECT_MAP &nbrs) {
     // them
     // move on
     if (useHs || atom->getAtomicNum() != 1) {
-      ROMol::OEDGE_ITER bIt1, end;
-      boost::tie(bIt1, end) = mol.getAtomBonds(atom);
-      while (bIt1 != end) {
-        const Bond *bond1 = mol[*bIt1];
+      for(auto bond1: atom->bonds()) {
         // if this bond connect to a hydrogen and we are not interested
         // in it ignore
         if (useHs || bond1->getOtherAtom(atom)->getAtomicNum() != 1) {
@@ -50,19 +47,15 @@ void getNbrsList(const ROMol &mol, bool useHs, INT_INT_VECT_MAP &nbrs) {
             INT_VECT nlst;
             nbrs[bid1] = nlst;
           }
-          ROMol::OEDGE_ITER bIt2 = mol.getAtomBonds(atom).first;
-          while (bIt2 != end) {
-            const Bond *bond2 = mol[*bIt2];
+          for(auto bond2: atom->bonds()) {
             int bid2 = bond2->getIdx();
             if (bid1 != bid2 &&
                 (useHs || bond2->getOtherAtom(atom)->getAtomicNum() != 1)) {
               nbrs[bid1].push_back(bid2);  // FIX: pathListType should probably
                                            // be container of pointers ??
             }
-            ++bIt2;
           }
         }
-        ++bIt1;
       }
     }
   }
@@ -464,10 +457,9 @@ findAllPathsOfLengthsMtoN(const ROMol &mol, unsigned int lowerLen,
 
   if (!distMat) {
     // generate the adjacency matrix by hand by looping over the bonds
-    ROMol::ConstBondIterator bondIt;
-    for (bondIt = mol.beginBonds(); bondIt != mol.endBonds(); bondIt++) {
-      Atom *beg = (*bondIt)->getBeginAtom();
-      Atom *end = (*bondIt)->getEndAtom();
+    for(auto bond: mol.bonds()) {
+      Atom *beg = bond->getBeginAtom();
+      Atom *end = bond->getEndAtom();
       // check for H, which we might be skipping
       if (useHs || (beg->getAtomicNum() != 1 && end->getAtomicNum() != 1)) {
         adjMat[beg->getIdx() * dim + end->getIdx()] = 1;
@@ -574,15 +566,11 @@ PATH_TYPE findAtomEnvironmentOfRadiusN(
   }  // Return empty path if radius=0
 
   std::list<std::pair<int, int>> nbrStack;
-  ROMol::OEDGE_ITER beg, end;
-  boost::tie(beg, end) = mol.getAtomBonds(mol.getAtomWithIdx(rootedAtAtom));
-  while (beg != end) {
-    const Bond *bond = mol[*beg];
+  for(auto bond: mol.getAtomWithIdx(rootedAtAtom)->bonds()) {
     if (useHs || mol.getAtomWithIdx(bond->getOtherAtomIdx(rootedAtAtom))
                          ->getAtomicNum() != 1) {
       nbrStack.emplace_back(rootedAtAtom, bond->getIdx());
     }
-    ++beg;
   }
   boost::dynamic_bitset<> bondsIn(mol.getNumBonds());
   unsigned int i;

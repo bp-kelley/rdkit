@@ -47,14 +47,12 @@ void markConjAtomBonds(Atom *at) {
     return;
   }
 
-  for (const auto &nbri : boost::make_iterator_range(mol.getAtomBonds(at))) {
-    auto bnd1 = mol[nbri];
+  for(auto bnd1: at->bonds()) {
     if (bnd1->getValenceContrib(at) < 1.5) {
       continue;
     }
 
-    for (const auto &nbrj : boost::make_iterator_range(mol.getAtomBonds(at))) {
-      auto bnd2 = mol[nbrj];
+   for(auto bnd2: at->bonds()) {
       if (bnd1 == bnd2) {
         continue;
       }
@@ -108,9 +106,7 @@ namespace MolOps {
 bool atomHasConjugatedBond(const Atom *at) {
   PRECONDITION(at, "bad atom");
 
-  auto &mol = at->getOwningMol();
-  for (const auto &nbri : boost::make_iterator_range(mol.getAtomBonds(at))) {
-    auto bnd = mol[nbri];
+  for(auto bnd: at->bonds()) {
     if (bnd->getIsConjugated()) {
       return true;
     }

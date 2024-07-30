@@ -203,9 +203,7 @@ int RGroupDecomposition::getMatchingCoreInternal(
           // nope... if any neighbor is not part of the substructure
           // check if it is a hydrogen; otherwise, if onlyMatchAtRGroups
           // is true, skip the match
-          for (const auto &nbri :
-               boost::make_iterator_range(mol.getAtomNeighbors(atm))) {
-            const auto &nbr = mol[nbri];
+          for(auto nbr: atm->nbrs()) {
             if (nbr->getAtomicNum() != 1 &&
                 targetToCoreIndices.at(nbr->getIdx()).empty()) {
               if (data->params.onlyMatchAtRGroups) {
@@ -370,9 +368,7 @@ int RGroupDecomposition::add(const ROMol &inmol) {
 
               data->labels.insert(rlabel);  // keep track of all labels used
               rlabelsOnSideChain.push_back(rlabel);
-              if (const auto [bondIdx, end] = newMol->getAtomBonds(sideChainAtom);
-                  bondIdx != end) {
-                auto connectingBond = (*newMol)[*bondIdx];
+              for(auto connectingBond: sideChainAtom->bonds()) {
                 if (connectingBond->getStereo() >
                     Bond::BondStereo::STEREOANY) {
                   // TODO: how to handle bond stereo on rgroups connected to
@@ -527,12 +523,7 @@ RWMOL_SPTR RGroupDecomposition::outputCoreMolecule(
     auto label = data->getRlabel(atom);
     // Always convert to hydrogen - then remove later if
     // removeHydrogensPostMatch is set
-    Atom *nbrAtom = nullptr;
-    for (const auto &nbri :
-         boost::make_iterator_range(coreWithMatches->getAtomNeighbors(atom))) {
-      nbrAtom = (*coreWithMatches)[nbri];
-      break;
-    }
+    Atom *nbrAtom = atom->nbrs().size() ? atom->nbrs().front() : nullptr;
     if (nbrAtom) {
       const bool isUserDefinedLabel =
           usedLabelMap.has(label) && usedLabelMap.isUserDefined(label);

@@ -399,11 +399,8 @@ void assignRadicals(RWMol &mol) {
         PeriodicTable::getTable()->getNouterElecs(atom->getAtomicNum());
         if (valens.size() != 1 || valens[0] != -1) {
             double accum = 0.0;
-            RWMol::OEDGE_ITER beg, end;
-            boost::tie(beg, end) = mol.getAtomBonds(atom);
-            while (beg != end) {
-                accum += mol[*beg]->getValenceContrib(atom);
-                ++beg;
+            for(auto bond: atom->bonds()) {
+                accum += bond->getValenceContrib(atom);
             }
             accum += atom->getNumExplicitHs();
             int totalValence = static_cast<int>(accum + 0.1);

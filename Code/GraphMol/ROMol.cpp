@@ -316,8 +316,7 @@ ROMol::ADJ_ITER_PAIR ROMol::getAtomNeighbors(Atom const *at) const {
     return std::make_pair(begin, end);
 };
 
-ROMol::OBOND_ITER_PAIR ROMol::getAtomBonds(Atom const *at) const {
-  PRECONDITION(at, "no atom");
+ROMol::OBOND_ITER_PAIR ROMol::getAtomBonds(Atom const *at) const {  PRECONDITION(at, "no atom");
   PRECONDITION(&at->getOwningMol() == this,
                "atom not associated with this molecule");
     return std::make_pair(at->bonds().begin(), at->bonds().end());

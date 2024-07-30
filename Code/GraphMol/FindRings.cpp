@@ -102,11 +102,7 @@ void markUselessD2s(unsigned int root, const ROMol &tMol,
                     const boost::dynamic_bitset<> &activeBonds) {
   // recursive function to mark any degree 2 nodes that are already represented
   // by root for the purpose of finding smallest rings.
-  ROMol::OEDGE_ITER beg, end;
-  boost::tie(beg, end) = tMol.getAtomBonds(tMol.getAtomWithIdx(root));
-  while (beg != end) {
-    const Bond *bond = tMol[*beg];
-    ++beg;
+  for(auto bond: tMol.getAtomWithIdx(root)->bonds()) {
     if (!activeBonds[bond->getIdx()]) {
       continue;
     }
@@ -604,11 +600,7 @@ int greatestComFac(long curfac, long nfac) {
  ******************************************************************************/
 void trimBonds(unsigned int cand, const ROMol &tMol, INT_SET &changed,
                INT_VECT &atomDegrees, boost::dynamic_bitset<> &activeBonds) {
-  ROMol::OEDGE_ITER beg, end;
-  boost::tie(beg, end) = tMol.getAtomBonds(tMol.getAtomWithIdx(cand));
-  while (beg != end) {
-    const Bond *bond = tMol[*beg];
-    ++beg;
+  for(auto bond: tMol.getAtomWithIdx(cand)->bonds()) {
     if (!activeBonds[bond->getIdx()]) {
       continue;
     }
@@ -688,11 +680,7 @@ int BFSWorkspace::smallestRingsBfs(const ROMol &mol, int root,
       break;
     }
 
-    ROMol::OEDGE_ITER beg, end;
-    boost::tie(beg, end) = mol.getAtomBonds(mol.getAtomWithIdx(curr));
-    while (beg != end) {
-      const Bond *bond = mol[*beg];
-      ++beg;
+    for(auto bond: mol.getAtomWithIdx(curr)->bonds()) {
       if (!activeBonds[bond->getIdx()]) {
         continue;
       }
@@ -870,15 +858,11 @@ int findSSSR(const ROMol &mol, VECT_INT_VECT &res, bool includeDativeBonds) {
 
   // Zero-order bonds are not candidates for rings, and dative bonds may also be
   // out
-  ROMol::CONST_EDGE_ITER firstB, lastB;
-  boost::tie(firstB, lastB) = mol.getEdges();
-  while (firstB != lastB) {
-    const Bond *bond = mol[*firstB];
+  for(auto bond: mol.bonds()) {
     if (bond->getBondType() == Bond::ZERO ||
         (!includeDativeBonds && isDative(*bond))) {
       activeBonds[bond->getIdx()] = 0;
     }
-    ++firstB;
   }
 
   boost::dynamic_bitset<> ringBonds(nbnds);

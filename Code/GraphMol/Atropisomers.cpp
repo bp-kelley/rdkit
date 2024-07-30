@@ -490,8 +490,7 @@ void cleanupAtropisomerStereoGroups(ROMol &mol) {
 
     for (auto atom : sg.getAtoms()) {
       bool foundAtrop = false;
-      for (auto bndI : boost::make_iterator_range(mol.getAtomBonds(atom))) {
-        auto bond = (mol)[bndI];
+      for(auto bond: atom->bonds()) {
         if (bond->getStereo() == Bond::BondStereo::STEREOATROPCCW ||
             bond->getStereo() == Bond::BondStereo::STEREOATROPCW) {
           foundAtrop = true;

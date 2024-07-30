@@ -53,10 +53,9 @@ void addBonds(const ROMol &mol, MMFFMolProperties *mmffMolProperties,
               << std::endl;
     }
   }
-  for (ROMol::ConstBondIterator bi = mol.beginBonds(); bi != mol.endBonds();
-       ++bi) {
-    unsigned int idx1 = (*bi)->getBeginAtomIdx();
-    unsigned int idx2 = (*bi)->getEndAtomIdx();
+  for(auto bond: mol.bonds()) {
+    unsigned int idx1 = bond->getBeginAtomIdx();
+    unsigned int idx2 = bond->getEndAtomIdx();
     unsigned int bondType;
     MMFFBond mmffBondParams;
     if (mmffMolProperties->getMMFFBondStretchParams(mol, idx1, idx2, bondType,
@@ -67,8 +66,8 @@ void addBonds(const ROMol &mol, MMFFMolProperties *mmffMolProperties,
       if (mmffMolProperties->getMMFFVerbosity()) {
         unsigned int iAtomType = mmffMolProperties->getMMFFAtomType(idx1);
         unsigned int jAtomType = mmffMolProperties->getMMFFAtomType(idx2);
-        const Atom *iAtom = (*bi)->getBeginAtom();
-        const Atom *jAtom = (*bi)->getEndAtom();
+        const Atom *iAtom = bond->getBeginAtom();
+        const Atom *jAtom = bond->getEndAtom();
         const double dist = field->distance(idx1, idx2);
         const double bondStretchEnergy = MMFF::Utils::calcBondStretchEnergy(
             mmffBondParams.r0, mmffBondParams.kb, dist);
@@ -674,16 +673,10 @@ void addTorsions(const ROMol &mol, MMFFMolProperties *mmffMolProperties,
          (jAtom->getHybridization() == Atom::SP3)) &&
         ((kAtom->getHybridization() == Atom::SP2) ||
          (kAtom->getHybridization() == Atom::SP3))) {
-      ROMol::OEDGE_ITER beg1, end1;
-      boost::tie(beg1, end1) = mol.getAtomBonds(jAtom);
-      while (beg1 != end1) {
-        const Bond *tBond1 = mol[*beg1];
+      for(auto tBond1: jAtom->bonds()) {
         if (tBond1 != bond) {
           int idx1 = tBond1->getOtherAtomIdx(idx2);
-          ROMol::OEDGE_ITER beg2, end2;
-          boost::tie(beg2, end2) = mol.getAtomBonds(kAtom);
-          while (beg2 != end2) {
-            const Bond *tBond2 = mol[*beg2];
+          for(auto tBond2: kAtom->bonds()) {
             if ((tBond2 != bond) && (tBond2 != tBond1)) {
               int idx4 = tBond2->getOtherAtomIdx(idx3);
               // make sure this isn't a three-membered ring:
@@ -749,10 +742,8 @@ void addTorsions(const ROMol &mol, MMFFMolProperties *mmffMolProperties,
                 }
               }
             }
-            beg2++;
           }
         }
-        beg1++;
       }
     }
   }
