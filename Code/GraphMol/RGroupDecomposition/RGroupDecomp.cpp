@@ -71,6 +71,10 @@ void ADD_MATCH(R_DECOMP &match, int rlabel) {
 }
 }  // namespace
 
+RGroupDecomposition::RGroupDecomposition() :
+  data(new RGroupDecompData(ROMol(), RGroupDecompositionParameters())) {
+}
+
 RGroupDecomposition::RGroupDecomposition(
     const ROMol &inputCore, const RGroupDecompositionParameters &params)
     : data(new RGroupDecompData(inputCore, params)) {}

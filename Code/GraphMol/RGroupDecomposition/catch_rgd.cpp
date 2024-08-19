@@ -35,11 +35,42 @@ void initDataset(T &suppl, ROMOL_SPTR &core, std::vector<ROMOL_SPTR> &mols) {
   }
 }
 
+
 std::string flatten_whitespace(const std::string &txt) {
   auto res = txt;
   boost::algorithm::trim_fill_if(res, "", boost::is_any_of(" \t\r\n"));
   return res;
 }
+
+template<typename MOLS>
+void serialization_check(RGroupDecomposition &decomp, MOLS &mols) {
+#ifdef RDK_USE_BOOST_SERIALIZATION
+  for (size_t i = 0; i < mols.size(); ++i) {
+    decomp.add(*mols[i].get());
+  }
+  decomp.process();
+
+  auto rows = decomp.getRGroupsAsRows();
+  auto cols = decomp.getRGroupsAsColumns();
+  std::stringstream ss;
+  decomp.toStream(ss);
+  RGroupDecomposition unserialized;
+  unserialized.initFromStream(ss);
+  auto rows2 = unserialized.getRGroupsAsRows();
+  auto cols2 = unserialized.getRGroupsAsColumns();
+  CHECK(flatten_whitespace(toJSON(rows)) == flatten_whitespace(toJSON(rows2)));
+  CHECK(flatten_whitespace(toJSON(cols)) == flatten_whitespace(toJSON(cols2)));
+
+  CHECK(decomp.params().removeAllHydrogenRGroups == unserialized.params().removeAllHydrogenRGroups);
+  CHECK(decomp.params().chunkSize == unserialized.params().chunkSize);
+  CHECK(decomp.params().allowNonTerminalRGroups == unserialized.params().allowNonTerminalRGroups);
+  CHECK(decomp.params().allowMultipleRGroupsOnUnlabelled == unserialized.params().allowMultipleRGroupsOnUnlabelled);
+  CHECK(decomp.params().removeHydrogensPostMatch == unserialized.params().removeHydrogensPostMatch);
+  CHECK(decomp.params().labels == unserialized.params().labels);
+  CHECK(decomp.params().rgroupLabelling == unserialized.params().rgroupLabelling);
+#endif
+}
+
 
 std::string readReferenceData(const std::string &fname) {
   std::ifstream ins(fname);
@@ -83,6 +114,12 @@ TEST_CASE("toJSONTests", "[unittests]") {
     }
 ])JSON";
     CHECK(flatten_whitespace(toJSON(rows)) == flatten_whitespace(expected));
+    
+    {
+      // Check Serialization
+      RGroupDecomposition decomp(cores);
+      serialization_check(decomp, mols);
+    }
   }
   SECTION("columns") {
     RGroupColumns cols;
@@ -108,6 +145,11 @@ TEST_CASE("toJSONTests", "[unittests]") {
 ]
 )JSON";
     CHECK(flatten_whitespace(toJSON(cols)) == flatten_whitespace(expected));
+    {
+      // Check Serialization
+      RGroupDecomposition decomp(cores);
+      serialization_check(decomp, mols);
+    }
   }
 }
 TEST_CASE("simple1") {
@@ -138,7 +180,12 @@ TEST_CASE("simple1") {
     CHECK(flatten_whitespace(toJSON(rows)) ==
           flatten_whitespace(
               readReferenceData(testDataDir + "simple1.out2.json")));
-  }
+      {
+        // Check Serialization
+        RGroupDecomposition decomp(cores, ps);
+        serialization_check(decomp, mols);
+      }
+    }
 }
 
 TEST_CASE("simple2 with specified R groups") {
@@ -158,6 +205,11 @@ TEST_CASE("simple2 with specified R groups") {
     CHECK(flatten_whitespace(toJSON(rows)) ==
           flatten_whitespace(
               readReferenceData(testDataDir + "simple2.out1.json")));
+    {
+      // Check Serialization
+      RGroupDecomposition decomp(cores);
+      serialization_check(decomp, mols);
+    }
   }
   SECTION("only match at r groups") {
     RGroupRows rows;
@@ -172,6 +224,11 @@ TEST_CASE("simple2 with specified R groups") {
     CHECK(flatten_whitespace(toJSON(rows)) ==
           flatten_whitespace(
               readReferenceData(testDataDir + "simple2.out2.json")));
+    {
+      // Check Serialization
+      RGroupDecomposition decomp(cores, ps);
+      serialization_check(decomp, mols);
+    }
   }
 }
 
@@ -192,6 +249,11 @@ TEST_CASE("simple3 with user labels on aromatic N") {
     CHECK(flatten_whitespace(toJSON(rows)) ==
           flatten_whitespace(
               readReferenceData(testDataDir + "simple3.out1.json")));
+    {
+      // Check Serialization
+      RGroupDecomposition decomp(cores);
+      serialization_check(decomp, mols);
+    }
   }
   SECTION("removeAllHydrogenRGroups = false (as defaults)") {
     RGroupRows rows;
@@ -205,6 +267,11 @@ TEST_CASE("simple3 with user labels on aromatic N") {
     CHECK(flatten_whitespace(toJSON(rows)) ==
           flatten_whitespace(
               readReferenceData(testDataDir + "simple3.out2.json")));
+    {
+      // Check Serialization
+      RGroupDecomposition decomp(cores, ps);
+      serialization_check(decomp, mols);
+    }
   }
   SECTION("removeAllHydrogenRGroupsAndLabels = false (allH labels retained)") {
     RGroupRows rows;
@@ -218,6 +285,11 @@ TEST_CASE("simple3 with user labels on aromatic N") {
     CHECK(flatten_whitespace(toJSON(rows)) ==
           flatten_whitespace(
               readReferenceData(testDataDir + "simple3.out3.json")));
+    {
+      // Check Serialization
+      RGroupDecomposition decomp(cores, ps);
+      serialization_check(decomp, mols);
+    }
   }
   SECTION(
       "removeAllHydrogenRGroupsAndLabels = false, removeAllHydrogenRGroups = "

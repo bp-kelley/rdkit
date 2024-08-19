@@ -57,10 +57,6 @@ struct RDKIT_RGROUPDECOMPOSITION_EXPORT RGroupData {
 friend class boost::serialization::access;
 template <class Archive>
 void save(Archive &ar, const unsigned int /*version*/) const {
-}
-template <class Archive>
-void load(Archive &ar, const unsigned int /*version*/) {
-    RDUNUSED_PARAM(version);
     save_mol(ar, combinedMol);
     save_mols(ar, mols);
     ar & smilesVect;
@@ -74,9 +70,8 @@ void load(Archive &ar, const unsigned int /*version*/) {
     ar & labelled;
 }
 template <class Archive>
-void load(Archive &ar, const unsigned int version) {
-  RDUNUSED_PARAM(version);
-  restore_mol(ar, combinedMols);
+void load(Archive &ar, const unsigned int /*version*/) {
+  restore_mol(ar, combinedMol);
   restore_mols(ar, mols);
   ar & smilesVect;
   ar & smiles;
@@ -89,8 +84,12 @@ void load(Archive &ar, const unsigned int version) {
   ar & labelled;
 }  
 BOOST_SERIALIZATION_SPLIT_MEMBER();
-
+#endif
 };
 }  // namespace RDKit
+
+#ifdef RDK_USE_BOOST_SERIALIZATION
+BOOST_CLASS_VERSION(RDKit::RGroupData, 1)
+#endif
 
 #endif

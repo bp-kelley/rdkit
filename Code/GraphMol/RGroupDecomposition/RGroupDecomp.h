@@ -14,6 +14,7 @@
 
 #include "../RDKitBase.h"
 #include "RGroupDecompParams.h"
+#include "RGroupSerialization.h"
 #include <GraphMol/Substruct/SubstructMatch.h>
 #include <chrono>
 
@@ -64,6 +65,7 @@ class RDKIT_RGROUPDECOMPOSITION_EXPORT RGroupDecomposition {
                               std::vector<MatchVectType> &matches);
 
  public:
+  RGroupDecomposition();
   RGroupDecomposition(const ROMol &core,
                       const RGroupDecompositionParameters &params =
                           RGroupDecompositionParameters());
@@ -109,6 +111,7 @@ class RDKIT_RGROUPDECOMPOSITION_EXPORT RGroupDecomposition {
 
   //! serializes (pickles) to a stream
   void toStream(std::ostream &ss) const;
+  void initFromStream(std::istream &ss);
 };
 
 RDKIT_RGROUPDECOMPOSITION_EXPORT unsigned int RGroupDecompose(

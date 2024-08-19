@@ -49,6 +49,8 @@ struct RGroupDecompData {
   std::map<int, int> finalRlabelMapping;
   mutable RGroupScorer rGroupScorer;
 
+  RGroupDecompData() {}
+  
   RGroupDecompData(const RWMol &inputCore,
                    RGroupDecompositionParameters inputParams);
 
@@ -110,7 +112,65 @@ struct RGroupDecompData {
 
 private:
   void addInputCore(const ROMol &inputCore);
+  
+#ifdef RDK_USE_BOOST_SERIALIZATION
+  friend class boost::serialization::access;
+  template <class Archive>
+  void save(Archive &ar, const unsigned int /*version*/)   const{
+    ar & cores; // need to serialize RCore
+    ar & newCores;  // new "cores" found along the way
+    ar & newCoreLabel;
+    ar & permutationProduct;
+    ar & previousMatchSize;
+    ar & prunePermutations;
+    ar & params;
+    ar & matches;/*
+    unsigned int sz = matches.size();
+    ar & sz;
+    for(auto &v : matches) {
+      ar & v;
+    }*/
+    ar & labels;
+    ar & permutation;
+    ar & pruneLength;
+    ar & prunedFingerprintVarianceScoreData; // needs implementation
+    ar & userLabels;
+    ar & processedRlabels;
+    ar & finalRlabelMapping;
+  }
+  template <class Archive>
+  void load(Archive &ar, const unsigned int /*version*/) {
+    ar & cores; // need to serialize RCore
+    ar & newCores;  // new "cores" found along the way
+    ar & newCoreLabel;
+    ar & permutationProduct;
+    ar & previousMatchSize;
+    ar & prunePermutations;
+    ar & params;
+    ar & matches; /*
+    unsigned int sz;
+    ar & sz;
+    matches.clear();
+    for(auto i=0u; i<sz; ++i) {
+      matches.push_back(std::vector<RGroupMatch>());
+      ar & matches.back();
+    }*/
+    ar & labels;
+    ar & permutation;
+    ar & pruneLength;
+    ar & prunedFingerprintVarianceScoreData; // needs implementation
+    ar & userLabels;
+    ar & processedRlabels;
+    ar & finalRlabelMapping;
+  }
+  BOOST_SERIALIZATION_SPLIT_MEMBER();
+#endif
 };
 }  // namespace RDKit
+
+
+#ifdef RDK_USE_BOOST_SERIALIZATION
+BOOST_CLASS_VERSION(RDKit::RGroupDecompData, 1)
+#endif
 
 #endif

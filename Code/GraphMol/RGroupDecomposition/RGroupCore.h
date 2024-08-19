@@ -14,6 +14,7 @@
 #include <GraphMol/SmilesParse/SmartsWrite.h>
 #include "../RDKitBase.h"
 #include "RGroupUtils.h"
+#include "RGroupSerialization.h"
 #include "GraphMol/Substruct/SubstructMatch.h"
 #include <GraphMol/MolPickler.h>
 
@@ -114,27 +115,26 @@ struct RCore {
   void addDummyAtomsToUnlabelledCoreAtoms();
 
 #ifdef RDK_USE_BOOST_SERIALIZATION
-friend class boost::serialization::access;
-template <class Archive>
-void save(Archive &ar, const unsigned int /*version*/) const {
-}
-template <class Archive>
-void load(Archive &ar, const unsigned int /*version*/) {
-    RDUNUSED_PARAM(version);
-    save_mol(ar, core);
-    save_mol(ar, matchingMol);
-    save_mol(ar, labelledCore);
-}
-template <class Archive>
-void load(Archive &ar, const unsigned int version) {
-  RDUNUSED_PARAM(version);
-  restore_mol(ar, core);
-  restore_mol(ar, matchingMol);
-  restore_mol(ar, labelledCore);
-}  
-BOOST_SERIALIZATION_SPLIT_MEMBER();
-
+  friend class boost::serialization::access;
+  template <class Archive>
+  void save(Archive &ar, const unsigned int /*version*/) const {
+      save_mol(ar, core);
+      save_mol(ar, matchingMol);
+      save_mol(ar, labelledCore);
+  }
+  template <class Archive>
+  void load(Archive &ar, const unsigned int /*version*/) {
+    restore_mol(ar, core);
+    restore_mol(ar, matchingMol);
+    restore_mol(ar, labelledCore);
+  }
+  BOOST_SERIALIZATION_SPLIT_MEMBER();
+#endif
 };
-
 }  // namespace RDKit
+
+#ifdef RDK_USE_BOOST_SERIALIZATION
+BOOST_CLASS_VERSION(RDKit::RCore, 1)
+#endif
+
 #endif

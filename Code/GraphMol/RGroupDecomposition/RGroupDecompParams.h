@@ -13,6 +13,7 @@
 #define RDKIT_RGROUPDECOMPPARAMS_H
 
 #include "../RDKitBase.h"
+#include "RGroupSerialization.h"
 #include <GraphMol/Substruct/SubstructMatch.h>
 
 namespace RDKit {
@@ -116,8 +117,40 @@ struct RDKIT_RGROUPDECOMPOSITION_EXPORT RGroupDecompositionParameters {
  private:
   int indexOffset{-1};
   void checkNonTerminal(const Atom &atom) const;
-};
+  
+#ifdef RDK_USE_BOOST_SERIALIZATION
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int /*version*/) {
+    ar &labels;
+    ar &matchingStrategy;
+    ar &scoreMethod;
+    ar &rgroupLabelling;
+    ar &alignment;
 
+    ar &chunkSize;
+    ar &onlyMatchAtRGroups;
+    ar &removeAllHydrogenRGroups;
+    ar &removeAllHydrogenRGroupsAndLabels;
+    ar &removeHydrogensPostMatch;
+    ar &allowNonTerminalRGroups;
+    ar &allowMultipleRGroupsOnUnlabelled;
+    ar &doTautomers;
+    ar &doEnumeration;
+
+    ar &timeout;
+    ar &gaPopulationSize;
+    ar &gaMaximumOperations;
+    ar &gaNumberOperationsWithoutImprovement;
+    ar &gaRandomSeed;
+    ar &gaNumberRuns;
+  }
+#endif
+};
 }  // namespace RDKit
+
+#ifdef RDK_USE_BOOST_SERIALIZATION
+BOOST_CLASS_VERSION(RDKit::RGroupDecompositionParameters, 1)
+#endif
 
 #endif  // RDKIT_RGROUPDECOMPPARAMS_H

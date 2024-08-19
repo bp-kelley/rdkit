@@ -19,13 +19,15 @@ namespace RDKit {
 // class to hold the bitcounts for an attachment point/rgroup label
 struct VarianceDataForLabel {
   // rgroup label
-  const int label;
+  int label;
   // number of structures attached here
   int numberFingerprints;
   // bitcounts - size fingerprint size, each position is the count of bits set
   // over the fingerprints for all the structures
   std::vector<int> bitCounts;
-
+  
+  VarianceDataForLabel() : label(), numberFingerprints(), bitCounts() {
+  }
   VarianceDataForLabel(const int &label, int numberFingerprints,
                        std::vector<int> bitCounts);
   VarianceDataForLabel(const int &label);
@@ -37,6 +39,16 @@ struct VarianceDataForLabel {
   void removeRgroupData(RGroupData *rgroupData);
   // calculate the mean variance for a bit counts array
   double variance() const;
+private:
+#ifdef RDK_USE_BOOST_SERIALIZATION
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive &ar, const unsigned int /*version*/) {
+    ar &label;
+    ar &numberFingerprints;
+    ar &bitCounts;
+  }
+  #endif
 };
 
 struct FingerprintVarianceScoreData {
@@ -65,6 +77,22 @@ struct FingerprintVarianceScoreData {
   void modifyVarianceData(int matchNumber, int permutationNumber,
                           const std::vector<std::vector<RGroupMatch>> &matches,
                           const std::set<int> &labels, bool add);
+#ifdef RDK_USE_BOOST_SERIALIZATION
+  friend class boost::serialization::access;
+  template <class Archive>
+  void save(Archive &ar, const unsigned int /*version*/) const {
+    ar &numberOfMissingUserRGroups;
+    ar &numberOfMolecules;
+    ar &labelsToVarianceData;
+  }
+  template <class Archive>
+  void load(Archive &ar, const unsigned int /*version*/) {
+    ar &numberOfMissingUserRGroups;
+    ar &numberOfMolecules;
+    ar &labelsToVarianceData;
+  }
+  BOOST_SERIALIZATION_SPLIT_MEMBER();
+#endif
 };
 
 // The arithmetic mean of the mean fingerprint bit variances for the
@@ -76,5 +104,10 @@ RDKIT_RGROUPDECOMPOSITION_EXPORT double fingerprintVarianceScore(
     FingerprintVarianceScoreData *fingerprintVarianceScoreData = nullptr);
 
 }  // namespace RDKit
+
+#ifdef RDK_USE_BOOST_SERIALIZATION
+BOOST_CLASS_VERSION(RDKit::VarianceDataForLabel, 1)
+BOOST_CLASS_VERSION(RDKit::FingerprintVarianceScoreData, 1)
+#endif
 
 #endif  // RDKIT_RGROUPFINGERPRINTSCORE_H

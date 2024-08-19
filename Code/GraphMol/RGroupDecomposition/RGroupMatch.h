@@ -22,6 +22,9 @@ struct RGroupMatch {
   R_DECOMP rgroups;        // rlabel->RGroupData mapping
   RWMOL_SPTR matchedCore;  // Core with dummy or query atoms and bonds matched
 
+  RGroupMatch() : core_idx(), numberMissingUserRGroups(), rgroups(), matchedCore() {
+  }
+  
   RGroupMatch(size_t core_index, size_t numberMissingUserRGroups,
               R_DECOMP input_rgroups, RWMOL_SPTR matchedCore)
       : core_idx(core_index),
@@ -43,26 +46,30 @@ struct RGroupMatch {
   }
 
 private:
-  
-template <class Archive>
-void load(Archive &ar, const unsigned int /*version*/) {
-    RDUNUSED_PARAM(version);
-    ar & core_idx;
-    ar & numberMissingUserRGroups;
-    ar & rgroups;
-    save_mol(ar, matchedCore);
-}
-template <class Archive>
-void load(Archive &ar, const unsigned int version) {
-  RDUNUSED_PARAM(version);
-    ar & core_idx;
-    ar & numberMissingUserRGroups;
-    ar & rgroups;
-    restore_mol(ar, matchedCore);
-}  
+#ifdef RDK_USE_BOOST_SERIALIZATION
+  friend class boost::serialization::access;
+  template <class Archive>
+  void save(Archive &ar, const unsigned int /*version*/) const {
+      ar & core_idx;
+      ar & numberMissingUserRGroups;
+      ar & rgroups;
+      save_mol(ar, matchedCore);
+  }
+  template <class Archive>
+  void load(Archive &ar, const unsigned int /*version*/) {
+      ar & core_idx;
+      ar & numberMissingUserRGroups;
+      ar & rgroups;
+      restore_mol(ar, matchedCore);
+  }
 BOOST_SERIALIZATION_SPLIT_MEMBER();
-  
+#endif
 };
-
 }  // namespace RDKit
+
+
+#ifdef RDK_USE_BOOST_SERIALIZATION
+BOOST_CLASS_VERSION(RDKit::RGroupMatch, 1)
+#endif
+
 #endif
