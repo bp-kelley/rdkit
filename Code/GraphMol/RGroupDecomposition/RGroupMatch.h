@@ -62,7 +62,7 @@ private:
       ar & rgroups;
       restore_mol(ar, matchedCore);
   }
-BOOST_SERIALIZATION_SPLIT_MEMBER();
+  BOOST_SERIALIZATION_SPLIT_MEMBER();
 #endif
 };
 }  // namespace RDKit

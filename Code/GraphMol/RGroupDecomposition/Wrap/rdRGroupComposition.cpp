@@ -50,12 +50,16 @@
 namespace python = boost::python;
 using boost_adaptbx::python::streambuf;
 
+namespace {
+}
 namespace RDKit {
 
 class RGroupDecompositionHelper {
   RGroupDecomposition *decomp;
 
  public:
+  RGroupDecompositionHelper() : decomp(new RGroupDecomposition()) {
+  }
   ~RGroupDecompositionHelper() { delete decomp; }
 
   RGroupDecompositionHelper(python::object cores,
@@ -76,6 +80,10 @@ class RGroupDecompositionHelper {
       }
       decomp = new RGroupDecomposition(coreMols, params);
     }
+  }
+  
+  const RGroupDecompositionParameters &Params() const {
+    return decomp->params();
   }
 
   int Add(const ROMol &mol) {
@@ -156,6 +164,18 @@ class RGroupDecompositionHelper {
       result[it->first] = col;
     }
     return result;
+  }
+
+  void toStream(python::object &object) {
+    streambuf stream(object, 'b');
+    streambuf::ostream ostream(stream);
+    decomp->toStream(ostream);
+  }
+  
+  void initFromStream(python::object &object) {
+    streambuf stream(object, 'b');
+    streambuf::istream istream(stream);
+    decomp->initFromStream(istream);
   }
 };
 
@@ -353,6 +373,8 @@ struct rgroupdecomp_wrapper {
         python::init<python::object>(
             python::args("self", "cores"),
             "Construct from a molecule or sequence of molecules"))
+        .def(python::init<>(python::args("self"),
+			    "Constructor, takes no arguments"))
         .def(
             python::init<python::object, const RGroupDecompositionParameters &>(
                 python::args("self", "cores", "params"),
@@ -394,7 +416,18 @@ struct rgroupdecomp_wrapper {
              "   - asSmiles: if True return smiles strings, otherwise return "
              "molecules [default: False]\n"
              "    Column structure:\n"
-             "       columns[rgroup_label] = [ mols_or_smiles ]\n");
+             "       columns[rgroup_label] = [ mols_or_smiles ]\n")
+      .def("InitFromStream", &RGroupDecompositionHelper::initFromStream,
+	   (python::arg("self"), python::arg("input_stream")),
+	   "Initialize the rgroup decomposition from a binary stream")
+      .def("ToStream", &RGroupDecompositionHelper::toStream,
+	   (python::arg("self"), python::arg("output_stream")),
+	   "Serialize the rgroup decomposition to a binary stream")
+      .def("Params", &RGroupDecompositionHelper::Params,
+	   python::return_value_policy<python::reference_existing_object>(),
+	   "Return the current RGroupDecompositionParameters")
+      
+      ;
 
     docString =
         "Decompose a collecion of molecules into their Rgroups\n"

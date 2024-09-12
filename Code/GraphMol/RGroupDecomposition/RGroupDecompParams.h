@@ -123,7 +123,7 @@ struct RDKIT_RGROUPDECOMPOSITION_EXPORT RGroupDecompositionParameters {
 #ifdef RDK_USE_BOOST_SERIALIZATION
   friend class boost::serialization::access;
   template <class Archive>
-  void serialize(Archive &ar, const unsigned int /*version*/) {
+  void save(Archive &ar, const unsigned int /*version*/) const {
     ar &labels;
     ar &matchingStrategy;
     ar &scoreMethod;
@@ -146,7 +146,39 @@ struct RDKIT_RGROUPDECOMPOSITION_EXPORT RGroupDecompositionParameters {
     ar &gaNumberOperationsWithoutImprovement;
     ar &gaRandomSeed;
     ar &gaNumberRuns;
+    std::string json = substructMatchParamsToJSON(substructmatchParams);
+    ar & json;
   }
+  
+  template<class Archive>
+  void load(Archive &ar, const unsigned int /*version*/)  {
+    ar &labels;
+    ar &matchingStrategy;
+    ar &scoreMethod;
+    ar &rgroupLabelling;
+    ar &alignment;
+
+    ar &chunkSize;
+    ar &onlyMatchAtRGroups;
+    ar &removeAllHydrogenRGroups;
+    ar &removeAllHydrogenRGroupsAndLabels;
+    ar &removeHydrogensPostMatch;
+    ar &allowNonTerminalRGroups;
+    ar &allowMultipleRGroupsOnUnlabelled;
+    ar &doTautomers;
+    ar &doEnumeration;
+
+    ar &timeout;
+    ar &gaPopulationSize;
+    ar &gaMaximumOperations;
+    ar &gaNumberOperationsWithoutImprovement;
+    ar &gaRandomSeed;
+    ar &gaNumberRuns;
+    std::string json;
+    ar & json;
+    updateSubstructMatchParamsFromJSON(substructmatchParams, json);
+  }
+  BOOST_SERIALIZATION_SPLIT_MEMBER();
 #endif
 };
 }  // namespace RDKit

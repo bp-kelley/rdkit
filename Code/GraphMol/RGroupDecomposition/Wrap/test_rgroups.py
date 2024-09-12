@@ -42,10 +42,44 @@ from rdkit.Chem.rdRGroupDecomposition import (RGroupCoreAlignment,
                                               RGroupLabels,
                                               RGroupLabelling,
                                               RelabelMappedDummies)
+import io
 
 RDLogger.DisableLog("rdApp.warning")
 
+def params_to_dict(params):
+  d = {k:getattr(params,k) for k in dir(params)  if k[0]!="_" and k != 'substructMatchParams'}
+  s = d['substructMatchParams'] = {k:getattr(params.substructMatchParams,k)
+                             for k in dir(params.substructMatchParams)
+                             if k[0]!="_"}
+  s['atomProperties'] = list(s['atomProperties'])
+  s['bondProperties'] = list(s['bondProperties'])
+  del s['setExtraFinalCheck']
+  return d
 
+def serialization_check(decomp, mols):
+  for mol in mols:
+    decomp.Add(mol)
+  decomp.Process()
+  
+  rows = decomp.GetRGroupsAsRows(asSmiles=True)
+  cols = decomp.GetRGroupsAsColumns(asSmiles=True)
+  with io.BytesIO() as sio:
+     decomp.ToStream(sio)
+     decomp2 = RGroupDecomposition()
+     sio.seek(0)
+     decomp2.InitFromStream(sio)
+    
+
+  assert rows == decomp2.GetRGroupsAsRows(asSmiles=True), (repr(rows), repr(decomp2.GetRGroupsAsRows(asSmiles=True)))
+  assert cols == decomp2.GetRGroupsAsColumns(asSmiles=True)
+  params = decomp.Params()
+  params2 = decomp2.Params()
+  d = params_to_dict(params)
+  d2 = params_to_dict(params2)
+  for k,v in d.items():
+    assert v == d2[k], f"{k=}\n{v}\n{d2[k]}"
+  
+   
 class TestCase(unittest.TestCase):
 
   def test_multicores(self):
@@ -146,6 +180,7 @@ C1CCO[C@@](S)(P)1
     core = Chem.MolFromSmiles("O=c1oc2ccccc2cc1")
     smiles = ("O=c1cc(Cn2ccnc2)c2ccc(Oc3ccccc3)cc2o1", "O=c1oc2ccccc2c(Cn2ccnc2)c1-c1ccccc1",
               "COc1ccc2c(Cn3cncn3)cc(=O)oc2c1")
+    mols = [Chem.MolFromSmiles(smi) for smi in smiles]
     params = RGroupDecompositionParameters()
     rgd = RGroupDecomposition(core, params)
     for smi in smiles:
@@ -155,6 +190,9 @@ C1CCO[C@@](S)(P)1
     columns = rgd.GetRGroupsAsColumns()
     self.assertEqual(columns['R2'][0].GetNumAtoms(), 7)
 
+    serialization_check(RGroupDecomposition(core, params), mols)
+
+
     params.removeHydrogensPostMatch = False
     rgd = RGroupDecomposition(core, params)
     for smi in smiles:
@@ -163,6 +201,10 @@ C1CCO[C@@](S)(P)1
     rgd.Process()
     columns = rgd.GetRGroupsAsColumns()
     self.assertEqual(columns['R2'][0].GetNumAtoms(), 12)
+    
+    serialization_check(RGroupDecomposition(core, params), mols)
+
+
 
   def test_unmatched(self):
     cores = [Chem.MolFromSmiles("N")]
@@ -207,6 +249,7 @@ C1CCO[C@@](S)(P)1
       'R5': ['N[*:5]'],
       'R6': ['O[*:6]']
     })
+    serialization_check(RGroupDecomposition(core), mols)
 
   def test_match_only_at_rgroups(self):
     smiles = ['c1ccccc1']  # , 'c1(Cl)ccccc1', 'c1(Cl)cc(Br)ccc1']
@@ -218,6 +261,8 @@ C1CCO[C@@](S)(P)1
     rg = RGroupDecomposition(core1, params)
     for smi, m in zip(smiles, mols):
       self.assertTrue(rg.Add(m) != -1, smi)
+    serialization_check(RGroupDecomposition(core1, params), mols)
+
 
   def test_incorrect_multiple_rlabels(self):
     mols = [Chem.MolFromSmiles(smi) for smi in (
@@ -645,13 +690,17 @@ $$$$
     self.assertEqual(unmatched, [])
     rgroups, unmatched = RGroupDecompose(chiral_cores, mols)
     self.assertEqual(unmatched, [3])
+    serialization_check(RGroupDecomposition(cores), mols)
+    serialization_check(RGroupDecomposition(chiral_cores), mols)
 
     params = RGroupDecompositionParameters()
     params.substructMatchParams.useChirality = False
     rgroups, unmatched = RGroupDecompose(cores, mols, options=params)
     self.assertEqual(unmatched, [])
+    serialization_check(RGroupDecomposition(cores, params), mols)
     rgroups, unmatched = RGroupDecompose(chiral_cores, mols, options=params)
     self.assertEqual(unmatched, [])
+    serialization_check(RGroupDecomposition(chiral_cores, params), mols)
 
   def testTautomerCore(self):
     block = """"

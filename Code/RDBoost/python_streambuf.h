@@ -298,12 +298,36 @@ class streambuf : public std::basic_streambuf<char> {
         --n_written;
       }
     }
-    bp::str chunk(pbase(), pbase() + n_written);
-    py_write(chunk);
+
+
+    if(!df_isTextMode) {
+      PyObject* chunk = PyBytes_FromStringAndSize(pbase(), n_written);
+      if (chunk == NULL) {
+	boost::python::throw_error_already_set();
+	return traits_type::eof(); // unsure what to return
+      }
+      bp::object retval = bp::object(bp::handle<>(chunk));
+      py_write(retval);
+    } else {
+      bp::str chunk(pbase(), pbase() + n_written);
+      py_write(chunk);
+    }
+
 
     if ((!df_isTextMode || static_cast<unsigned int>(c) <= STD_ASCII) &&
         !traits_type::eq_int_type(c, traits_type::eof())) {
-      py_write(traits_type::to_char_type(c));
+      if(!df_isTextMode) {
+	char ch = static_cast<char>(c);
+	PyObject* chunk = PyBytes_FromStringAndSize(&ch, 1);
+	if(chunk == NULL) {
+	  boost::python::throw_error_already_set();
+	  return traits_type::eof(); // unsure what to return
+	}
+	bp::object retval = bp::object(bp::handle<>(chunk));
+	py_write(retval);
+      } else {
+	py_write(traits_type::to_char_type(c));
+      }
       n_written++;
     }
 
