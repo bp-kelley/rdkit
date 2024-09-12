@@ -16,6 +16,8 @@
 #include "RGroupSerialization.h"
 #include <GraphMol/Substruct/SubstructMatch.h>
 
+#include "RGroupSerialization.h"
+
 namespace RDKit {
 
 typedef enum {
