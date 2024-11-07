@@ -64,6 +64,21 @@ class TestCase(unittest.TestCase):
         count += 1
     assert count
 
+  def test_github7989(self):
+    # ensure that the benzyl definition is correct
+    m = Chem.MolFromSmiles("c1ccccc1Oc1ccccc1")
+    m2 = rd.Deprotect(m)
+    self.assertEqual(Chem.MolToSmiles(m), Chem.MolToSmiles(m))
+
+    m = Chem.MolFromSmiles("c1ccccc1Oc1ccccc1")
+    self.assertEqual(rd.DeprotectInPlace(m), False)
+
+    m = Chem.MolFromSmiles("c1ccccc1CO")
+    self.assertEqual(rd.DeprotectInPlace(m), True)
+
+    m = Chem.MolFromSmiles("c1ccccc1COc1ccccc1")
+    self.assertEqual(rd.DeprotectInPlace(m), True)
+
 
 if __name__ == "__main__":
   unittest.main()
