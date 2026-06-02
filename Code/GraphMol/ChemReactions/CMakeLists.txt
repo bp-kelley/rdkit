@@ -14,6 +14,7 @@ rdkit_library(ChemReactions
               MoleculeParser.cpp ReactionRunner.cpp PreprocessRxn.cpp SanitizeRxn.cpp
               PNGParser.cpp CDXMLParser.cpp
                     Enumerate/Enumerate.cpp
+		    Enumerate/EnumerateSynthons.cpp
                     Enumerate/EnumerationPickler.cpp
                     Enumerate/EvenSamplePairs.cpp
               LINK_LIBRARIES
@@ -33,6 +34,7 @@ rdkit_headers(Reaction.h
 
 rdkit_headers(Enumerate/Enumerate.h
               Enumerate/EnumerateBase.h
+	      Enumerate/EnumerateSynthons.h
               Enumerate/EnumerateTypes.h
               Enumerate/EnumerationPickler.h
               Enumerate/EnumerationStrategyBase.h

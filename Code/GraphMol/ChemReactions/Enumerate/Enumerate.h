@@ -110,6 +110,7 @@ RDKIT_CHEMREACTIONS_EXPORT EnumerationTypes::BBS removeNonmatchingReagents(
 
 class RDKIT_CHEMREACTIONS_EXPORT EnumerateLibrary
     : public EnumerateLibraryBase {
+ protected:
   EnumerationTypes::BBS m_bbs;
 
  public:

@@ -35,6 +35,7 @@
 #include <GraphMol/ChemReactions/Enumerate/RandomSampleAllBBs.h>
 #include <GraphMol/ChemReactions/Enumerate/EvenSamplePairs.h>
 #include <GraphMol/ChemReactions/Enumerate/Enumerate.h>
+#include <GraphMol/ChemReactions/Enumerate/EnumerateSynthons.h>
 #include <boost/python/stl_iterator.hpp>
 #include <cstdint>
 
@@ -57,6 +58,27 @@ std::vector<RDKit::MOL_SPTR_VECT> ConvertToVect(T bbs) {
         reacts.push_back(mol);
       } else {
         throw_value_error("reaction called with non molecule reactant");
+      }
+    }
+  }
+  return vect;
+}
+
+template <class T>
+std::vector<std::vector<std::string>> ConvertToSynthons(T bbs) {
+  std::vector<std::vector<std::string>> vect;
+  unsigned int num_bbs = python::len(bbs);
+  vect.resize(num_bbs);
+  for (unsigned int i = 0; i < num_bbs; ++i) {
+    unsigned int len1 = python::len(bbs[i]);
+    auto &reacts = vect[i];
+    reacts.reserve(len1);
+    for (unsigned int j = 0; j < len1; ++j) {
+      python::extract<std::string> extractor(bbs[i][j]);
+      if (extractor.check()) {
+        reacts.push_back(extractor());
+      } else {
+        throw_value_error("conversion called with non string synthon");
       }
     }
   }
@@ -125,6 +147,29 @@ class EnumerateLibraryWrap : public RDKit::EnumerateLibrary {
       : RDKit::EnumerateLibrary(rxn, ConvertToVect(ob), enumerator, params) {}
 };
 
+
+class EnumerateSynthonsWrap : public RDKit::EnumerateSynthons {
+ public:
+  ~EnumerateSynthonsWrap() override {}
+  EnumerateSynthonsWrap() : RDKit::EnumerateSynthons() {}
+  EnumerateSynthonsWrap(python::list ob,
+                       const EnumerationParams &params = EnumerationParams())
+      : RDKit::EnumerateSynthons(ConvertToVect(ob), params) {}
+
+  EnumerateSynthonsWrap(python::tuple ob,
+                       const EnumerationParams &params = EnumerationParams())
+      : RDKit::EnumerateSynthons(ConvertToVect(ob), params) {}
+  EnumerateSynthonsWrap(python::list ob,
+                       const EnumerationStrategyBase &enumerator,
+                       const EnumerationParams &params = EnumerationParams())
+      : RDKit::EnumerateSynthons(ConvertToVect(ob), enumerator, params) {}
+
+  EnumerateSynthonsWrap(python::tuple ob,
+                       const EnumerationStrategyBase &enumerator,
+                       const EnumerationParams &params = EnumerationParams())
+      : RDKit::EnumerateSynthons(ConvertToVect(ob), enumerator, params) {}
+};
+  
 namespace {
 template <typename T>
 inline std::vector<T> to_std_vector(const python::object &iterable) {
@@ -143,6 +188,7 @@ struct enumeration_wrapper {
     std::string docString;
 
     RegisterVectorConverter<MOL_SPTR_VECT>("VectMolVect");
+    RegisterVectorConverter<std::vector<std::string>>("VectSynthonVect");
 
     python::class_<RDKit::EnumerateLibraryBase,
                    boost::shared_ptr<RDKit::EnumerateLibraryBase>,
@@ -200,7 +246,7 @@ struct enumeration_wrapper {
              python::return_internal_reference<
                  1, python::with_custodian_and_ward_postcall<0, 1>>(),
              python::args("self"));
-
+    
     docString =
         "EnumerationParams\n\
 Controls some aspects of how the enumeration is performed.\n\
@@ -320,7 +366,62 @@ for result in itertools.islice(libary2, 1000):\n\
                 1, python::with_custodian_and_ward_postcall<0, 1>>(),
             python::args("self"));
 
+    python::class_<EnumerateSynthonsWrap, boost::noncopyable,
+                   python::bases<RDKit::EnumerateLibraryBase>>(
+        "EnumerateSynthons", docString.c_str(),
+        python::init<>(python::args("self")))
+        .def(python::init<python::list,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "params")))
+        .def(python::init<python::tuple,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "params")))
+
+        .def(python::init<python::list,
+                          const RDKit::EnumerationStrategyBase &,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "enumerator", "params")))
+        .def(python::init<python::tuple,
+                          const RDKit::EnumerationStrategyBase &,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "enumerator", "params")))
+      ;
+      //.def(
+      //      "GetReagents", &RDKit::EnumerateSynthons::getReagents,
+      //      "Return the synthons used in this library.",
+      //      python::args("self"));
+    
     // iterator_wrappers<EnumerateLibrary>().wrap("EnumerateLibraryIterator");
+
+    python::class_<EnumerateSynthonsWrap, boost::noncopyable,
+                   python::bases<RDKit::EnumerateLibraryBase>>(
+        "EnumerateSynthons", docString.c_str(),
+        python::init<>(python::args("self")))
+        .def(python::init<python::list,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "params")))
+        .def(python::init<python::tuple,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "params")))
+
+        .def(python::init<python::list,
+                          const RDKit::EnumerationStrategyBase &,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "enumerator", "params")))
+        .def(python::init<python::tuple,
+                          const RDKit::EnumerationStrategyBase &,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "enumerator", "params")))
+        .def(
+            "GetReagents", &RDKit::EnumerateSynthons::getReagents,
+            "Return the reagents used in this library.  These are the subset"
+            " of the input reagents that are compatible with the reaction so may"
+            " be smaller than the input reagent sets.",
+            python::return_internal_reference<
+                1, python::with_custodian_and_ward_postcall<0, 1>>(),
+            python::args("self"));
+      
+      ;
 
     python::class_<RDKit::EnumerationStrategyBase,
                    boost::shared_ptr<RDKit::EnumerationStrategyBase>,

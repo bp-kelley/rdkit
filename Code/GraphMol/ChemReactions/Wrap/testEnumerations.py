@@ -645,5 +645,48 @@ class TestCase(unittest.TestCase):
     self.assertTrue(len(en.GetReagents()[1]) == 1)
     self.assertTrue(len(en.GetReagents()[2]) == 1)
 
+  def testSynthons(self):
+    synthons = [
+      [Chem.MolFromSmiles(m) for m in ['CCN[U]','C#CCN[U]']],
+      [Chem.MolFromSmiles(m) for m in ['O=C([U])[C@@H]1CO1','C/C=C/CC(=O)[U]']],
+    ]
+    
+    p = Chem.MolzipParams()
+    p.setAtomSymbols(['U'])
+    p.label = Chem.MolzipLabel.AtomType
+
+    smiresults = set()
+    for a in synthons[0]:
+      for b in synthons[1]:
+        z = Chem.molzip(a,b,p)
+        smiresults.add(Chem.MolToSmiles(z))
+        
+    en = rdChemReactions.EnumerateSynthons(synthons)
+    results = []
+    for result in en:
+      for prodSet in result:
+        for mol in prodSet:
+          results.append(Chem.MolToSmiles(mol))
+
+    self.assertEqual(set(results), set(smiresults))
+
+    if rdChemReactions.EnumerateLibraryCanSerialize():
+      pickle = en.Serialize()
+      enumerator2 = rdChemReactions.EnumerateSynthons()
+      enumerator2.InitFromString(pickle)
+      enumerator2.ResetState()
+
+      results = []
+      for result in enumerator2:
+        for prodSet in result:
+          for mol in prodSet:
+            results.append(Chem.MolToSmiles(mol))
+
+      self.assertEqual(set(results), set(smiresults))
+
+      
+
+    
+
 if __name__ == '__main__':
   unittest.main()

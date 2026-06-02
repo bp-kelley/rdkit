@@ -113,8 +113,15 @@ size_t countMatches(const ROMol &bb, const ROMol &query, int maxMatches) {
 }  // namespace
 BBS removeNonmatchingReagents(const ChemicalReaction &rxn, BBS bbs,
                               const EnumerationParams &params) {
-  PRECONDITION(bbs.size() <= rxn.getNumReactantTemplates(),
+  // No reaction templates is a special case for Synthons and non-reaction
+  //  based enumeration
+  PRECONDITION(rxn.getNumReactantTemplates() == 0 ||
+	       bbs.size() == rxn.getNumReactantTemplates(),
                "Number of Reagents not compatible with reaction templates");
+  if(rxn.getNumReactantTemplates() == 0) {
+    return bbs;
+  }
+  
   BBS result;
   result.resize(bbs.size());
 
