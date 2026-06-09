@@ -819,8 +819,8 @@ static const std::vector<std::pair<std::string, std::string>>
         {"dO(amid)", "[$([#8;X1;D1;H0]=[#6X3]([#7])[#6])]"},
         {"dO(nitro)", "[$([#8;X1;D1;H0]~[#7X3]~[#8;X1;D1;H0])]"},
         {"dO(sulfo)",
-         "[$([#8;X1]=[#16;X4]=[#8;X1]),$([#8;X1-][#16;X4+2][#8;X1-])]"}};  
-}
+         "[$([#8;X1]=[#16;X4]=[#8;X1]),$([#8;X1-][#16;X4+2][#8;X1-])]"}};
+}  // namespace
 /// TopologicalCharge
 void addToQueries(
     std::vector<std::pair<std::string, std::shared_ptr<RWMol>>> &queries,
@@ -845,7 +845,8 @@ GetHsQueries() {
           if (mol) {
             addToQueries(queries, entry.first, std::shared_ptr<RWMol>(mol));
           } else {
-            BOOST_LOG(rdWarningLog) << "Invalid SMARTS: " << entry.second << std::endl;
+            BOOST_LOG(rdWarningLog)
+                << "Invalid SMARTS: " << entry.second << std::endl;
           }
         }
         return queries;
@@ -864,7 +865,8 @@ GetesQueries() {
           if (mol) {
             addToQueries(queries, entry.first, std::shared_ptr<RWMol>(mol));
           } else {
-            BOOST_LOG(rdWarningLog) << "Invalid SMARTS: " << entry.second << std::endl;
+            BOOST_LOG(rdWarningLog)
+                << "Invalid SMARTS: " << entry.second << std::endl;
           }
         }
         return queries;
@@ -883,7 +885,8 @@ GetesExtQueries() {
           if (mol) {
             addToQueries(queries, entry.first, std::shared_ptr<RWMol>(mol));
           } else {
-            BOOST_LOG(rdWarningLog) << "Invalid SMARTS: " << entry.second << std::endl;
+            BOOST_LOG(rdWarningLog)
+                << "Invalid SMARTS: " << entry.second << std::endl;
           }
         }
         return queries;
@@ -1444,8 +1447,8 @@ double computeAtomicId(const Graph &graph, int atomIdx, double epsilon,
 
   // Graphs can have single atoms
   auto res = graph.find(atomIdx);
-  if ( res == graph.end() ) return id;
-  
+  if (res == graph.end()) return id;
+
   for (const auto &[nextAtom, edgeWeight] : res->second) {
     if (visited.count(nextAtom)) continue;
 
@@ -2502,8 +2505,9 @@ std::vector<double> calcBEStateDescs(const ROMol &mol) {
         minBES[posidx] = std::min(minBES[posidx], minBES_i[i]);
         maxBES[posidx] = std::max(maxBES[posidx], maxBES_i[i]);
       } else {
-        BOOST_LOG(rdWarningLog) << "Out-of-bounds access detected for posIdx: " << posidx
-                  << " : " << sumsBES.size() << "\n";
+        BOOST_LOG(rdWarningLog)
+            << "Out-of-bounds access detected for posIdx: " << posidx << " : "
+            << sumsBES.size() << "\n";
       }
 
     } else {
@@ -2821,7 +2825,8 @@ std::vector<double> calcAbrahams(const ROMol &mol) {
     }
 
   } catch (const std::exception &e) {
-    BOOST_LOG(rdWarningLog) << "Error in SMARTS matching: " << e.what() << std::endl;
+    BOOST_LOG(rdWarningLog)
+        << "Error in SMARTS matching: " << e.what() << std::endl;
     throw std::runtime_error("Error in SMARTSQueryTool");
   }
 
@@ -2829,7 +2834,7 @@ std::vector<double> calcAbrahams(const ROMol &mol) {
 }
 
 //// IC based on the Roy, Basak, Harriss, Magnuson paper Neighorhoo complexities
-///and symmetry of chemical graphs and their biological applications
+/// and symmetry of chemical graphs and their biological applications
 // in this algorithm we use the cluster list to iterate per radius not the whole
 // atoms accross clusters. so we don't need to compare all the keys over all
 // atoms but only in a cluster the logic is to split the cluster until we get a
@@ -2940,7 +2945,7 @@ std::map<int, std::vector<std::vector<int>>> computePipeline(
 
   if (debug) {
     BOOST_LOG(rdWarningLog) << "Debugging enabled for molecule: " << smi
-              << "n & NumAtoms: " << nAtoms << std::endl;
+                            << "n & NumAtoms: " << nAtoms << std::endl;
   }
 
   auto [M, SP] = initializeMatrixAndSP(nAtoms, maxRadius);
@@ -2983,7 +2988,8 @@ std::map<int, std::vector<std::vector<int>>> computePipeline(
     CN[0][0].push_back(static_cast<int>(cluster.size()));  // Cluster size
     int atomIdx = cluster.back();
     if (atomIdx < 0 || atomIdx >= nAtoms) {
-      BOOST_LOG(rdWarningLog) << "Error: Invalid atom index: " << atomIdx << std::endl;
+      BOOST_LOG(rdWarningLog)
+          << "Error: Invalid atom index: " << atomIdx << std::endl;
       continue;
     }
     CN[0][1].push_back(
@@ -3035,9 +3041,10 @@ std::map<int, std::vector<std::vector<int>>> computePipeline(
         std::vector<int> neighbors;
 
         if (debug) {
-          BOOST_LOG(rdDebugLog) << "Radius " << r << ", Atom " << atomIdx
-                    << " .Symbol: " << mol.getAtomWithIdx(atomIdx)->getSymbol()
-                    << ", Start " << start << ", Stop " << stop << std::endl;
+          BOOST_LOG(rdDebugLog)
+              << "Radius " << r << ", Atom " << atomIdx
+              << " .Symbol: " << mol.getAtomWithIdx(atomIdx)->getSymbol()
+              << ", Start " << start << ", Stop " << stop << std::endl;
         }
 
         for (int pos = start; pos <= stop; ++pos) {
@@ -3154,10 +3161,11 @@ std::map<int, std::vector<std::vector<int>>> computePipeline(
     if (stopExpansion || std::all_of(clusters.begin(), clusters.end(),
                                      [](auto &c) { return c.size() == 1; })) {
       if (debug) {
-        BOOST_LOG(rdDebugLog) << "Stopping expansion at radius " << r << " - Reason: "
-                  << (stopExpansion ? "No new neighbors"
-                                    : "All clusters are singletons")
-                  << std::endl;
+        BOOST_LOG(rdDebugLog)
+            << "Stopping expansion at radius " << r << " - Reason: "
+            << (stopExpansion ? "No new neighbors"
+                              : "All clusters are singletons")
+            << std::endl;
       }
 
       break;
@@ -3239,8 +3247,8 @@ std::vector<double> calcInformationContent(const ROMol &mol, int maxradius) {
   int nAtoms = hmol->getNumAtoms();
 
   if (nAtoms == 0) {
-    BOOST_LOG(rdWarningLog) << "Error: Molecule has no atoms after adding hydrogens."
-              << std::endl;
+    BOOST_LOG(rdWarningLog)
+        << "Error: Molecule has no atoms after adding hydrogens." << std::endl;
     return {};
   }
 
@@ -3255,7 +3263,8 @@ std::vector<double> calcInformationContent(const ROMol &mol, int maxradius) {
   auto CN = computePipeline(*hmol, maxradius);
 
   if (CN.empty()) {
-    BOOST_LOG(rdWarningLog) << "Error: ComputePipeline returned empty CN." << std::endl;
+    BOOST_LOG(rdWarningLog)
+        << "Error: ComputePipeline returned empty CN." << std::endl;
     return {};
   }
 
@@ -3273,8 +3282,9 @@ std::vector<double> calcInformationContent_(const ROMol &mol) {
 
     int nAtoms = hmol->getNumAtoms();
     if (nAtoms == 0) {
-      BOOST_LOG(rdWarningLog) << "Error: Molecule has no atoms after adding hydrogens."
-                << std::endl;
+      BOOST_LOG(rdWarningLog)
+          << "Error: Molecule has no atoms after adding hydrogens."
+          << std::endl;
       delete hmol;  // Clean up memory
       return {};
     }
@@ -3290,7 +3300,8 @@ std::vector<double> calcInformationContent_(const ROMol &mol) {
 
     auto CN = computePipeline(*hmol, maxradius);
     if (CN.empty()) {
-      BOOST_LOG(rdWarningLog) << "Error: ComputePipeline returned empty CN." << std::endl;
+      BOOST_LOG(rdWarningLog)
+          << "Error: ComputePipeline returned empty CN." << std::endl;
       delete hmol;  // Clean up memory
       return {};
     }
@@ -4730,7 +4741,8 @@ std::vector<double> calcFrags(const ROMol &mol) {
     }
 
   } catch (const std::exception &e) {
-    BOOST_LOG(rdWarningLog) << "Error in SMARTS matching: " << e.what() << std::endl;
+    BOOST_LOG(rdWarningLog)
+        << "Error in SMARTS matching: " << e.what() << std::endl;
     throw std::runtime_error("Error in SMARTSQueryTool");
   }
 

@@ -238,7 +238,6 @@ std::vector<double> calcTopologicalIndex(const ROMol &mol) {
   return {Diameter, Radius, TSI, PJI};
 }
 
-
 // first code slow V1
 int calcPathsOfLengthN_(const ROMol &mol, int order) {
   // Extract and classify subgraphs for the current radius order
@@ -330,64 +329,6 @@ struct pathHash {
     return seed;
   }
 };
-
-bool detectCycle(const std::vector<int> &atomPath) {
-  std::unordered_set<int> visited;
-  for (int atomIdx : atomPath) {
-    if (visited.count(atomIdx)) {
-      return true;  // Cycle detected
-    }
-    visited.insert(atomIdx);
-  }
-  return false;  // No cycle
-}
-
-
-std::vector<std::pair<std::vector<int>, ChiType>>
-extractAndClassifyPathsAndSubgraphs(const ROMol &mol, unsigned int targetLength,
-                                    bool useHs) {
-  std::vector<std::pair<std::vector<int>, ChiType>> results;
-
-  // Step 1: Classify linear atom paths
-  auto atomPaths =
-      findAllPathsOfLengthN(mol, targetLength + 1, useHs, false, -1, false);
-
-  for (const auto &atomPath : atomPaths) {
-    bool isChain = detectCycle(atomPath);  // Detect cycles in atom path
-    ChiType type = isChain ? ChiType::Chain : ChiType::Path;
-
-    results.emplace_back(atomPath, type);
-  }
-
-  // Step 2: Classify bond subgraphs
-  auto bondSubgraphs = findAllSubgraphsOfLengthN(mol, targetLength, useHs, -1);
-
-  for (const auto &bondPath : bondSubgraphs) {
-    // Convert bond subgraph to atom path
-    std::vector<int> atomPath = bondPathToAtomPath(mol, bondPath);
-
-    // Check if the atom path was already classified as Path or Chain
-    auto it =
-        std::find_if(results.begin(), results.end(), [&](const auto &pair) {
-          return pair.first == atomPath && (pair.second == ChiType::Path ||
-                                            pair.second == ChiType::Chain);
-        });
-
-    if (it != results.end()) {
-      continue;  // Skip already classified paths
-    }
-
-    // Classify the bond subgraph
-    ChiType type = classifySubgraph(mol, bondPath);
-
-    // Only add the subgraph if it is not a Path or Chain
-    if (type != ChiType::Path && type != ChiType::Chain) {
-      results.emplace_back(atomPath, type);
-    }
-  }
-
-  return results;
-}
 
 // Calculate path counts and weighted product
 std::pair<int, double> calculatePathCount(const ROMol &mol, int order) {
@@ -1270,25 +1211,6 @@ std::vector<double> calcDistMatrixDescs(const ROMol &mol) {
   // SM1(DMat) intentionally omitted for parity with L variant
   return {Sp_Abs, Sp_Max, Sp_Diam, Sp_AD, Sp_MAD, Log_EE,
           ve1,    ve2,    ve3,     vr1,   vr2,    vr3};
-}
-
-std::vector<std::vector<double>> calculateDistanceMatrixL(const ROMol &mol) {
-  unsigned int nAtoms = mol.getNumAtoms();
-
-  // Get the distance matrix using RDKit's MolOps::getDistanceMat
-  double *distanceMat = MolOps::getDistanceMat(
-      mol, false, false, false);  // No bond order, no weights, no hydrogens
-
-  // Convert the raw pointer to a 2D vector
-  std::vector<std::vector<double>> distMatrix(nAtoms,
-                                              std::vector<double>(nAtoms, 0.0));
-  for (unsigned int i = 0; i < nAtoms; ++i) {
-    for (unsigned int j = 0; j < nAtoms; ++j) {
-      distMatrix[i][j] = distanceMat[i * nAtoms + j];
-    }
-  }
-
-  return distMatrix;
 }
 
 std::vector<double> calcDistMatrixDescsL(const ROMol &mol) {
@@ -2278,7 +2200,6 @@ std::vector<double> calcExtendedTopochemicalAtom(const ROMol &mol) {
   return results;
 }
 
-      
 //// new version faster but not correct!!!
 
 std::vector<std::vector<int>> calculateTopologicalMatrix(const ROMol &mol) {
@@ -3101,6 +3022,6 @@ static const std::vector<std::pair<std::string, std::string>>
          "[$([#8;X1]=[#16;X4]=[#8;X1]),$([#8;X1-][#16;X4+2][#8;X1-])]"}};
 
 // Function to add SMARTS queries safely to the vector of pairs
-}
-}
-}
+}  // namespace Osmordred
+}  // namespace Descriptors
+}  // namespace RDKit

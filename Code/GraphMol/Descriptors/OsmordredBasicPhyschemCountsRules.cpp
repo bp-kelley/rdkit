@@ -587,7 +587,6 @@ std::string makeKey(Args... args) {
   return key;
 }
 
-
 // Function to assign symmetry classes to each atom based on the distance matrix
 std::vector<int> assignSymmetryClasses(const ROMol &mol,
                                        const std::vector<std::vector<double>> &,
@@ -1600,7 +1599,8 @@ GetSmartsLogs() {
           if (mol) {
             res.emplace_back(std::shared_ptr<RWMol>(mol), pair.second);
           } else {
-            BOOST_LOG(rdWarningLog) << "Invalid SMARTS: " << pair.first << std::endl;
+            BOOST_LOG(rdWarningLog)
+                << "Invalid SMARTS: " << pair.first << std::endl;
           }
         }
         return res;
@@ -1682,7 +1682,6 @@ std::vector<int> calcLipinskiGhose(const ROMol &mol) {
 
   return {lipinski, ghoseFilter};
 }
-
 
 double McGowanVolume(const ROMol &mol) {
   // In Padel code this is /100 in order to match the Polarisability equation
@@ -1837,7 +1836,6 @@ std::vector<double> calcSchultz(const ROMol &mol) {
   res[0] = Schultz(mol);
   return res;
 }
-
 
 // Combined function for calculating both atomic and bond polarizability
 std::vector<double> calcPolarizability(const ROMol &mol) {
@@ -2041,6 +2039,6 @@ std::vector<double> calcConstitutional(const ROMol &mol) {
 ////// Barysz Matrixes Eigen style
 
 // Function to compute eigenvalues and eigenvectors
-}
-}
-}
+}  // namespace Osmordred
+}  // namespace Descriptors
+}  // namespace RDKit

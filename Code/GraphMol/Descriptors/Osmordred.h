@@ -198,7 +198,7 @@ calcOsmordredBatchFromMols(const std::vector<const ROMol *> &mols,
 
 // v2.0: Get descriptor names in the same order as calcOsmordred returns values
 RDKIT_DESCRIPTORS_EXPORT std::vector<std::string> getOsmordredDescriptorNames();
-  
+
 }  // namespace Osmordred
 }  // namespace Descriptors
 }  // namespace RDKit

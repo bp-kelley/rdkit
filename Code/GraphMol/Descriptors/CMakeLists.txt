@@ -15,8 +15,9 @@ if(RDK_BUILD_OSMORDRED)
  endif(NOT LAPACKE_FOUND)
 
  set(OSMORDRED_HDRS Osmordred.h)
- set(OSMORDRED_SOURCES OsmordredHelpers.cpp
+ set(OSMORDRED_SOURCES
               Osmordred.cpp
+	      OsmordredHelpers.cpp
               OsmordredBasicPhyschemCountsRules.cpp
  	      OsmordredTopologicalConnectivityShape.cpp
 	      OsmordredMatrixAutocorrEStateFragments.cpp)

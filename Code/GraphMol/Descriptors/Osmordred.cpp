@@ -30,7 +30,7 @@
 //
 
 #include "Osmordred.h"
-#include "OsmordredHelpers.h"
+// #include "OsmordredHelpers.h"
 
 #include <boost/functional/hash.hpp>  // For custom hashing of pairs
 #include <RDGeneral/RDThreads.h>
@@ -103,66 +103,73 @@ std::vector<double> calcOsmordred(const ROMol &mol) {
     for (int x : v) out.push_back(static_cast<double>(x));
   };
 
-  append(calcABCIndex(mol));                           //addNames("ABCIndex", 2);                              
-  appendInt(calcAcidBase(mol));			       //addNames("AcidBase", 2);                              
-  append(calcAdjMatrixDescsL(mol));		       //addNames("AdjacencyMatrix", 12);                      
-  appendInt(calcAromatic(mol));			       //addNames("Aromatic", 2);                              
-  appendInt(calcAtomCounts(mol));		       //addNames("AtomCount", 17);                            
-  append(calcAutoCorrelation(mol));		       //addNames("Autocorrelation", 606);                     
-  append(calcBCUTs(mol));			       //addNames("BCUT", 24);                                 
-  append(calcBalabanJ(mol));			       //addNames("BalabanJ", 1);                              
-  append(calcBaryszMatrixDescsL(mol));  	       //addNames("BaryszMatrix", 104);                        
-  append(calcBertzCT(mol));			       //addNames("BertzCT", 1);                               
-  appendInt(calcBondCounts(mol));		       //addNames("BondCount", 9);                             
-  append(calcRNCG_RPCG(mol));			       //addNames("RNCGRPCG", 2);                              
-  append(calcCarbonTypes(mol));			       //addNames("CarbonTypes", 11);                          
-  append(calcAllChiDescriptors(mol));		       //addNames("Chi", 56);                                  
-  append(calcConstitutional(mol));		       //addNames("Constitutional", 16);                       
-  append(calcDetourMatrixDescsL(mol));		       //addNames("DetourMatrix", 14);                         
-  append(calcDistMatrixDescsL(mol));		       //addNames("DistanceMatrix", 12);                       
-  append(calcEStateDescs(mol, doExEstate));	       //addNames("EState", 404);                              
-  append(calcEccentricConnectivityIndex(mol));	       //addNames("EccentricConnectivityIndex", 1);            
-  append(calcExtendedTopochemicalAtom(mol));	       //addNames("ExtendedTopochemicalAtom", 45);             
-  append(calcFragmentComplexity(mol));		       //addNames("FragmentComplexity", 1);                    
-  append(calcFramework(mol));			       //addNames("Framework", 1);                             
-  append(calcHydrogenBond(mol));		       //addNames("HydrogenBond", 2);                          
-  append(calcLogS(mol));			       //addNames("LogS", 1);                                  
-  append(calcInformationContent(mol, 5));	       //addNames("InformationContent", 42);                   
-  append(calcKappaShapeIndex(mol));		       //addNames("KappaShapeIndex", 3);                       
-  appendInt(calcLipinskiGhose(mol));		       //addNames("Lipinski", 2);                              
-  append(calcMcGowanVolume(mol));		       //addNames("McGowanVolume", 1);                         
-  append(calcMoeType(mol));			       //addNames("MoeType", 54);                              
-  append(calcMolecularDistanceEdgeDescs(mol));	       //addNames("MolecularDistanceEdge", 19);                
-  append(calcMolecularId(mol));			       //addNames("MolecularId", 12);                          
-  append(calcPathCount(mol));			       //addNames("PathCount", 21);                            
-  append(calcPolarizability(mol));		       //addNames("Polarizability", 2);                        
-  appendInt(calcRingDescriptors(mol));		       //addNames("RingCount", 138);                           
-  append(calcRotatableBond(mol));		       //addNames("RotatableBond", 2);                         
-  append(calcSLogP(mol));			       //addNames("SLogP", 2);                                 
-  append(calcTopoPSA(mol));			       //addNames("TopoPSA", 2);                               
-  append(calcTopologicalChargeDescs(mol));	       //addNames("TopologicalCharge", 21);                    
-  append(calcTopologicalIndex(mol));		       //addNames("TopologicalIndex", 4);                      
-  append(calcVdwVolumeABC(mol));		       //addNames("VdwVolumeABC", 1);                          
-  append(calcVertexAdjacencyInformation(mol));	       //addNames("VertexAdjacencyInformation", 1);            
-  append(calcWalkCounts(mol));			       //addNames("WalkCount", 21);                            
-  append(calcWeight(mol));			       //addNames("Weight", 2);                                
-  appendInt(calcWienerIndex(mol));		       //addNames("WienerIndex", 2);                           
-  append(calcZagrebIndex(mol));			       //addNames("ZagrebIndex", 4);                           
-  append(calcPol(mol));				       //addNames("Pol", 1);                                   
-  append(calcMR(mol));				       //addNames("MR", 1);                                    
-  append(calcFlexibility(mol));			       //addNames("Flexibility", 1);                           
-  append(calcSchultz(mol));			       //addNames("Schultz", 1);                               
-  append(calcAlphaKappaShapeIndex(mol));	       //addNames("AlphaKappaShapeIndex", 3);                  
-  append(calcHEStateDescs(mol));		       //addNames("HEState", 88);                              
-  append(calcBEStateDescs(mol));		       //addNames("BEState", 1460);                            
-  append(calcAbrahams(mol));			       //addNames("Abrahams", 6);                              
-  append(calcANMat(mol));			       //addNames("ANMat", 25);                                
-  append(calcASMat(mol));			       //addNames("ASMat", 20);                                
-  append(calcAZMat(mol));			       //addNames("AZMat", 15);                                
-  append(calcDSMat(mol));			       //addNames("DSMat", 20);                                
-  append(calcDN2Mat(mol));			       //addNames("DN2Mat", 20);                               
-  append(calcFrags(mol));			       //addNames("Frags", 215);                               
-  append(calcAddFeatures(mol));			       //addNames("AddFeatures", 7);                           
+  append(calcABCIndex(mol));            // addNames("ABCIndex", 2);
+  appendInt(calcAcidBase(mol));         // addNames("AcidBase", 2);
+  append(calcAdjMatrixDescsL(mol));     // addNames("AdjacencyMatrix", 12);
+  appendInt(calcAromatic(mol));         // addNames("Aromatic", 2);
+  appendInt(calcAtomCounts(mol));       // addNames("AtomCount", 17);
+  append(calcAutoCorrelation(mol));     // addNames("Autocorrelation", 606);
+  append(calcBCUTs(mol));               // addNames("BCUT", 24);
+  append(calcBalabanJ(mol));            // addNames("BalabanJ", 1);
+  append(calcBaryszMatrixDescsL(mol));  // addNames("BaryszMatrix", 104);
+  append(calcBertzCT(mol));             // addNames("BertzCT", 1);
+  appendInt(calcBondCounts(mol));       // addNames("BondCount", 9);
+  append(calcRNCG_RPCG(mol));           // addNames("RNCGRPCG", 2);
+  append(calcCarbonTypes(mol));         // addNames("CarbonTypes", 11);
+  append(calcAllChiDescriptors(mol));   // addNames("Chi", 56);
+  append(calcConstitutional(mol));      // addNames("Constitutional", 16);
+  append(calcDetourMatrixDescsL(mol));  // addNames("DetourMatrix", 14);
+  append(calcDistMatrixDescsL(mol));    // addNames("DistanceMatrix", 12);
+  append(calcEStateDescs(mol, doExEstate));  // addNames("EState", 404);
+  append(calcEccentricConnectivityIndex(
+      mol));  // addNames("EccentricConnectivityIndex", 1);
+  append(calcExtendedTopochemicalAtom(
+      mol));  // addNames("ExtendedTopochemicalAtom", 45);
+  append(calcFragmentComplexity(mol));     // addNames("FragmentComplexity", 1);
+  append(calcFramework(mol));              // addNames("Framework", 1);
+  append(calcHydrogenBond(mol));           // addNames("HydrogenBond", 2);
+  append(calcLogS(mol));                   // addNames("LogS", 1);
+  append(calcInformationContent(mol, 5));  // addNames("InformationContent",
+                                           // 42);
+  append(calcKappaShapeIndex(mol));   // addNames("KappaShapeIndex", 3);
+  appendInt(calcLipinskiGhose(mol));  // addNames("Lipinski", 2);
+  append(calcMcGowanVolume(mol));     // addNames("McGowanVolume", 1);
+  append(calcMoeType(mol));           // addNames("MoeType", 54);
+  append(calcMolecularDistanceEdgeDescs(
+      mol));                        // addNames("MolecularDistanceEdge", 19);
+  append(calcMolecularId(mol));     // addNames("MolecularId", 12);
+  append(calcPathCount(mol));       // addNames("PathCount", 21);
+  append(calcPolarizability(mol));  // addNames("Polarizability", 2);
+  appendInt(calcRingDescriptors(mol));      // addNames("RingCount", 138);
+  append(calcRotatableBond(mol));           // addNames("RotatableBond", 2);
+  append(calcSLogP(mol));                   // addNames("SLogP", 2);
+  append(calcTopoPSA(mol));                 // addNames("TopoPSA", 2);
+  append(calcTopologicalChargeDescs(mol));  // addNames("TopologicalCharge",
+                                            // 21);
+  append(calcTopologicalIndex(mol));  // addNames("TopologicalIndex", 4);
+  append(calcVdwVolumeABC(mol));      // addNames("VdwVolumeABC", 1);
+  append(calcVertexAdjacencyInformation(
+      mol));                    // addNames("VertexAdjacencyInformation", 1);
+  append(calcWalkCounts(mol));  // addNames("WalkCount", 21);
+  append(calcWeight(mol));      // addNames("Weight", 2);
+  appendInt(calcWienerIndex(mol));        // addNames("WienerIndex", 2);
+  append(calcZagrebIndex(mol));           // addNames("ZagrebIndex", 4);
+  append(calcPol(mol));                   // addNames("Pol", 1);
+  append(calcMR(mol));                    // addNames("MR", 1);
+  append(calcFlexibility(mol));           // addNames("Flexibility", 1);
+  append(calcSchultz(mol));               // addNames("Schultz", 1);
+  append(calcAlphaKappaShapeIndex(mol));  // addNames("AlphaKappaShapeIndex",
+                                          // 3);
+  append(calcHEStateDescs(mol));  // addNames("HEState", 88);
+  append(calcBEStateDescs(mol));  // addNames("BEState", 1460);
+  append(calcAbrahams(mol));      // addNames("Abrahams", 6);
+  append(calcANMat(mol));         // addNames("ANMat", 25);
+  append(calcASMat(mol));         // addNames("ASMat", 20);
+  append(calcAZMat(mol));         // addNames("AZMat", 15);
+  append(calcDSMat(mol));         // addNames("DSMat", 20);
+  append(calcDN2Mat(mol));        // addNames("DN2Mat", 20);
+  append(calcFrags(mol));         // addNames("Frags", 215);
+  append(calcAddFeatures(mol));   // addNames("AddFeatures", 7);
   return out;
 }
 
@@ -299,7 +306,7 @@ std::vector<std::vector<double>> calcOsmordredBatchFromMols(
     // lambda capture divergence between clang and msvc
     futures.emplace_back(std::async(std::launch::async, [mol]() {
 #else
-      futures.emplace_back(std::async(std::launch::async, [mol, nFeatures]() {
+    futures.emplace_back(std::async(std::launch::async, [mol, nFeatures]() {
 #endif
       if (mol) {
         try {
@@ -323,7 +330,6 @@ std::vector<std::vector<double>> calcOsmordredBatchFromMols(
   }
   return results;
 }
-      
 
 // v2.0: Get descriptor names in the same order as calcOsmordred returns values
 std::vector<std::string> getOsmordredDescriptorNames() {
@@ -361,57 +367,23 @@ std::vector<std::string> getOsmordredDescriptorNames() {
   addNames("EState", 404);
   addNames("EccentricConnectivityIndex", 1);
 
-  const std::vector etaNames {
-    "ETA_alpha",
-    "AETA_alpha",
-    "ETA_shape_p",
-    "ETA_shape_y",
-    "ETA_shape_x",
-    "ETA_beta",
-    "AETA_beta",
-    "ETA_beta_s",
-    "AETA_beta_s",
-    "ETA_beta_ns",
-    "AETA_beta_ns",
-    "ETA_beta_ns_d",
-    "ATEA_beta_ns_d",
-    "ETA_eta",
-    "AETA_eta",
-    "ETA_eta_L",
-    "AETA_eta_L",
-    "ETA_eta_R",
-    "AETA_eta_R",
-    "ETA_eta_RL",
-    "AETA_eta_RL",
-    "ETA_eta_F",
-    "AETA_eta_F",
-    "ETA_eta_FL",
-    "AETA_eta_FL",
-    "ETA_eta_B",
-    "AETA_eta_B",
-    "ETA_eta_BR",
-    "AETA_eta_BR",
-    "ETA_dAlpha_A",
-    "ETA_dAlpha_B",
-    "ETA_epsilon_1",
-    "ETA_epsilon_2",
-    "ETA_epsilon_3",
-    "ETA_epsilon_4",
-    "ETA_epsilon_5",
-    "ETA_dEpsilon_A",
-    "ETA+dEpsilon_B",
-    "ETA_dEpsilon_C",
-    "ETA_dEpsilon_D",
-    "EtaDeltaBeta_1",
-    "EtaDeltaBeta_2",
-    "ETA_psi_1",
-    "ETA_dPsi_A",
-    "ETA_dPsi_B"
-  };
-  
+  const std::vector etaNames{
+      "ETA_alpha",      "AETA_alpha",     "ETA_shape_p",    "ETA_shape_y",
+      "ETA_shape_x",    "ETA_beta",       "AETA_beta",      "ETA_beta_s",
+      "AETA_beta_s",    "ETA_beta_ns",    "AETA_beta_ns",   "ETA_beta_ns_d",
+      "ATEA_beta_ns_d", "ETA_eta",        "AETA_eta",       "ETA_eta_L",
+      "AETA_eta_L",     "ETA_eta_R",      "AETA_eta_R",     "ETA_eta_RL",
+      "AETA_eta_RL",    "ETA_eta_F",      "AETA_eta_F",     "ETA_eta_FL",
+      "AETA_eta_FL",    "ETA_eta_B",      "AETA_eta_B",     "ETA_eta_BR",
+      "AETA_eta_BR",    "ETA_dAlpha_A",   "ETA_dAlpha_B",   "ETA_epsilon_1",
+      "ETA_epsilon_2",  "ETA_epsilon_3",  "ETA_epsilon_4",  "ETA_epsilon_5",
+      "ETA_dEpsilon_A", "ETA+dEpsilon_B", "ETA_dEpsilon_C", "ETA_dEpsilon_D",
+      "EtaDeltaBeta_1", "EtaDeltaBeta_2", "ETA_psi_1",      "ETA_dPsi_A",
+      "ETA_dPsi_B"};
+
   names.insert(names.end(), etaNames.begin(), etaNames.end());
 
-  //addNames("ExtendedTopochemicalAtom", 45);
+  // addNames("ExtendedTopochemicalAtom", 45);
   addNames("FragmentComplexity", 1);
   addNames("Framework", 1);
   addNames("HydrogenBond", 2);
@@ -452,10 +424,10 @@ std::vector<std::string> getOsmordredDescriptorNames() {
   addNames("DN2Mat", 20);
   addNames("Frags", 215);
   addNames("AddFeatures", 7);
-  
+
   return names;
 }
 
-}
-}
-}  
+}  // namespace Osmordred
+}  // namespace Descriptors
+}  // namespace RDKit
