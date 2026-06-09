@@ -109,9 +109,9 @@ TEST_CASE("Github #2029", "[SMILES][bug]") {
     CHECK("" == SmilesWrite::GetBondSmiles(m1->getBondWithIdx(1), -1, doKekule,
                                            allBondsExplicit));
     allBondsExplicit = true;
-    CHECK("=" == SmilesWrite::GetBondSmiles(m1->getBondWithIdx(0), -1, doKekule,
+    CHECK("-" == SmilesWrite::GetBondSmiles(m1->getBondWithIdx(0), -1, doKekule,
                                             allBondsExplicit));
-    CHECK("-" == SmilesWrite::GetBondSmiles(m1->getBondWithIdx(1), -1, doKekule,
+    CHECK("=" == SmilesWrite::GetBondSmiles(m1->getBondWithIdx(1), -1, doKekule,
                                             allBondsExplicit));
   }
 }
@@ -256,7 +256,8 @@ TEST_CASE("github #2257: writing cxsmiles", "[smiles][cxsmiles]") {
     CHECK(mol->getAtomWithIdx(1)->getProp<std::string>("p1") == "v1;2;3");
 
     auto smi = MolToCXSmiles(*mol);
-    CHECK(smi == "CC1CN1 |atomProp:2.p2.v2:2.p1.v1;2;3:3.p2.v2:3.p1.v1|");
+    CHECK(smi ==
+          "CC1CN1 |atomProp:2.p2.v2:2.p1.v1&#59;2&#59;3:3.p2.v2:3.p1.v1|");
   }
   SECTION("atom props and values") {
     //"CN |$_AV:atomv0;atomv1$,atomProp:0.p2.v2:1.p2.v1|";
@@ -1636,6 +1637,7 @@ TEST_CASE("Github #4582: double bonds and ring closures") {
   const auto useLegacy = GENERATE(true, false);
   CAPTURE(useLegacy);
   UseLegacyStereoPerceptionFixture fxn(useLegacy);
+
   auto mol = R"CTAB(CHEMBL409450
      RDKit          2D
 
@@ -1689,30 +1691,31 @@ TEST_CASE("Github #4582: double bonds and ring closures") {
  20 21  1  0
 M  END)CTAB"_ctab;
   REQUIRE(mol);
-  auto dbond = mol->getBondBetweenAtoms(1, 19);
-  REQUIRE(dbond);
-  CHECK(dbond->getBondType() == Bond::BondType::DOUBLE);
-  if (useLegacy) {
-    CHECK(dbond->getStereo() == Bond::BondStereo::STEREOE);
-    CHECK(dbond->getStereoAtoms() == std::vector<int>{8, 20});
-  } else {
-    CHECK(dbond->getStereo() == Bond::BondStereo::STEREOCIS);
-    CHECK(dbond->getStereoAtoms() == std::vector<int>{0, 20});
+
+  constexpr auto smiles_reference =
+      R"SMI(O=C1Nc2cc(Br)ccc2/C1=C1/Nc2ccccc2/C1=N\O)SMI";
+
+  SECTION("basic test") {
+    auto dbond = mol->getBondBetweenAtoms(1, 19);
+    REQUIRE(dbond);
+    CHECK(dbond->getBondType() == Bond::BondType::DOUBLE);
+    if (useLegacy) {
+      CHECK(dbond->getStereo() == Bond::BondStereo::STEREOE);
+      CHECK(dbond->getStereoAtoms() == std::vector<int>{8, 20});
+    } else {
+      CHECK(dbond->getStereo() == Bond::BondStereo::STEREOCIS);
+      CHECK(dbond->getStereoAtoms() == std::vector<int>{0, 20});
+    }
+    auto csmiles = MolToSmiles(*mol);
+    CHECK(csmiles == smiles_reference);
   }
-  auto csmiles = MolToSmiles(*mol);
-  CHECK(csmiles == R"SMI(O=C1Nc2cc(Br)ccc2/C1=C1Nc2ccccc2C/1=N\O)SMI");
 
   SECTION("bulk random output order") {
     auto csmiles = MolToSmiles(*mol);
-    CHECK(csmiles == R"SMI(O=C1Nc2cc(Br)ccc2/C1=C1Nc2ccccc2C/1=N\O)SMI");
+    CHECK(csmiles == smiles_reference);
     SmilesWriteParams ps;
     ps.doRandom = true;
     for (auto i = 0u; i < 100; ++i) {
-      if (i == 13 || i == 25 || i == 38 || i == 50) {
-        // we know these fail; we hope to address them
-        // together with issue #8965
-        continue;
-      }
       INFO("i = " + std::to_string(i));
       getRandomGenerator(i + 1)();
       auto rsmiles = MolToSmiles(*mol, ps);
@@ -1769,7 +1772,7 @@ M  END)CTAB"_ctab;
     auto mol = R"SMI(C1=CC/C=C2C3=C/CC=CC=CC\3C\2C=C1)SMI"_smiles;
     REQUIRE(mol);
     auto smi = MolToSmiles(*mol);
-    CHECK(smi == R"SMI(C1=CC/C=C2C3=C\CC=CC=CC/3C\2C=C1)SMI");
+    CHECK(smi == R"SMI(C1=CC/C=C2\C3=C\CC=CC=CC3C2C=C1)SMI");
   }
   SECTION("CHEMBL3623347") {
     auto mol = R"CTAB(CHEMBL3623347
@@ -2003,12 +2006,12 @@ TEST_CASE("github #5466 writing floating point atom props cxsmiles",
 
     mol->getAtomWithIdx(0)->setProp<std::string>("foo", "7.6");
     auto smi = MolToCXSmiles(*mol);
-    CHECK(smi == "C |atomProp:0.foo.7&#46;6|");
+    CHECK(smi == "C |atomProp:0.foo.7.6|");
 
     // 7.5 is exactly representable in IEEE so this helps :)
     mol->getAtomWithIdx(0)->setProp<double>("foo", 7.5);
     smi = MolToCXSmiles(*mol);
-    CHECK(smi == "C |atomProp:0.foo.7&#46;5|");
+    CHECK(smi == "C |atomProp:0.foo.7.5|");
   }
   SECTION("label with .") {
     auto mol = "C"_smiles;
@@ -2016,7 +2019,7 @@ TEST_CASE("github #5466 writing floating point atom props cxsmiles",
 
     mol->getAtomWithIdx(0)->setProp<int>("foo.foo", 7);
     auto smi = MolToCXSmiles(*mol);
-    CHECK(smi == "C |atomProp:0.foo&#46;foo.7|");
+    CHECK(smi == "C |atomProp:0.foo.foo.7|");
   }
 }
 
@@ -3375,4 +3378,33 @@ $$$$)CTAB";
 
   CHECK(SmilesWrite::getCXExtensions(
             *m, RDKit::SmilesWrite::CXSmilesFields::CX_ALL_BUT_COORDS) == "");
+}
+
+TEST_CASE("github #9144: PR #9082 breaks MolFragmentToSmarts()") {
+  SECTION("as reported") {
+    auto m = "C[C@H](C=O)NCc1ccccc1"_smiles;
+    REQUIRE(m);
+    SmilesWriteParams ps;
+    auto sma = MolFragmentToSmarts(*m, ps, {5, 6, 7, 8, 9, 10, 11});
+    CHECK(sma == "[#6]-[#6]1:[#6]:[#6]:[#6]:[#6]:[#6]:1");
+  }
+  SECTION("another example") {
+    auto m = "C[C@H](F)CCCN"_smiles;
+    REQUIRE(m);
+    SmilesWriteParams ps;
+    {
+      auto sma = MolFragmentToSmarts(*m, ps, {3, 4, 5});
+      CHECK(sma == "[#6]-[#6]-[#6]");
+    }
+    {
+      auto smi = MolFragmentToSmiles(*m, ps, {1, 3, 4, 5});
+      CHECK(smi == "CCCC");
+    }
+    {
+      // one can argue about what should happen here, but this is consistent
+      // with what the code did before
+      auto sma = MolFragmentToSmarts(*m, ps, {1, 3, 4, 5});
+      CHECK(sma == "[#6](-[#6@H])-[#6]-[#6]");
+    }
+  }
 }
