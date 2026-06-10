@@ -1523,7 +1523,11 @@ std::vector<double> calcEState_VSA(const ROMol &mol) {
 }
 
 std::vector<double> calcMoeType(const ROMol &mol) {
-  std::vector<double> res(54, 0.0);
+  // osmordredv3: 58 = LabuteASA + PEOE_VSA(14) + SMR_VSA(10) + SlogP_VSA(12) +
+  // EState_VSA(11) + VSA_EState(10). Was res(54) with `p += size - 1` below,
+  // which overlapped each family's first bin onto the previous family's last
+  // bin (corrupted 4 values and dropped 4). Now `p += size` -> no overlap.
+  std::vector<double> res(58, 0.0);
   double LabuteASA = Descriptors::calcLabuteASA(mol);
   res[0] = LabuteASA;
   int p = 1;
@@ -1533,7 +1537,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
   for (size_t i = 0; i < PEOE_VSA.size(); ++i) {
     res[p + i] = PEOE_VSA[i];  // Copy PEOE_VSA to res[1:13]
   }
-  p += PEOE_VSA.size() - 1;
+  p += PEOE_VSA.size();
   // std::cout << "- new p: " << p << " | ";
 
   std::vector<double> SMR_VSA = Descriptors::calcSMR_VSA(mol);
@@ -1542,7 +1546,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
   for (size_t i = 0; i < SMR_VSA.size(); ++i) {
     res[p + i] = SMR_VSA[i];  // Copy SMR_VSA to res[14:23]
   }
-  p += SMR_VSA.size() - 1;
+  p += SMR_VSA.size();
   // std::cout << "- new p: " << p << " | ";
 
   std::vector<double> SlogP_VSA = Descriptors::calcSlogP_VSA(mol);
@@ -1550,7 +1554,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
   for (size_t i = 0; i < SlogP_VSA.size(); ++i) {
     res[p + i] = SlogP_VSA[i];  // Copy SlogP_VSA to res[23:34]
   }
-  p += SlogP_VSA.size() - 1;
+  p += SlogP_VSA.size();
   // std::cout << "- new p: " <<  p << " | ";
 
   std::vector<double> EState_VSA = calcEState_VSA(mol);
@@ -1558,7 +1562,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
   for (size_t i = 0; i < EState_VSA.size(); ++i) {
     res[p + i] = EState_VSA[i];  // Copy EState_VSA
   }
-  p += EState_VSA.size() - 1;
+  p += EState_VSA.size();
   // std::cout << "- new p: " << p << " | ";
 
   // EState (mordred) VSA_EState 1-9 & EState_VSA 1-10
@@ -1569,7 +1573,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
                                  // std::cout << " ( " << p+i;
   }
   // std::cout << ")\n";
-  p += VSA_EState.size() - 1;
+  p += VSA_EState.size();
   // std::cout << "- new p: " << p << " end ";
   return res;
 }
