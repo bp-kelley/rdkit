@@ -375,7 +375,11 @@ std::vector<double> calcAddFeatures(const ROMol &mol) {
 
 // Function to calculate the number of acidic groups in a molecule
 int calcAcidicGroupCount(const ROMol &mol) {
-  return countMatches(mol, GetAlcoholSmarts());
+  // Fix: count acidic groups (carboxylic/sulfonic/phosphonic OH, anions,
+  // triflylamide, tetrazole), not alcohols. The previous GetAlcoholSmarts()
+  // counted phenols/alcohols (e.g. Cyanidin -> 5) and missed COOH
+  // (e.g. Glutathione -> 0). GetAcidicSmarts() matches Mordred's nAcid.
+  return countMatches(mol, GetAcidicSmarts());
 }
 
 // Function to calculate the number of basic groups in a molecule
@@ -1375,21 +1379,16 @@ double getSulfurContribution(const Atom *atom) {
 
 // Main function to calculate the Topological Polar Surface Area (TPSA)
 std::vector<double> calcTopoPSA(const ROMol &mol) {
-  double tpsa = Descriptors::calcTPSA(mol);
-
+  // res[0] = TopoPSA(NO): N,O contributions only.
+  // res[1] = TopoPSA: includes S & P contributions.
+  // Use RDKit's calcTPSA includeSandP flag (Ertl), which correctly handles
+  // thiols/sulfides/phosphorus on H-suppressed molecules. The previous
+  // hand-rolled getSulfurContribution/getPhosphorusContribution assumed
+  // explicit H and missed e.g. R-SH thiols (Glutathione lost the 38.80 term),
+  // so res[1] silently equalled res[0] for thiols.
   std::vector<double> res(2, 0.0);
-  res[0] = tpsa;
-
-  for (const auto &atom : mol.atoms()) {
-    int atomicNum = atom->getAtomicNum();
-    if (atomicNum == 15) {  // Phosphorus
-      tpsa += getPhosphorusContribution(atom);
-    } else if (atomicNum == 16) {  // Sulfur
-      tpsa += getSulfurContribution(atom);
-    }
-  }
-  res[1] = tpsa;
-
+  res[0] = Descriptors::calcTPSA(mol, false, false);  // N,O only  -> TopoPSA(NO)
+  res[1] = Descriptors::calcTPSA(mol, false, true);   // incl. S,P -> TopoPSA
   return res;
 }
 

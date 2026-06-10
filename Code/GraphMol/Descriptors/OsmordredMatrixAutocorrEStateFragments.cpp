@@ -1716,8 +1716,11 @@ std::vector<double> calcBCUTs(const ROMol &mol) {
 
   for (auto &result :
        BCUT2D(mol, atomicProperties, BCUTOptions::BURDEN_MATRIX)) {
-    results.push_back(result.first);
-    results.push_back(result.second);
+    // BCUT2D returns {highest, lowest}. Descriptor names are <prop>-1l (low)
+    // then <prop>-1h (high), so emit low first, high second. Previously emitted
+    // high then low, swapping the -1l/-1h label of every BCUT descriptor.
+    results.push_back(result.second);  // <prop>-1l : lowest eigenvalue
+    results.push_back(result.first);   // <prop>-1h : highest eigenvalue
   }
 
   return results;

@@ -1412,8 +1412,8 @@ bool hasExcessiveNeighbors(const ROMol &mol) {
   for (auto atom : mol.atoms()) {
     int total_neighbors = atom->getDegree() + atom->getTotalNumHs();
     if (atom->getAtomicNum() != 6 && total_neighbors > 4) {
-      std::cout
-          << "Skipping molecule due to heteroatom with more than 4 neighbors (Atom Index: "
+      BOOST_LOG(rdDebugLog)
+          << "Reference skeleton: heteroatom with >4 neighbors (Atom Index: "
           << atom->getIdx() << " Atomic Num: " << atom->getAtomicNum()
           << " Neighbors: " << total_neighbors << ")\n";
       return true;  // A heteroatom with more than 4 neighbors found
@@ -1426,8 +1426,10 @@ bool hasExcessiveNeighbors(const ROMol &mol) {
 RWMol *cloneAndModifyMolecule(const ROMol &originalMol, bool explicitHydrogens,
                               bool saturated) {
   try {
-    // Check before proceeding
-    if (hasExcessiveNeighbors(originalMol) && saturated) {
+    // Check before proceeding (only meaningful when atoms keep their real
+    // identity; short-circuit on `saturated` so the carbon-skeleton path does
+    // not emit spurious warnings for hypothetical objects).
+    if (saturated && hasExcessiveNeighbors(originalMol)) {
       return nullptr;
     }
 
@@ -1459,9 +1461,15 @@ RWMol *cloneAndModifyMolecule(const ROMol &originalMol, bool explicitHydrogens,
       }
     }
 
-    // Perform sanitization with error handling
+    // Perform sanitization with error handling. This is an artificial graph
+    // (heavy atoms abstracted to carbon, bonds forced to single), not a real
+    // molecule, so a carried-over hypervalent atom (e.g. pentavalent P -> C5)
+    // must NOT raise a valence error. Compute valences non-strictly and skip
+    // the strict valence check (consistent with modifyMolecule()).
+    clonedMol->updatePropertyCache(false);
     unsigned int failedOps = 0;
-    MolOps::sanitizeMol(*clonedMol, failedOps, MolOps::SANITIZE_ALL);
+    MolOps::sanitizeMol(*clonedMol, failedOps,
+                        MolOps::SANITIZE_ALL ^ MolOps::SANITIZE_PROPERTIES);
 
     if (failedOps > 0) {
       std::cerr
@@ -2782,6 +2790,7 @@ std::vector<int> calcRingDescriptors(const ROMol &mol) {
     }
     if (fused_ring_size > 12) {
       // greater
+      descriptors[82]++;  // nG12FRing (plain): was never incremented -> always 0
       if (has_hetero) {
         descriptors[83]++;  // nFHRing sum
         descriptors[93]++;  // nG12FHRing
