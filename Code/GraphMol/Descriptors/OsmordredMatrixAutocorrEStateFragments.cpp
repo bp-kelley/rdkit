@@ -2252,7 +2252,7 @@ const std::vector<std::string> &getOrganicBondKeys() {
       "24-S-20", "28-S-20", "30-S-20", "50-S-20", "52-S-20", "53-S-20",
       "21-S-21", "24-S-21", "28-S-21", "52-S-21", "53-S-21", "24-S-22",
       "28-S-22", "30-S-22", "50-S-22", "52-S-22", "53-S-22", "28-D-23",
-      "28-S-23", "52-D-23", "52-S-23", "53-D-23", "53-D-23", "24-S-24",
+      "28-S-23", "52-D-23", "52-S-23", "53-D-23", "53-S-23", "24-S-24",
       "28-S-24", "52-S-24", "53-S-24", "25-A-25", "29-S-25", "37-A-25",
       "51-A-25", "28-S-27", "30-S-27", "50-S-27", "52-S-27", "53-S-27",
       "28-D-28", "28-S-28", "30-S-28", "31-S-28", "35-D-28", "36-S-28",
@@ -2853,9 +2853,13 @@ std::vector<double> calcAbrahams(const ROMol &mol) {
 // TODO : check if "-2" case is properly used in cluster because by definition
 // an empty key is a key too to discrimitate!
 
-int generateKey(int rootNum, int rootDeg, int bondOrder, int neighNum) {
-  // return (rootNum * 10 + rootDeg) * 1000 + bondOrder * 100 + neighNum;
-  return (rootNum * 10 + rootDeg) * 1000 + bondOrder * 100 + neighNum;
+int generateKey(int rootNum, int rootDeg, int bondOrder, int neighNum,
+                int neighDeg) {
+  // osmordredv3: fold in the NEIGHBOR degree too (Mordred parity). The radius-0
+  // partition is atomic-number only (built before the r>=1 loop), so adding
+  // neighbor degree here only refines r>=1 -> no radius-0 regressions.
+  return ((rootNum * 10 + rootDeg) * 1000 + bondOrder * 100 + neighNum) * 10 +
+         neighDeg;
 }
 
 int getbondtypeint(const Bond::BondType &bd) {
@@ -3037,7 +3041,25 @@ std::map<int, std::vector<std::vector<int>>> computePipeline(
         int stop = findLastOccupied(M, atomIdx);  // get the end
 
         if (start == -2) {
-          continue;  // Skip further processing but allow iteration
+          // osmordredv3 FIX (keep-all): an atom whose BFS frontier is exhausted
+          // (SP[atomIdx][r-1] == -2) has no new neighbors but must STAY in the
+          // partition. The previous bare `continue` dropped it before it was
+          // appended to clusterKeys, so atoms vanished as the radius grew,
+          // classes merged, and IC/TIC/CIC/SIC/BIC came out too low (e.g.
+          // Benzene IC5 collapsed). Keep it with a stable empty key so the
+          // CN[r] cluster sizes always sum to N.
+          //
+          // osmordredv3 OOB FIX: also propagate the exhausted marker into THIS
+          // radius. Without it SP[atomIdx][r] stays at its init -1, so the next
+          // radius reads start = -1 and the `for (pos = start; ...)` loop does
+          // M[atomIdx][-1] -- an out-of-bounds read of the int before the
+          // buffer. That garbage is binary-layout-dependent, so IC at the
+          // deepest radius became non-reproducible across builds for
+          // degenerate-symmetry molecules (e.g. P1PPP1: IC5 1.0 vs 1.4056).
+          SP[atomIdx][r] = -2;
+          clusterKeys.emplace_back(atomIdx,
+                                   std::vector<int>{});  // keep atom; no frontier
+          continue;
         }
 
         std::vector<int> eqKeys;
@@ -3074,11 +3096,12 @@ std::map<int, std::vector<std::vector<int>>> computePipeline(
             int bondOrder = getbondtypeint(
                 bond->getBondType());  // don't need kekulize like in Mordred
             int neighNum = mol.getAtomWithIdx(nbIdx)->getAtomicNum();
-            // the logic is to look at the dgree of the source atom not the
-            // destination as we are at a delta order comparison (relation not
-            // absolute detection)
+            int neighDeg = mol.getAtomWithIdx(nbIdx)->getDegree();
+            // osmordredv3: key on both the root (rootNum/rootDeg) and the
+            // neighbor (neighNum/neighDeg) for Mordred parity -- was keyed on
+            // root degree + neighbor atomic number only.
             eqKeys.push_back(
-                generateKey(rootNum, rootDeg, bondOrder, neighNum));
+                generateKey(rootNum, rootDeg, bondOrder, neighNum, neighDeg));
           }
         }
 
@@ -4596,7 +4619,7 @@ static const std::vector<std::string> frags = {
     "P[OH,O-]",
     "[CH][F,Cl,Br,I,$([NX3](=O)=O),$([NX3+](=O)[O-]),$(C#N),$([CX4](F)(F)F)]",
     "[CH]([F,Cl,Br,I,$([NX3](=O)=O),$([NX3+](=O)[O-]),$(C#N),$([CX4](F)(F)F)])[F,Cl,Br,I,$([NX3](=O)=O),$([NX3+](=O)[O-]),$(C#N),$([CX4](F)(F)F)]",
-    "[CX4]([CX3](=O)[OX1H0-,OX2H1])[CX4][CX3](=O)[OX1H0-,OX2H1]"
+    "[CX4]([CX3](=O)[OX1H0-,OX2H1])[CX4][CX3](=O)[OX1H0-,OX2H1]",
     "[CX4]([F,Cl,Br,I,$([NX3](=O)=O),$([NX3+](=O)[O-]),$(C#N),$([CX4](F)(F)F)])[CX3](=O)[OX1H0-,OX2H1]",
     "[CX4]([F,Cl,Br,I,$([NX3](=O)=O),$([NX3+](=O)[O-]),$(C#N),$([CX4](F)(F)F)])[OH]",
     "[CX4]([F,Cl,Br,I,$([NX3](=O)=O),$([NX3+](=O)[O-]),$(C#N),$([CX4](F)(F)F)])[CX4][OH]",
@@ -4692,7 +4715,6 @@ static const std::vector<std::string> frags = {
     "[NX3,NX4+][CX3](=[OX1])[OX2H,OX1-]",
     "[#6][CX3](=[OX1])[OX2H0][#6]",
     "[CX3](=[OX1])[OX1-]",
-    "[CX3](=O)[OX2H1]",
     "[OX1]=[CX3]([OX2])[OX2]",
     "[CX3]=[SX1]",
     "[NX3][NX3]",
@@ -4703,7 +4725,6 @@ static const std::vector<std::string> frags = {
     "[OX2,OX1-][OX2,OX1-]",
     "[$([#16X3](=[OX1])([#6])[#6]),$([#16X3+]([OX1-])([#6])[#6])]",
     "[$([#16X4](=[OX1])(=[OX1])([#6])[#6]),$([#16X4+2]([OX1-])([OX1-])([#6])[#6])]",
-    "[$([SX4](=[OX1])(=[OX1])([!O])[NX3]),$([SX4+2]([OX1-])([OX1-])([!O])[NX3])]",
     "[$([#16X3](=[OX1])[OX2H0]),$([#16X3+]([OX1-])[OX2H0])]",
     "[$([#16X3](=[OX1])[OX2H,OX1H0-]),$([#16X3+]([OX1-])[OX2H,OX1H0-])]",
     "[$([#16X4](=[OX1])(=[OX1])([#6])[OX2H0]),$([#16X4+2]([OX1-])([OX1-])([#6])[OX2H0])]",
