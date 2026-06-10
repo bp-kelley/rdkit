@@ -109,73 +109,70 @@ bool isMoleculeTooLarge(const ROMol &mol) {
 }
 
 namespace {
-void solveLinearSystem(const ROMol &mol, std::vector<double> &A,
-                       std::vector<double> &B, int n, int nrhs, bool &success) {
-  int lda = n;  // Leading dimension of A
-  int ldb = n;  // Leading dimension of B
-  int info;
+void solveLinearSystem(const ROMol &mol, std::vector<double>& A, std::vector<double>& B,
+		       int n, int nrhs, bool& success) {
+    int lda = n; // Leading dimension of A
+    int ldb = n; // Leading dimension of B
+    int info;
 
-  success = false;  // Initialize success flag
+    success = false; // Initialize success flag
 
-  // CRITICAL FIX v2.0: Save original RHS before any LAPACK calls modify B
-  // LAPACK routines modify B in-place, even when they fail!
-  std::vector<double> B_original = B;
+    // CRITICAL FIX v2.0: Save original RHS before any LAPACK calls modify B
+    // LAPACK routines modify B in-place, even when they fail!
+    std::vector<double> B_original = B;
 
-  // First, try dposv (Cholesky factorization for positive definite matrices)
-  std::vector<double> A_copy = A;  // Copy A because LAPACK modifies it
-  info = LAPACKE_dposv(LAPACK_COL_MAJOR, 'U', n, nrhs, A_copy.data(), lda,
-                       B.data(), ldb);
-
-  if (info == 0) {
-    success = true;
-    return;
-  } else {
-    // dposv failed; fall back to dgesv (LU factorization)
-    // CRITICAL FIX v2.0: Restore original RHS before calling dgesv
-    // dposv modified B even though it failed!
-    B = B_original;
-
-    std::vector<int> ipiv(n);  // Pivot array for dgesv
-    A_copy = A;                // Reset A because it was modified by dposv
-    info = LAPACKE_dgesv(LAPACK_COL_MAJOR, n, nrhs, A_copy.data(), lda,
-                         ipiv.data(), B.data(), ldb);
+    // First, try dposv (Cholesky factorization for positive definite matrices)
+    std::vector<double> A_copy = A; // Copy A because LAPACK modifies it
+    info = LAPACKE_dposv(LAPACK_COL_MAJOR, 'U', n, nrhs, A_copy.data(), lda, B.data(), ldb);
 
     if (info == 0) {
-      success = true;
-      return;
-    } else {
-      // dgesv failed (singular matrix); fall back to dgelss (pseudo-inverse via
-      // SVD) CRITICAL FIX v2.0: Added dgelss fallback for singular matrices
-      // This provides a minimum-norm least-squares solution when exact solution
-      // doesn't exist
-      B = B_original;  // Restore original RHS values
-
-      std::vector<double> A_copy2 = A;  // Fresh copy for dgelss
-      std::vector<double> B_copy = B;   // Copy B because dgelss modifies it
-
-      // Allocate workspace for dgelss
-      std::vector<double> s(n);  // Singular values
-      int rank;                  // Rank of matrix
-      double rcond = 1e-15;      // Condition number threshold
-
-      // dgelss computes least-squares solution: min ||Ax - b||_2
-      info = LAPACKE_dgelss(LAPACK_COL_MAJOR, n, n, nrhs, A_copy2.data(), lda,
-                            B_copy.data(), ldb, s.data(), rcond, &rank);
-
-      if (info == 0) {
-        // dgelss succeeded - copy solution back to B
-        B = B_copy;
         success = true;
         return;
-      } else {
-        // All solvers failed - this is a true error
-        std::string outputSmiles = MolToSmiles(mol);
-        BOOST_LOG(rdErrorLog)
-            << "ERROR: All LAPACK solvers failed (dposv, dgesv, dgelss): info="
-            << info << ", Smiles:" << outputSmiles << "\n";
-      }
+    } else {
+        // dposv failed; fall back to dgesv (LU factorization)
+        // CRITICAL FIX v2.0: Restore original RHS before calling dgesv
+        // dposv modified B even though it failed!
+        B = B_original;
+        
+        std::vector<int> ipiv(n); // Pivot array for dgesv
+        A_copy = A; // Reset A because it was modified by dposv
+        info = LAPACKE_dgesv(LAPACK_COL_MAJOR, n, nrhs, A_copy.data(), lda, ipiv.data(), B.data(), ldb);
+
+        if (info == 0) {
+            success = true;
+            return;
+        } else {
+            // dgesv failed (singular matrix); fall back to dgelss (pseudo-inverse via SVD)
+            // CRITICAL FIX v2.0: Added dgelss fallback for singular matrices
+            // This provides a minimum-norm least-squares solution when exact solution doesn't exist
+            B = B_original; // Restore original RHS values
+            
+            std::vector<double> A_copy2 = A; // Fresh copy for dgelss
+            std::vector<double> B_copy = B; // Copy B because dgelss modifies it
+            
+            // Allocate workspace for dgelss
+            std::vector<double> s(n); // Singular values
+            int rank; // Rank of matrix
+            double rcond = 1e-15; // Condition number threshold
+            
+            // dgelss computes least-squares solution: min ||Ax - b||_2
+            info = LAPACKE_dgelss(LAPACK_COL_MAJOR, n, n, nrhs,
+                                   A_copy2.data(), lda, B_copy.data(), ldb,
+                                   s.data(), rcond, &rank);
+            
+            if (info == 0) {
+                // dgelss succeeded - copy solution back to B
+                B = B_copy;
+                success = true;
+                return;
+            } else {
+                // All solvers failed - this is a true error
+                std::string outputSmiles = RDKit::MolToSmiles(mol);
+                std::cerr << "ERROR: All LAPACK solvers failed (dposv, dgesv, dgelss): info=" 
+                          << info << ", Smiles:" << outputSmiles << "\n";
+            }
+        }
     }
-  }
 }
 }  // namespace
 
