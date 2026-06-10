@@ -199,6 +199,11 @@ calcOsmordredBatchFromMols(const std::vector<const ROMol *> &mols,
 // v2.0: Get descriptor names in the same order as calcOsmordred returns values
 RDKIT_DESCRIPTORS_EXPORT std::vector<std::string> getOsmordredDescriptorNames();
 
+// MOE-type VSA helpers (defined in OsmordredBasicPhyschemCountsRules.cpp);
+// declared here so the rdkit217 descriptor set can use them.
+RDKIT_DESCRIPTORS_EXPORT std::vector<double> calcEState_VSA(const ROMol &mol);
+RDKIT_DESCRIPTORS_EXPORT std::vector<double> calcVSA_EState(const ROMol &mol);
+
 }  // namespace Osmordred
 }  // namespace Descriptors
 }  // namespace RDKit

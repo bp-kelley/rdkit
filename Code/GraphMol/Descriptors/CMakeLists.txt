@@ -22,6 +22,11 @@ if(RDK_BUILD_OSMORDRED)
  	      OsmordredTopologicalConnectivityShape.cpp
 	      OsmordredMatrixAutocorrEStateFragments.cpp)
 
+ # rdkit217: standard RDKit descriptors (217 features)
+ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdkit217)
+ set(RDKIT217_HDRS rdkit217/RDKit217Descriptors.h)
+ set(RDKIT217_SOURCES rdkit217/RDKit217Descriptors.cpp)
+
  include_directories(Descriptors LAPACK::LAPACK ${LAPACK_INCLUDE_DIRS})
 endif(RDK_BUILD_OSMORDRED)
 
@@ -35,6 +40,7 @@ rdkit_library(Descriptors
               OxidationNumbers.cpp
               DCLV.cpp
 	      ${OSMORDRED_SOURCES}
+	      ${RDKIT217_SOURCES}
               ${DESC3D_SOURCES}
               LINK_LIBRARIES DataStructs Fingerprints PartialCharges SmilesParse FileParsers Subgraphs SubstructMatch MolTransforms GraphMol
                  EigenSolvers RDGeneral)
@@ -51,6 +57,7 @@ rdkit_headers(Crippen.h BCUT.h Lipinski.h
               OxidationNumbers.h
               DCLV.h
 	      ${OSMORDRED_HDRS}
+	      ${RDKIT217_HDRS}
               ${DESC3D_HDRS}
               DEST GraphMol/Descriptors)
 
@@ -95,6 +102,7 @@ rdkit_catch_test(descriptorsTestCatch catch_tests.cpp LINK_LIBRARIES Descriptors
 
 if(RDK_BUILD_OSMORDRED)
  rdkit_catch_test(testOsmordred test_osmordred.cpp LINK_LIBRARIES Descriptors SmilesParse FileParsers)
+ rdkit_catch_test(testRDKit217 rdkit217/test_rdkit217.cpp LINK_LIBRARIES Descriptors SmilesParse FileParsers)
 endif(RDK_BUILD_OSMORDRED)
 
 if(RDK_BUILD_PYTHON_WRAPPERS)
