@@ -109,73 +109,70 @@ bool isMoleculeTooLarge(const ROMol &mol) {
 }
 
 namespace {
-void solveLinearSystem(const ROMol &mol, std::vector<double> &A,
-                       std::vector<double> &B, int n, int nrhs, bool &success) {
-  int lda = n;  // Leading dimension of A
-  int ldb = n;  // Leading dimension of B
-  int info;
+void solveLinearSystem(const ROMol &mol, std::vector<double>& A, std::vector<double>& B,
+		       int n, int nrhs, bool& success) {
+    int lda = n; // Leading dimension of A
+    int ldb = n; // Leading dimension of B
+    int info;
 
-  success = false;  // Initialize success flag
+    success = false; // Initialize success flag
 
-  // CRITICAL FIX v2.0: Save original RHS before any LAPACK calls modify B
-  // LAPACK routines modify B in-place, even when they fail!
-  std::vector<double> B_original = B;
+    // CRITICAL FIX v2.0: Save original RHS before any LAPACK calls modify B
+    // LAPACK routines modify B in-place, even when they fail!
+    std::vector<double> B_original = B;
 
-  // First, try dposv (Cholesky factorization for positive definite matrices)
-  std::vector<double> A_copy = A;  // Copy A because LAPACK modifies it
-  info = LAPACKE_dposv(LAPACK_COL_MAJOR, 'U', n, nrhs, A_copy.data(), lda,
-                       B.data(), ldb);
-
-  if (info == 0) {
-    success = true;
-    return;
-  } else {
-    // dposv failed; fall back to dgesv (LU factorization)
-    // CRITICAL FIX v2.0: Restore original RHS before calling dgesv
-    // dposv modified B even though it failed!
-    B = B_original;
-
-    std::vector<int> ipiv(n);  // Pivot array for dgesv
-    A_copy = A;                // Reset A because it was modified by dposv
-    info = LAPACKE_dgesv(LAPACK_COL_MAJOR, n, nrhs, A_copy.data(), lda,
-                         ipiv.data(), B.data(), ldb);
+    // First, try dposv (Cholesky factorization for positive definite matrices)
+    std::vector<double> A_copy = A; // Copy A because LAPACK modifies it
+    info = LAPACKE_dposv(LAPACK_COL_MAJOR, 'U', n, nrhs, A_copy.data(), lda, B.data(), ldb);
 
     if (info == 0) {
-      success = true;
-      return;
-    } else {
-      // dgesv failed (singular matrix); fall back to dgelss (pseudo-inverse via
-      // SVD) CRITICAL FIX v2.0: Added dgelss fallback for singular matrices
-      // This provides a minimum-norm least-squares solution when exact solution
-      // doesn't exist
-      B = B_original;  // Restore original RHS values
-
-      std::vector<double> A_copy2 = A;  // Fresh copy for dgelss
-      std::vector<double> B_copy = B;   // Copy B because dgelss modifies it
-
-      // Allocate workspace for dgelss
-      std::vector<double> s(n);  // Singular values
-      int rank;                  // Rank of matrix
-      double rcond = 1e-15;      // Condition number threshold
-
-      // dgelss computes least-squares solution: min ||Ax - b||_2
-      info = LAPACKE_dgelss(LAPACK_COL_MAJOR, n, n, nrhs, A_copy2.data(), lda,
-                            B_copy.data(), ldb, s.data(), rcond, &rank);
-
-      if (info == 0) {
-        // dgelss succeeded - copy solution back to B
-        B = B_copy;
         success = true;
         return;
-      } else {
-        // All solvers failed - this is a true error
-        std::string outputSmiles = MolToSmiles(mol);
-        BOOST_LOG(rdErrorLog)
-            << "ERROR: All LAPACK solvers failed (dposv, dgesv, dgelss): info="
-            << info << ", Smiles:" << outputSmiles << "\n";
-      }
+    } else {
+        // dposv failed; fall back to dgesv (LU factorization)
+        // CRITICAL FIX v2.0: Restore original RHS before calling dgesv
+        // dposv modified B even though it failed!
+        B = B_original;
+        
+        std::vector<int> ipiv(n); // Pivot array for dgesv
+        A_copy = A; // Reset A because it was modified by dposv
+        info = LAPACKE_dgesv(LAPACK_COL_MAJOR, n, nrhs, A_copy.data(), lda, ipiv.data(), B.data(), ldb);
+
+        if (info == 0) {
+            success = true;
+            return;
+        } else {
+            // dgesv failed (singular matrix); fall back to dgelss (pseudo-inverse via SVD)
+            // CRITICAL FIX v2.0: Added dgelss fallback for singular matrices
+            // This provides a minimum-norm least-squares solution when exact solution doesn't exist
+            B = B_original; // Restore original RHS values
+            
+            std::vector<double> A_copy2 = A; // Fresh copy for dgelss
+            std::vector<double> B_copy = B; // Copy B because dgelss modifies it
+            
+            // Allocate workspace for dgelss
+            std::vector<double> s(n); // Singular values
+            int rank; // Rank of matrix
+            double rcond = 1e-15; // Condition number threshold
+            
+            // dgelss computes least-squares solution: min ||Ax - b||_2
+            info = LAPACKE_dgelss(LAPACK_COL_MAJOR, n, n, nrhs,
+                                   A_copy2.data(), lda, B_copy.data(), ldb,
+                                   s.data(), rcond, &rank);
+            
+            if (info == 0) {
+                // dgelss succeeded - copy solution back to B
+                B = B_copy;
+                success = true;
+                return;
+            } else {
+                // All solvers failed - this is a true error
+                std::string outputSmiles = RDKit::MolToSmiles(mol);
+                std::cerr << "ERROR: All LAPACK solvers failed (dposv, dgesv, dgelss): info=" 
+                          << info << ", Smiles:" << outputSmiles << "\n";
+            }
+        }
     }
-  }
 }
 }  // namespace
 
@@ -375,7 +372,11 @@ std::vector<double> calcAddFeatures(const ROMol &mol) {
 
 // Function to calculate the number of acidic groups in a molecule
 int calcAcidicGroupCount(const ROMol &mol) {
-  return countMatches(mol, GetAlcoholSmarts());
+  // Fix: count acidic groups (carboxylic/sulfonic/phosphonic OH, anions,
+  // triflylamide, tetrazole), not alcohols. The previous GetAlcoholSmarts()
+  // counted phenols/alcohols (e.g. Cyanidin -> 5) and missed COOH
+  // (e.g. Glutathione -> 0). GetAcidicSmarts() matches Mordred's nAcid.
+  return countMatches(mol, GetAcidicSmarts());
 }
 
 // Function to calculate the number of basic groups in a molecule
@@ -1375,21 +1376,16 @@ double getSulfurContribution(const Atom *atom) {
 
 // Main function to calculate the Topological Polar Surface Area (TPSA)
 std::vector<double> calcTopoPSA(const ROMol &mol) {
-  double tpsa = Descriptors::calcTPSA(mol);
-
+  // res[0] = TopoPSA(NO): N,O contributions only.
+  // res[1] = TopoPSA: includes S & P contributions.
+  // Use RDKit's calcTPSA includeSandP flag (Ertl), which correctly handles
+  // thiols/sulfides/phosphorus on H-suppressed molecules. The previous
+  // hand-rolled getSulfurContribution/getPhosphorusContribution assumed
+  // explicit H and missed e.g. R-SH thiols (Glutathione lost the 38.80 term),
+  // so res[1] silently equalled res[0] for thiols.
   std::vector<double> res(2, 0.0);
-  res[0] = tpsa;
-
-  for (const auto &atom : mol.atoms()) {
-    int atomicNum = atom->getAtomicNum();
-    if (atomicNum == 15) {  // Phosphorus
-      tpsa += getPhosphorusContribution(atom);
-    } else if (atomicNum == 16) {  // Sulfur
-      tpsa += getSulfurContribution(atom);
-    }
-  }
-  res[1] = tpsa;
-
+  res[0] = Descriptors::calcTPSA(mol, false, false);  // N,O only  -> TopoPSA(NO)
+  res[1] = Descriptors::calcTPSA(mol, false, true);   // incl. S,P -> TopoPSA
   return res;
 }
 
@@ -1524,7 +1520,11 @@ std::vector<double> calcEState_VSA(const ROMol &mol) {
 }
 
 std::vector<double> calcMoeType(const ROMol &mol) {
-  std::vector<double> res(54, 0.0);
+  // osmordredv3: 58 = LabuteASA + PEOE_VSA(14) + SMR_VSA(10) + SlogP_VSA(12) +
+  // EState_VSA(11) + VSA_EState(10). Was res(54) with `p += size - 1` below,
+  // which overlapped each family's first bin onto the previous family's last
+  // bin (corrupted 4 values and dropped 4). Now `p += size` -> no overlap.
+  std::vector<double> res(58, 0.0);
   double LabuteASA = Descriptors::calcLabuteASA(mol);
   res[0] = LabuteASA;
   int p = 1;
@@ -1534,7 +1534,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
   for (size_t i = 0; i < PEOE_VSA.size(); ++i) {
     res[p + i] = PEOE_VSA[i];  // Copy PEOE_VSA to res[1:13]
   }
-  p += PEOE_VSA.size() - 1;
+  p += PEOE_VSA.size();
   // std::cout << "- new p: " << p << " | ";
 
   std::vector<double> SMR_VSA = Descriptors::calcSMR_VSA(mol);
@@ -1543,7 +1543,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
   for (size_t i = 0; i < SMR_VSA.size(); ++i) {
     res[p + i] = SMR_VSA[i];  // Copy SMR_VSA to res[14:23]
   }
-  p += SMR_VSA.size() - 1;
+  p += SMR_VSA.size();
   // std::cout << "- new p: " << p << " | ";
 
   std::vector<double> SlogP_VSA = Descriptors::calcSlogP_VSA(mol);
@@ -1551,7 +1551,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
   for (size_t i = 0; i < SlogP_VSA.size(); ++i) {
     res[p + i] = SlogP_VSA[i];  // Copy SlogP_VSA to res[23:34]
   }
-  p += SlogP_VSA.size() - 1;
+  p += SlogP_VSA.size();
   // std::cout << "- new p: " <<  p << " | ";
 
   std::vector<double> EState_VSA = calcEState_VSA(mol);
@@ -1559,7 +1559,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
   for (size_t i = 0; i < EState_VSA.size(); ++i) {
     res[p + i] = EState_VSA[i];  // Copy EState_VSA
   }
-  p += EState_VSA.size() - 1;
+  p += EState_VSA.size();
   // std::cout << "- new p: " << p << " | ";
 
   // EState (mordred) VSA_EState 1-9 & EState_VSA 1-10
@@ -1570,7 +1570,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
                                  // std::cout << " ( " << p+i;
   }
   // std::cout << ")\n";
-  p += VSA_EState.size() - 1;
+  p += VSA_EState.size();
   // std::cout << "- new p: " << p << " end ";
   return res;
 }

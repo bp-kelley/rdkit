@@ -319,7 +319,7 @@ TEST_CASE("Osmordred v2.0 - isMoleculeTooLarge") {
     // calcOsmordred should still work but may return NaN for some descriptors
     auto result = calcOsmordred(*mol);
     REQUIRE(!result.empty());
-    REQUIRE(result.size() == 3585);
+    REQUIRE(result.size() == 3588);
     
     delete mol;
   }
@@ -462,7 +462,7 @@ TEST_CASE("Osmordred v2.0 - checkGasteigerParameters") {
     (void)checkGasteigerParameters(*mol);  // Just verify it doesn't crash
     auto result = calcOsmordred(*mol);
     REQUIRE(!result.empty());
-    REQUIRE(result.size() == 3585);
+    REQUIRE(result.size() == 3588);
   }
   
   SECTION("Vanadium molecule - should fail Gasteiger check") {
@@ -485,7 +485,7 @@ TEST_CASE("Osmordred v2.0 - checkGasteigerParameters") {
       try {
         auto result = calcOsmordred(*mol);
         REQUIRE(!result.empty());
-        REQUIRE(result.size() == 3585);
+        REQUIRE(result.size() == 3588);
       } catch (...) {
         // If it throws, that's also acceptable for unknown atom types
         // The v2.0 fix prevents crashes in common cases
@@ -560,7 +560,7 @@ TEST_CASE("Osmordred v2.0 - Timeout and Batch Functions") {
     
     auto result = calcOsmordredWithTimeout(*mol, 60);
     REQUIRE(!result.empty());
-    REQUIRE(result.size() == 3585);
+    REQUIRE(result.size() == 3588);
     
     // Should have valid results for ethanol
     bool has_valid = false;
@@ -580,7 +580,7 @@ TEST_CASE("Osmordred v2.0 - Timeout and Batch Functions") {
     REQUIRE(results.size() == 3);
     
     for (const auto& result : results) {
-      REQUIRE(result.size() == 3585);
+      REQUIRE(result.size() == 3588);
     }
   }
   
@@ -613,7 +613,7 @@ TEST_CASE("Osmordred v2.0 - Timeout and Batch Functions") {
   
   SECTION("getOsmordredDescriptorNames") {
     auto names = getOsmordredDescriptorNames();
-    REQUIRE(names.size() == 3585);
+    REQUIRE(names.size() == 3588);
     
     // Check first few names are not empty
     REQUIRE(!names[0].empty());
@@ -720,7 +720,7 @@ TEST_CASE("Osmordred v2.0 - NCI Dataset Stress Test") {
         auto result = calcOsmordred(*mol);
         
         // Verify result size
-        REQUIRE(result.size() == 3585);
+        REQUIRE(result.size() == 3588);
         
         // Count valid (non-NaN) descriptors
         int valid_count = 0;
@@ -810,17 +810,17 @@ TEST_CASE("Osmordred v2.0 - NCI Dataset Stress Test") {
     // Should get results for all molecules
     REQUIRE(results.size() == 100);
     
-    // Each result should have correct size (3585) OR be empty (for invalid molecules)
+    // Each result should have correct size (3588) OR be empty (for invalid molecules)
     int valid_results = 0;
     int empty_results = 0;
     for (const auto& result : results) {
-      if (result.size() == 3585) {
+      if (result.size() == 3588) {
         valid_results++;
       } else if (result.empty()) {
         empty_results++;
       }
-      // Result should be either 3585 descriptors or empty (for invalid molecules)
-      REQUIRE((result.size() == 3585 || result.empty()));
+      // Result should be either 3588 descriptors or empty (for invalid molecules)
+      REQUIRE((result.size() == 3588 || result.empty()));
     }
     
     INFO("Batch results: " << valid_results << " valid, " << empty_results << " empty (invalid molecules)");
@@ -888,15 +888,15 @@ TEST_CASE("Osmordred v2.0 - NCI Dataset Stress Test") {
 
 TEST_CASE("Osmordred v2.0 - Descriptor Count Validation") {
   SECTION("Verify descriptor count matches v1.0 specification") {
-    // Osmordred should produce exactly 3585 descriptors
+    // Osmordred should produce exactly 3588 descriptors
     auto mol = "CCO"_smiles;
     REQUIRE(mol != nullptr);
     
     auto result = calcOsmordred(*mol);
-    REQUIRE(result.size() == 3585);
+    REQUIRE(result.size() == 3588);
     
     auto names = getOsmordredDescriptorNames();
-    REQUIRE(names.size() == 3585);
+    REQUIRE(names.size() == 3588);
     
     // Descriptor count should match
     REQUIRE(result.size() == names.size());
@@ -918,11 +918,78 @@ TEST_CASE("Osmordred v2.0 - Descriptor Count Validation") {
       REQUIRE(mol != nullptr);
       
       auto result = calcOsmordred(*mol);
-      REQUIRE(result.size() == 3585);
+      REQUIRE(result.size() == 3588);
       
       delete mol;
     }
   }
+}
+
+
+TEST_CASE("Osmordred InformationContent is 2D-topological, not 3D (chirality-independent)") {
+  // osmordred IC is Basak 2D graph-symmetry information content -- it must
+  // IGNORE stereochemistry. For C1C[C@@H]2CC[C@H](C1)N2 the 2D symmetry has 10
+  // orbits (IC5 = 3.1542); resolving 3D/chirality would split it to 16 orbits
+  // (IC5 = 3.9161). osmordred must give the 2D value, and it must be unchanged
+  // when the stereo tags are stripped (matches RDKit CanonicalRankAtoms,
+  // includeChirality=false).
+  auto names = getOsmordredDescriptorNames();
+  size_t ic5 = names.size();
+  for (size_t i = 0; i < names.size(); ++i)
+    if (names[i] == "IC5") { ic5 = i; break; }
+  REQUIRE(ic5 < names.size());
+
+  auto chiral = "C1C[C@@H]2CC[C@H](C1)N2"_smiles;  // bicyclic amine, 2 stereocenters
+  auto flat = "C1CC2CCC(C1)N2"_smiles;             // identical skeleton, no stereo
+  REQUIRE(chiral != nullptr);
+  REQUIRE(flat != nullptr);
+  double icChiral = calcOsmordred(*chiral)[ic5];
+  double icFlat = calcOsmordred(*flat)[ic5];
+
+  REQUIRE(std::abs(icChiral - icFlat) < 1e-4);   // stereo ignored => 2D, not 3D
+  REQUIRE(std::abs(icChiral - 3.1542) < 1e-3);   // 2D topological symmetry: 10 orbits
+  REQUIRE(std::abs(icChiral - 3.9161) > 1e-2);   // NOT the 3D/chiral value (16 orbits)
+}
+
+TEST_CASE("Osmordred InformationContent matches true graph-symmetry orbits (no Mordred over-refinement)") {
+  // osmordred IC partitions atoms into the TRUE 2D symmetry orbits (matches
+  // RDKit CanonicalRankAtoms). Mordred over-refines, splitting topologically
+  // equivalent atoms: it reports maleic anhydride IC5 = 2.725, whereas the true
+  // 5-orbit symmetry [2,2,2,2,1] gives 2.2810 -- which osmordred reproduces.
+  auto names = getOsmordredDescriptorNames();
+  size_t ic5 = names.size();
+  for (size_t i = 0; i < names.size(); ++i)
+    if (names[i] == "IC5") { ic5 = i; break; }
+  REQUIRE(ic5 < names.size());
+
+  auto mal = "O=C1OC(=O)C=C1"_smiles;  // maleic anhydride: 5 true symmetry orbits
+  REQUIRE(mal != nullptr);
+  REQUIRE(std::abs(calcOsmordred(*mal)[ic5] - 2.2810) < 1e-3);
+
+  auto benz = "c1ccccc1"_smiles;  // benzene: 2 orbits (6 C, 6 H) => IC5 = 1.0
+  REQUIRE(benz != nullptr);
+  REQUIRE(std::abs(calcOsmordred(*benz)[ic5] - 1.0) < 1e-3);
+}
+
+TEST_CASE("Osmordred full descriptor width on tiny/degenerate molecules (singular-matrix solver)") {
+  // Ethylene (C=C, 2 heavy atoms) and methane (C, 1 heavy atom) yield SINGULAR
+  // weighted matrices in the ASMat/DSMat descriptors. With only dposv->dgesv the
+  // solve fails and those families return a truncated 5-element fallback, so
+  // calcOsmordred comes back SHORT (e.g. 3558 instead of 3588). The v2.0
+  // solveLinearSystem dgelss (SVD pseudo-inverse) fallback makes the solve
+  // succeed, so the full descriptor vector must be returned. Regression guard for
+  // the ethylene/methane "short vector" bug. Count is read dynamically so this
+  // passes for both v2 (3585) and v3 (3588).
+  const size_t ND = getOsmordredDescriptorNames().size();
+  REQUIRE(ND > 0);
+
+  auto ethylene = "C=C"_smiles;  // singular 2x2 weighted matrix
+  REQUIRE(ethylene != nullptr);
+  REQUIRE(calcOsmordred(*ethylene).size() == ND);
+
+  auto methane = "C"_smiles;  // degenerate 1x1
+  REQUIRE(methane != nullptr);
+  REQUIRE(calcOsmordred(*methane).size() == ND);
 }
 
 #else
