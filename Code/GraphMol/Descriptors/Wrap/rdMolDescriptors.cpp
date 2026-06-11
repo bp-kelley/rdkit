@@ -19,6 +19,7 @@
 
 #include <GraphMol/Descriptors/MolDescriptors.h>
 #include <GraphMol/Descriptors/Osmordred.h>
+#include <GraphMol/Descriptors/rdkit217/RDKit217Descriptors.h>
 #include <GraphMol/Descriptors/AtomFeat.h>
 #include <GraphMol/Descriptors/OxidationNumbers.h>
 #include <GraphMol/Fingerprints/AtomPairs.h>
@@ -2226,5 +2227,66 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
     python::def("HasOsmordredSupport", hasOsmordredSupport,
 	"Returns True if the RDKit is compiled with osmordred support, False otherwise.\n"
 	"If false, all osmordred functions return zero or empty vectors.");
+
+    // =========================================================================
+    // RDKit217: Standard RDKit descriptors from C++ (217 features)
+    // =========================================================================
+    // Single molecule extraction
+    python::def("ExtractRDKitDescriptors", RDKit::Descriptors::Osmordred::extractRDKitDescriptors,
+        "Extract 217 RDKit descriptors from a single molecule.\n"
+        "Input: RDKit Mol object\n"
+        "Output: vector of 217 descriptor values.\n");
+    
+    // Batch wrapper for extractRDKitDescriptorsBatch (from SMILES strings)
+    auto rdkit217_from_smiles_impl = +[](python::list smiles_py, int n_jobs) {
+        std::vector<std::string> smiles_list;
+        smiles_list.reserve(python::len(smiles_py));
+        for (int i = 0; i < python::len(smiles_py); ++i) {
+            python::object obj = smiles_py[i];
+            if (obj.is_none()) {
+                smiles_list.push_back("");  // Empty string for invalid SMILES
+            } else {
+                smiles_list.push_back(python::extract<std::string>(obj));
+            }
+        }
+        return RDKit::Descriptors::Osmordred::extractRDKitDescriptorsBatch(smiles_list, n_jobs);
+    };
+    python::def("ExtractRDKitDescriptorsBatch", rdkit217_from_smiles_impl,
+        (python::arg("smiles_list"), python::arg("n_jobs")=0),
+        "Extract 217 RDKit descriptors from SMILES strings in parallel.\n"
+        "Input: list of SMILES strings, n_jobs (0=auto-detect CPU count)\n"
+        "Output: list of descriptor vectors (217 features per molecule)\n"
+        "Uses parallel processing when n_jobs > 0.\n");
+    
+    // Wrapper for extractRDKitDescriptorsFromMolsBatch that accepts Python list
+    auto rdkit217_from_mols_impl = +[](python::list mols_py, int n_jobs) {
+        std::vector<const RDKit::ROMol*> mols;
+        mols.reserve(python::len(mols_py));
+        for (int i = 0; i < python::len(mols_py); ++i) {
+            python::object obj = mols_py[i];
+            if (obj.is_none()) {
+                mols.push_back(nullptr);
+                continue;
+            }
+            try {
+                const RDKit::ROMol& mol = python::extract<const RDKit::ROMol&>(obj);
+                mols.push_back(&mol);
+            } catch (...) {
+                mols.push_back(nullptr);
+            }
+        }
+        return RDKit::Descriptors::Osmordred::extractRDKitDescriptorsFromMolsBatch(mols, n_jobs);
+    };
+    python::def("ExtractRDKitDescriptorsFromMolsBatch", rdkit217_from_mols_impl,
+        (python::arg("mols"), python::arg("n_jobs")=0),
+        "Extract 217 RDKit descriptors from mol objects in parallel.\n"
+        "Input: list of RDKit Mol objects (can contain None for invalid molecules)\n"
+        "Output: list of descriptor vectors (217 features per molecule)\n"
+        "Uses parallel processing when n_jobs > 0 (0 = auto-detect CPU count).\n");
+    
+    python::def("GetRDKit217DescriptorNames", RDKit::Descriptors::Osmordred::getRDKit217DescriptorNames,
+        "Get the 217 RDKit descriptor names in exact order matching Python's Descriptors._descList.\n"
+        "Returns: vector of 217 strings with descriptor names.\n");
+
 #endif // osmordred
 }
