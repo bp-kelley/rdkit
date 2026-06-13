@@ -1,3 +1,4 @@
+#pragma once
 //
 //  Copyright (C) 2023 Schrödinger, LLC
 //
