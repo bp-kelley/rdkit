@@ -2708,6 +2708,7 @@ std::vector<int> calcRingDescriptors(const ROMol &mol) {
 
     if (ring_size > 12) {
       // greater
+      descriptors[11]++;  // v3 fix #11: nG12Ring (total >12 rings) was never incremented
       if (has_hetero) {
         descriptors[12]++;  // nHRing sum
         descriptors[23]++;  // nG12 HRing
@@ -2850,10 +2851,10 @@ static const std::vector<std::pair<std::string, std::string>> esPatterns = {
     {"ssBH", "[BD2H](-*)-*"},
     {"sssB", "[BD3](-*)(-*)-*"},
     {"ssssB", "[BD4](-*)(-*)(-*)-*"},
-    {"sCH3", "[CD1H3]-*"},
-    {"dCH2", "[CD1H2]=*"},
-    {"ssCH2", "[CD2H2](-*)-*"},
-    {"tCH", "[CD1H]#*"},
+    {"sCH3", "[CD1H3]"},  // v3 fix #10: single-atom pattern (no uniquify collapse)
+    {"dCH2", "[CD1H2;$(*=*)]"},
+    {"ssCH2", "[CD2H2]"},
+    {"tCH", "[CD1H;$(*#*)]"},
     {"dsCH", "[CD2H](=*)-*"},
     {"aaCH", "[C,c;D2H](:*):*"},
     {"sssCH", "[CD3H](-*)(-*)-*"},
@@ -2933,10 +2934,10 @@ static const std::vector<std::pair<std::string, std::string>>
         {"ssBH", "[BD2H](-*)-*"},
         {"sssB", "[BD3](-*)(-*)-*"},
         {"ssssB", "[BD4](-*)(-*)(-*)-*"},
-        {"sCH3", "[CD1H3]-*"},
-        {"dCH2", "[CD1H2]=*"},
-        {"ssCH2", "[CD2H2](-*)-*"},
-        {"tCH", "[CD1H]#*"},
+        {"sCH3", "[CD1H3]"},  // v3 fix #10: single-atom pattern (no uniquify collapse)
+        {"dCH2", "[CD1H2;$(*=*)]"},
+        {"ssCH2", "[CD2H2]"},
+        {"tCH", "[CD1H;$(*#*)]"},
         {"dsCH", "[CD2H](=*)-*"},
         {"aaCH", "[C,c;D2H](:*):*"},
         {"sssCH", "[CD3H](-*)(-*)-*"},
