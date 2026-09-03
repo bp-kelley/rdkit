@@ -1,0 +1,441 @@
+//  Copyright (C) 2026 Glysade Inc and other RDKit contributors
+//
+//   @@ All Rights Reserved @@
+//  This file is part of the RDKit.
+//  The contents are covered by the terms of the BSD license
+//  which is included in the file license.txt, found at the root
+//  of the RDKit source tree.
+//
+#include "Search/RotorRefine.h"
+#include "Search/ThompsonSamplingSearch.h"
+
+#include <set>
+
+#include "Joiner/JoinerProfiling.h"
+#include "Search/InterFragScore.h"
+#include "Search/RotorDriver.h"
+#include "Utils/SymmetricRmsd.h"
+#include "Sampler/TorsionSampler.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <limits>
+#include <map>
+#include <random>
+#include <string>
+#include <vector>
+
+namespace RDKit {
+
+using detail::nowNs;
+using detail::prof;
+using detail::profiling;
+
+namespace {
+inline double circDiff(double a, double b) {
+  double d = std::fmod(a - b + 540.0, 360.0) - 180.0;
+  return std::fabs(d);
+}
+}  // namespace
+
+std::string ThompsonSamplingSearch::validateParams(
+    const RigidRotorSearchParams &sp, const std::string &ffVariant) const {
+  const std::string err = RigidRotorSearch::validateParams(sp, ffVariant);
+  if (!err.empty()) {
+    return err;
+  }
+  if (sp.thompson.minBudget > sp.thompson.maxBudget) {
+    return "search.thompson.minBudget must be <= search.thompson.maxBudget";
+  }
+  return {};
+}
+
+std::vector<SearchResult> ThompsonSamplingSearch::search(
+    const FragmentJoinerContext &ctx, const RigidRotorSearchParams &sp) {
+  const auto &params = sp;
+  std::vector<SearchResult> out;
+  std::vector<unsigned int> driveBonds = ctx.rotorBonds;
+  if (sp.driveIntraFragmentTorsions) {
+    driveBonds.insert(driveBonds.end(), ctx.intraRotorBonds.begin(),
+                      ctx.intraRotorBonds.end());
+  }
+  
+  RotorDriver drv(ctx.mol, driveBonds, -1, ctx.scorer);
+  const size_t nr = drv.numRotors();
+  
+  // hash rotors to central bond
+  std::vector<char> rotorIsIntra(nr, 0);
+  if (sp.driveIntraFragmentTorsions && !ctx.intraRotorBonds.empty()) {
+    const std::set<unsigned int> intraSet(ctx.intraRotorBonds.begin(),
+                                          ctx.intraRotorBonds.end());
+    for (size_t r = 0; r < nr; ++r) {
+      const auto q = drv.torsion(static_cast<unsigned int>(r));
+      const Bond *cb = ctx.mol.getBondBetweenAtoms(q[1], q[2]);
+      if (cb && intraSet.count(cb->getIdx())) rotorIsIntra[r] = 1;
+    }
+  }
+  const size_t nf = ctx.frags.size();
+
+  // Assume rotor angles are informed priors
+  // angles start at Beta alpha = priorStrength; a uniform-grid is simply alpha
+  // ROTOR WEIGHT:  Add a size weight so a kept conformer credits rotors that move more atoms
+  const double priorS = std::max(1.0, params.thompson.priorStrength);
+  const double backstop = params.thompson.backstopStepDeg;
+  const double sizeExp = std::max(0.0, params.thompson.sizePriorExp);
+  std::vector<std::vector<double>> rotorArms(nr), rotorPrior(nr);
+  std::vector<double> rotorW(nr, 1.0);
+  double maxMove = 1.0;
+  for (size_t r = 0; r < nr; ++r) {
+    maxMove = std::max(maxMove, static_cast<double>(drv.movingAtoms(r).size()));
+  }
+  for (size_t r = 0; r < nr; ++r) {
+    // ROTOR WEIGHT: a rotor's affect on the pose scales with atoms moved.
+    //  so scale the prior based on # atoms, small # atoms have smaller effects
+    //  on diversity
+    const double effect =
+        static_cast<double>(drv.movingAtoms(r).size()) / maxMove;
+    const double prefPrior = 1.0 + (priorS - 1.0) * std::pow(effect, sizeExp);
+    std::vector<double> pref;
+    if (params.torsionSampler) {
+      try {
+	// remember we have intra and inter rotors: intra
+	//  can optionally tweek ring puckers/etc
+        auto t = drv.torsion(static_cast<unsigned int>(r));
+        const bool basin = rotorIsIntra[r]
+                               ? true
+                               : useBasinAnglesForRotor(params.junctionBasinAngles,
+							ctx.mol, t[1], t[2]);
+        pref = params.torsionSampler->getAngles(ctx.mol, t[0], t[1], t[2], t[3],
+                                                basin);
+      } catch (...) {
+      }
+    }
+    for (double ang : pref) {
+      rotorArms[r].push_back(ang);
+      rotorPrior[r].push_back(prefPrior);  // add strong prior
+    }
+    if (backstop > 0.0) {
+      for (double g = -180.0; g < 180.0; g += backstop) {
+        bool near = false;
+        for (double p : pref) {
+          if (circDiff(g, p) < backstop * 0.5) {
+            near = true;
+            break;
+          }
+        }
+        if (!near) {
+          rotorArms[r].push_back(g);
+          rotorPrior[r].push_back(1.0);  // add weak prior
+        }
+      }
+    }
+    if (rotorArms[r].empty()) {
+      rotorArms[r] = params.defaultAngles;
+      rotorPrior[r].assign(rotorArms[r].size(), 1.0);
+    }
+    rotorW[r] = static_cast<double>(drv.movingAtoms(r).size()) / maxMove;
+  }
+  
+  // sample fragment confs
+  std::vector<unsigned int> fragK(nf);
+  for (size_t f = 0; f < nf; ++f) {
+    fragK[f] = std::min<unsigned int>(
+        std::max(1u, params.fragConfBranch),
+        static_cast<unsigned int>(ctx.frags[f].confs.size()));
+    if (fragK[f] == 0) fragK[f] = 1;
+  }
+
+  std::vector<std::vector<double>> fA(nf), fB(nf), rA(nr), rB(nr);
+  for (size_t f = 0; f < nf; ++f) {
+    fA[f].assign(fragK[f], 1.0);
+    fB[f].assign(fragK[f], 1.0);
+  }
+  for (size_t r = 0; r < nr; ++r) {
+    rA[r] = rotorPrior[r];  // rotor priors start higher
+    rB[r].assign(rotorArms[r].size(), 1.0);
+  }
+
+  std::mt19937 rng(params.randomSeed);
+  auto betaSample = [&](double a, double b) {
+    std::gamma_distribution<double> ga(a, 1.0), gb(b, 1.0);
+    double x = ga(rng), y = gb(rng);
+    return (x + y > 0.0) ? x / (x + y) : 0.5;
+  };
+
+  // Reward:  true if novel and < ewindow
+  const ThompsonParams &tp = params.thompson;
+  const double window = params.energyWindow;
+  const double divThr = params.diversityRmsThresh;
+
+  // use novel rotor state OR RMSD for pruning
+  const double angThr = params.thompson.noveltyAngleDeg;
+  const bool useFp = angThr > 0.0 && divThr > 0.0;
+  const double angThrSq = angThr * angThr;
+  const auto order = drv.numRotorAtoms();
+
+  std::vector<SearchResult> kept;
+  std::vector<std::vector<double>> keptAng;  // weighted-torsion-fingerprint angles
+  double best = std::numeric_limits<double>::infinity();
+  std::vector<unsigned int> confChoice(nf, 0);
+  std::vector<int> rotArm(nr, 0);
+
+  unsigned int budget = params.thompsonBudget;
+  if (budget == 0) {
+    size_t fragArms = 0;
+    for (size_t f = 0; f < nf; ++f) fragArms += fragK[f];
+    long long b =
+        static_cast<long long>(params.thompson.perRotor) * nr +
+        static_cast<long long>(params.thompson.perFragConf) * fragArms;
+    b = std::max<long long>(params.thompson.minBudget,
+                            std::min<long long>(params.thompson.maxBudget, b));
+    budget = static_cast<unsigned int>(b);
+  }
+  d_lastBudget = budget;
+
+  std::map<std::vector<unsigned int>, std::vector<double>> conformerCache;
+
+  // Use the context Rotor driving hierarchical
+  const unsigned int nAtoms = ctx.mol.getNumAtoms();
+  std::vector<char> varies(nAtoms, 0);
+  for (size_t r = 0; r < nr; ++r) {
+    for (unsigned int a : drv.movingAtoms(static_cast<unsigned int>(r))) {
+      varies[a] = 1;
+    }
+  }
+  std::vector<char> dirtyFrag(nf, 0);
+  for (size_t f = 0; f < nf; ++f) {
+    if (fragK[f] > 1) dirtyFrag[f] = 1;
+  }
+
+  // ctx.edges is in BFS so we know fixed and moving atom
+  for (const auto &ed : ctx.edges) {
+    if (dirtyFrag[ed.parentFrag]) dirtyFrag[ed.childFrag] = 1;
+  }
+  for (size_t f = 0; f < nf; ++f) {
+    if (dirtyFrag[f]) {
+      for (unsigned int a : ctx.frags[f].atoms) varies[a] = 1;
+    }
+  }
+  std::vector<unsigned int> cmpIdx;
+  cmpIdx.reserve(static_cast<size_t>(nAtoms) * 3);
+  for (unsigned int a = 0; a < nAtoms; ++a) {
+    if (varies[a]) {
+      cmpIdx.push_back(3 * a);
+      cmpIdx.push_back(3 * a + 1);
+      cmpIdx.push_back(3 * a + 2);
+    }
+  }
+  const double divLimit =
+      divThr * divThr * static_cast<double>(nAtoms ? nAtoms : 1);
+
+  const auto deadline = deadlineFrom(params);
+  for (unsigned int s = 0; s < budget; ++s) {
+    // Stop drawing on the budget; `kept` already holds every conformer accepted
+    // so far.
+    //  XXX FIX ME -> why check every 64 draws?
+    //   This is an odd magic number
+    if ((s & 0x3F) == 0 && pastDeadline(deadline)) break;
+    // Thompson-pick a conformer for each fragment
+    for (size_t f = 0; f < nf; ++f) {
+      int ba = 0;
+      double bt = -1.0;
+      for (unsigned int k = 0; k < fragK[f]; ++k) {
+        double t = betaSample(fA[f][k], fB[f][k]);
+        if (t > bt) {
+          bt = t;
+          ba = static_cast<int>(k);
+        }
+      }
+      confChoice[f] = ba;
+    }
+    long long tp0 = profiling() ? nowNs() : 0;
+    auto pit = conformerCache.find(confChoice);
+    if (pit == conformerCache.end()) {
+      pit = conformerCache.emplace(confChoice, ctx.placeAll(confChoice)).first;
+    }
+    drv.positions() = pit->second;  // copy pristine placement; driving mutates it
+    long long tp1 = profiling() ? nowNs() : 0;
+    
+    // Thompson-pick + rotor angle, coarse to fine
+    for (unsigned int r : order) {
+      const auto &ar = rotorArms[r];
+      if (ar.empty()) continue;
+      int ba = 0;
+      double bt = -1.0;
+      for (size_t k = 0; k < ar.size(); ++k) {
+        double t = betaSample(rA[r][k], rB[r][k]);
+        if (t > bt) {
+          bt = t;
+          ba = static_cast<int>(k);
+        }
+      }
+      rotArm[r] = ba;
+      drv.setDihedral(r, ar[ba]);
+    }
+    
+    long long tp2 = profiling() ? nowNs() : 0;
+    double sc = drv.score();
+    long long tp3 = profiling() ? nowNs() : 0;
+    if (profiling()) {
+      prof().tPlace += tp1 - tp0;
+      prof().tDrive += tp2 - tp1;
+      prof().tScore += tp3 - tp2;
+      prof().nSamples += 1;
+      prof().nDrives += order.size();
+      prof().nScores += 1;
+    }
+    if (!std::isnan(sc) && sc < best) best = sc;
+    
+    bool inWindow =
+        std::isnan(sc) || !std::isfinite(best) || sc <= best + window;
+    bool novel = true;
+    std::vector<double> curAng;
+    if (useFp) {  // use novelty fp for pruning
+      curAng.resize(nr);
+      for (size_t r = 0; r < nr; ++r)
+        curAng[r] = rotorArms[r].empty() ? 0.0 : rotorArms[r][rotArm[r]];
+      for (const auto &ka : keptAng) {
+        double num = 0.0, den = 0.0;
+        for (size_t r = 0; r < nr; ++r) {
+          const double d = circDiff(curAng[r], ka[r]);
+          num += rotorW[r] * d * d;
+          den += rotorW[r];
+        }
+        if (den > 0.0 && num / den < angThrSq) {
+          novel = false;
+          break;
+        }
+      }
+    } else if (divThr > 0.0) {
+      // Use as-is RMSD for a quick check, non trans/rot optimized
+      const std::vector<double> &pos = drv.positions();
+      for (const auto &k : kept) {
+        double sq = 0.0;
+        bool within = true;
+        for (unsigned int ci : cmpIdx) {
+          const double d = pos[ci] - k.coords[ci];
+          sq += d * d;
+          if (sq >= divLimit) {
+            within = false;
+            break;
+          }
+        }
+        if (within) {
+          novel = false;
+          break;
+        }
+      }
+    }
+    if (profiling()) prof().tDiv += nowNs() - tp3;
+    const bool isKeeper = inWindow && novel;
+    if (isKeeper) {
+      kept.push_back({drv.positions(), sc});
+      if (useFp) keptAng.push_back(std::move(curAng));
+    }
+
+    const double reward = isKeeper ? 1.0 : 0.0;
+
+    // reward the chosen arms this draw chose
+    for (size_t f = 0; f < nf; ++f) {
+      fA[f][confChoice[f]] += reward;
+      fB[f][confChoice[f]] += 1.0 - reward;
+    }
+    
+    for (size_t r = 0; r < nr; ++r) {
+      if (rotorArms[r].empty()) continue;
+      rA[r][rotArm[r]] += reward * rotorW[r];
+      rB[r][rotArm[r]] += (1.0 - reward) * rotorW[r];
+    }
+  }
+
+  for (auto &k : kept) {
+    if (std::isnan(k.score) || !std::isfinite(best) ||
+        k.score <= best + window) {
+      out.push_back(std::move(k));
+    }
+  }
+  
+  std::sort(out.begin(), out.end(),
+            [](const SearchResult &a, const SearchResult &b) {
+              if (std::isnan(a.score)) return false;
+              if (std::isnan(b.score)) return true;
+              return a.score < b.score;
+            });
+
+  // Local refinement search around the MMFF basin (optional)
+  if (params.thompson.refineSteps > 0) {
+    // refine in inter-frag scores
+    //  XXX FIX ME why make ScoreFn here?
+    RotorDriver::ScoreFn refineFn;
+    refineRotorsInPlace(drv, out, params.thompson.refineSteps,
+                        params.thompson.refineStepDeg,
+                        params.thompson.refinePasses, refineFn);
+  }
+
+
+  if (params.finalSymmetryDedup) {
+    ctx.symmetryDedupInPlace(out, divThr);
+  }
+
+  // Keep maxConfs by the selected out mode
+  {
+    const size_t maxConfs = tp.maxConfs;
+    const bool diverse = tp.outMode == OutputSelection::Diverse;
+    const bool stratify = tp.outMode == OutputSelection::Stratify;
+    // Note: diversityRmsThresh == 0 (DISABLED) makes Diverse selection
+    // degenerate to energy order ony
+    const double outLimit =
+        divThr * divThr * static_cast<double>(nAtoms ? nAtoms : 1);
+    if (maxConfs > 0 && out.size() > maxConfs) {
+      if (diverse) {
+        std::vector<SearchResult> sel;  // energy-ordered greedy RMSD-diverse pick
+        sel.reserve(maxConfs);
+        for (auto &r : out) {
+          bool distinct = true;
+          for (const auto &s : sel) {
+            double sq = 0.0;
+            for (unsigned int ci : cmpIdx) {
+              const double d = r.coords[ci] - s.coords[ci];
+              sq += d * d;
+              if (sq >= outLimit) break;
+            }
+            if (sq < outLimit) {
+              distinct = false;
+              break;
+            }
+          }
+          if (distinct) {
+            sel.push_back(std::move(r));
+            if (sel.size() >= maxConfs) break;
+          }
+        }
+        out.swap(sel);
+      } else if (stratify) {
+        // energy-stratified stride: N confs evenly spaced across the
+        // energy-sorted pool, attempt to bind high-strain buried
+	// ligands
+	//  XXX FIX ME -> apparently doesn't work.
+        std::vector<SearchResult> sel;
+        sel.reserve(maxConfs);
+        const double step =
+            static_cast<double>(out.size()) / static_cast<double>(maxConfs);
+        for (size_t i = 0; i < maxConfs; ++i) {
+          size_t idx = static_cast<size_t>(i * step);
+          if (idx >= out.size()) idx = out.size() - 1;
+          sel.push_back(std::move(out[idx]));
+        }
+        out.swap(sel);
+      } else {
+        out.resize(maxConfs);  // energy-lowest
+      }
+    }
+  }
+  if (profiling()) {
+    prof().nKept += static_cast<long long>(kept.size());
+    prof().nOut += static_cast<long long>(out.size());
+  }
+  return out;
+}
+
+}  // namespace RDKit
