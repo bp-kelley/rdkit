@@ -110,7 +110,10 @@ RDKIT_CHEMREACTIONS_EXPORT EnumerationTypes::BBS removeNonmatchingReagents(
 
 class RDKIT_CHEMREACTIONS_EXPORT EnumerateLibrary
     : public EnumerateLibraryBase {
-  EnumerationTypes::BBS m_bbs;
+ protected:
+  // Note: This is mutable so we can add conformations in EnumerateSynthons3D
+  //  on demand.  implementations must ensure this behaves in a const manner.
+  mutable EnumerationTypes::BBS m_bbs;
 
  public:
   EnumerateLibrary() : EnumerateLibraryBase(), m_bbs() {}
@@ -131,8 +134,26 @@ class RDKIT_CHEMREACTIONS_EXPORT EnumerateLibrary
   // the input as it is only those compatible with the reaction.
   const EnumerationTypes::BBS &getReagents() const { return m_bbs; }
 
+  //! Get the product set at the given library position
+  std::vector<MOL_SPTR_VECT> get(const EnumerationTypes::RGROUPS &pos) const override; // should be const...
+
   //! Get the next product set
   std::vector<MOL_SPTR_VECT> next() override;
+
+  //! Returns if pos is a valid position in the library
+  bool isValidPosition(const EnumerationTypes::RGROUPS &pos) const override {
+    if(pos.size() != m_bbs.size()) {
+      std::cerr << "not the same size bbs:" << m_bbs.size() << "pos:" << pos.size() << std::endl;
+      return false;
+    }
+    for(size_t i=0;i<m_bbs.size();++i) {
+      if(m_bbs[i].size() <= pos[i]) {
+	std::cerr << i << " " << m_bbs[i].size() << " " << pos[i] << std::endl;
+	return false;
+      }
+    }
+    return true;
+  }
 
   void toStream(std::ostream &ss) const override;
   void initFromStream(std::istream &ss) override;

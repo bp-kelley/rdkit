@@ -14,9 +14,11 @@ rdkit_library(ChemReactions
               MoleculeParser.cpp ReactionRunner.cpp PreprocessRxn.cpp SanitizeRxn.cpp
               PNGParser.cpp CDXMLParser.cpp
                     Enumerate/Enumerate.cpp
+		    Enumerate/EnumerateSynthons.cpp
                     Enumerate/EnumerationPickler.cpp
                     Enumerate/EvenSamplePairs.cpp
               LINK_LIBRARIES
+              DistGeomHelpers ForceFieldHelpers MolTransforms ForceField
               FilterCatalog Fingerprints DataStructs Depictor
               FileParsers SubstructMatch ChemTransforms GraphMol)
 target_compile_definitions(ChemReactions PRIVATE RDKIT_CHEMREACTIONS_BUILD)
@@ -33,6 +35,8 @@ rdkit_headers(Reaction.h
 
 rdkit_headers(Enumerate/Enumerate.h
               Enumerate/EnumerateBase.h
+	      Enumerate/EnumerateSynthons.h
+	      Enumerate/EnumerateSynthons3D.h
               Enumerate/EnumerateTypes.h
               Enumerate/EnumerationPickler.h
               Enumerate/EnumerationStrategyBase.h
@@ -52,8 +56,8 @@ ChemReactions  )
 
 rdkit_catch_test(rxnTestCatch catch_tests.cpp LINK_LIBRARIES ChemReactions )
 
-if(RDK_BUILD_BOOST_PYTHON_WRAPPERS)
-add_subdirectory(Wrap)
+if(RDK_BUILD_PYTHON_WRAPPERS)
+  add_subdirectory(Wrap)
 endif()
 
 if(RDK_BUILD_NANOBIND_WRAPPERS)

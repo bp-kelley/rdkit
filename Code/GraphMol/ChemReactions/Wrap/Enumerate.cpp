@@ -35,6 +35,8 @@
 #include <GraphMol/ChemReactions/Enumerate/RandomSampleAllBBs.h>
 #include <GraphMol/ChemReactions/Enumerate/EvenSamplePairs.h>
 #include <GraphMol/ChemReactions/Enumerate/Enumerate.h>
+#include <GraphMol/ChemReactions/Enumerate/EnumerateSynthons.h>
+#include <boost/python/stl_iterator.hpp>
 #include <cstdint>
 
 namespace python = boost::python;
@@ -42,7 +44,7 @@ namespace python = boost::python;
 namespace RDKit {
 
 template <class T>
-std::vector<RDKit::MOL_SPTR_VECT> ConvertToVect(T bbs) {
+std::vector<RDKit::MOL_SPTR_VECT> ConvertToVectVect(T bbs) {
   std::vector<RDKit::MOL_SPTR_VECT> vect;
   unsigned int num_bbs = python::len(bbs);
   vect.resize(num_bbs);
@@ -62,6 +64,43 @@ std::vector<RDKit::MOL_SPTR_VECT> ConvertToVect(T bbs) {
   return vect;
 }
 
+template <class T>
+std::vector<std::vector<std::string>> ConvertToSynthonsVect(T bbs) {
+  std::vector<std::vector<std::string>> vect;
+  unsigned int num_bbs = python::len(bbs);
+  vect.resize(num_bbs);
+  for (unsigned int i = 0; i < num_bbs; ++i) {
+    unsigned int len1 = python::len(bbs[i]);
+    auto &reacts = vect[i];
+    reacts.reserve(len1);
+    for (unsigned int j = 0; j < len1; ++j) {
+      python::extract<std::string> extractor(bbs[i][j]);
+      if (extractor.check()) {
+        reacts.push_back(extractor());
+      } else {
+        throw_value_error("conversion called with non string synthon");
+      }
+    }
+  }
+  return vect;
+}
+
+template <class U,class T>
+std::vector<U> ConvertToVect(T bbs) {
+  std::vector<U> vect;
+  unsigned int len = python::len(bbs);
+  vect.reserve(len);
+  for (unsigned int i = 0; i < len; ++i) {
+    auto v = python::extract<U>(bbs[i]);
+    if (v.check()) {
+      vect.push_back(v);
+    } else {
+      throw_value_error("Could not convert python to vector");
+    }
+  }
+  return vect;
+}
+
 bool EnumerateLibraryBase__nonzero__(RDKit::EnumerateLibraryBase *base) {
   return static_cast<bool>(*base);
 }
@@ -71,6 +110,33 @@ bool EnumerationStrategyBase__nonzero__(RDKit::EnumerationStrategyBase *base) {
 
 inline python::object pass_through(python::object const &o) { return o; }
 
+bool EnumerateLibraryBase__isValidPosition__(RDKit::EnumerateLibraryBase *base,
+						  python::object pypos) {
+  RDKit::EnumerationTypes::RGROUPS pos = ConvertToVect<boost::uint64_t>(pypos);
+  return base->isValidPosition(pos);
+}
+  
+PyObject *EnumerateLibraryBase__get__(RDKit::EnumerateLibraryBase *base,
+				      python::object pypos) {
+  RDKit::EnumerationTypes::RGROUPS pos = ConvertToVect<boost::uint64_t>(pypos);
+  std::vector<RDKit::MOL_SPTR_VECT> mols;
+  {
+    NOGIL gil;
+    mols = base->get(pos);
+  }
+  PyObject *res = PyTuple_New(mols.size());
+
+  for (unsigned int i = 0; i < mols.size(); ++i) {
+    PyObject *lTpl = PyTuple_New(mols[i].size());
+    for (unsigned int j = 0; j < mols[i].size(); ++j) {
+      PyTuple_SetItem(lTpl, j,
+                      python::converter::shared_ptr_to_python(mols[i][j]));
+    }
+    PyTuple_SetItem(res, i, lTpl);
+  }
+  return res;
+}
+  
 PyObject *EnumerateLibraryBase__next__(RDKit::EnumerateLibraryBase *base) {
   if (!static_cast<bool>(*base)) {
     PyErr_SetString(PyExc_StopIteration, "Enumerations exhausted");
@@ -107,26 +173,58 @@ class EnumerateLibraryWrap : public RDKit::EnumerateLibrary {
   EnumerateLibraryWrap() : RDKit::EnumerateLibrary() {}
   EnumerateLibraryWrap(const RDKit::ChemicalReaction &rxn, python::list ob,
                        const EnumerationParams &params = EnumerationParams())
-      : RDKit::EnumerateLibrary(rxn, ConvertToVect(ob), params) {}
+      : RDKit::EnumerateLibrary(rxn, ConvertToVectVect(ob), params) {}
 
   EnumerateLibraryWrap(const RDKit::ChemicalReaction &rxn, python::tuple ob,
                        const EnumerationParams &params = EnumerationParams())
-      : RDKit::EnumerateLibrary(rxn, ConvertToVect(ob), params) {}
+      : RDKit::EnumerateLibrary(rxn, ConvertToVectVect(ob), params) {}
 
   EnumerateLibraryWrap(const RDKit::ChemicalReaction &rxn, python::list ob,
                        const EnumerationStrategyBase &enumerator,
                        const EnumerationParams &params = EnumerationParams())
-      : RDKit::EnumerateLibrary(rxn, ConvertToVect(ob), enumerator, params) {}
+      : RDKit::EnumerateLibrary(rxn, ConvertToVectVect(ob), enumerator, params) {}
 
   EnumerateLibraryWrap(const RDKit::ChemicalReaction &rxn, python::tuple ob,
                        const EnumerationStrategyBase &enumerator,
                        const EnumerationParams &params = EnumerationParams())
-      : RDKit::EnumerateLibrary(rxn, ConvertToVect(ob), enumerator, params) {}
+      : RDKit::EnumerateLibrary(rxn, ConvertToVectVect(ob), enumerator, params) {}
 };
+
+  
+
+class EnumerateSynthonsWrap : public RDKit::EnumerateSynthons {
+ public:
+  ~EnumerateSynthonsWrap() override {}
+  EnumerateSynthonsWrap() : RDKit::EnumerateSynthons() {}
+  EnumerateSynthonsWrap(python::list ob,
+                       const EnumerationParams &params = EnumerationParams())
+      : RDKit::EnumerateSynthons(ConvertToVectVect(ob), params) {}
+
+  EnumerateSynthonsWrap(python::tuple ob,
+                       const EnumerationParams &params = EnumerationParams())
+      : RDKit::EnumerateSynthons(ConvertToVectVect(ob), params) {}
+  EnumerateSynthonsWrap(python::list ob,
+			const EnumerationStrategyBase &enumerator,
+			const EnumerationParams &params = EnumerationParams())
+      : RDKit::EnumerateSynthons(ConvertToVectVect(ob), enumerator, params) {}
+
+  EnumerateSynthonsWrap(python::tuple ob,
+                       const EnumerationStrategyBase &enumerator,
+                       const EnumerationParams &params = EnumerationParams())
+      : RDKit::EnumerateSynthons(ConvertToVectVect(ob), enumerator, params) {}
+};
+  
+namespace {
+template <typename T>
+inline std::vector<T> to_std_vector(const python::object &iterable) {
+  return std::vector<T>(python::stl_input_iterator<T>(iterable),
+                        python::stl_input_iterator<T>());
+}
+}  // namespace
 
 void ToBBS(EnumerationStrategyBase &rgroup, ChemicalReaction &rxn,
            python::list ob) {
-  rgroup.initialize(rxn, ConvertToVect(ob));
+  rgroup.initialize(rxn, ConvertToVectVect(ob));
 }
 
 struct enumeration_wrapper {
@@ -134,6 +232,7 @@ struct enumeration_wrapper {
     std::string docString;
 
     RegisterVectorConverter<MOL_SPTR_VECT>("VectMolVect");
+    RegisterVectorConverter<std::vector<std::string>>("VectSynthonVect");
 
     python::class_<RDKit::EnumerateLibraryBase,
                    boost::shared_ptr<RDKit::EnumerateLibraryBase>,
@@ -143,6 +242,9 @@ struct enumeration_wrapper {
              python::args("self"))
         .def("__bool__", &EnumerateLibraryBase__nonzero__, python::args("self"))
         .def("__iter__", &pass_through, python::args("self"))
+        .def("get", &EnumerateLibraryBase__get__,
+	     (python::args("self"), python::args("pos")),
+             "Return the next molecule from the enumeration.")
         .def("next", &EnumerateLibraryBase__next__, python::args("self"),
              "Return the next molecule from the enumeration.")
         .def("__next__", &EnumerateLibraryBase__next__, python::args("self"),
@@ -159,6 +261,9 @@ struct enumeration_wrapper {
         .def("InitFromString", &RDKit::EnumerateLibraryBase::initFromString,
              (python::arg("self"), python::arg("data")),
              "Inititialize the library from a binary string")
+      .def("IsValidPosition", &EnumerateLibraryBase__isValidPosition__,
+	   (python::args("self"), python::args("pos")),
+	   "Returns True if the given position is valid, False if it is not")
         .def(
             "GetPosition", &RDKit::EnumerateLibraryBase::getPosition,
             "Returns the current enumeration position into the reagent vectors, as"
@@ -191,7 +296,7 @@ struct enumeration_wrapper {
              python::return_internal_reference<
                  1, python::with_custodian_and_ward_postcall<0, 1>>(),
              python::args("self"));
-
+    
     docString =
         "EnumerationParams\n\
 Controls some aspects of how the enumeration is performed.\n\
@@ -311,8 +416,32 @@ for result in itertools.islice(libary2, 1000):\n\
                 1, python::with_custodian_and_ward_postcall<0, 1>>(),
             python::args("self"));
 
-    // iterator_wrappers<EnumerateLibrary>().wrap("EnumerateLibraryIterator");
+    python::class_<EnumerateSynthonsWrap, boost::noncopyable,
+                   python::bases<RDKit::EnumerateLibraryBase>>(
+        "EnumerateSynthons", docString.c_str(),
+        python::init<>(python::args("self")))
+        .def(python::init<python::list,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "params")))
+        .def(python::init<python::tuple,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "params")))
 
+        .def(python::init<python::list,
+                          const RDKit::EnumerationStrategyBase &,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "enumerator", "params")))
+        .def(python::init<python::tuple,
+                          const RDKit::EnumerationStrategyBase &,
+                          python::optional<const RDKit::EnumerationParams &>>(
+            python::args("self", "reagents", "enumerator", "params")))
+      ;
+      //.def(
+      //      "GetReagents", &RDKit::EnumerateSynthons::getReagents,
+      //      "Return the synthons used in this library.",
+      //      python::args("self"));
+    
+    // iterator_wrappers<EnumerateLibrary>().wrap("EnumerateLibraryIterator");
     python::class_<RDKit::EnumerationStrategyBase,
                    boost::shared_ptr<RDKit::EnumerationStrategyBase>,
                    RDKit::EnumerationStrategyBase &, boost::noncopyable>(
@@ -429,7 +558,12 @@ for result in itertools.islice(libary2, 1000):\n\
     python::def("EnumerateLibraryCanSerialize", EnumerateLibraryCanSerialize,
                 "Returns True if the EnumerateLibrary is serializable "
                 "(requires boost serialization");
+  
+
+
+
   }
+
 };
 
 }  // namespace RDKit

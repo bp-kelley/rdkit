@@ -41,6 +41,9 @@ namespace EnumerationTypes {
 //!   holds vectors of reagents for each reactant in a Reaction
 typedef std::vector<MOL_SPTR_VECT> BBS;
 
+//! SYNTHONS - Helper typedef for holding synthons
+typedef std::vector<std::vector<std::string>> SYNTHONS;
+
 //! RGROUPS Helper typedef for indexing into the BBS vector
 //!  - The indices into the BBS molecule list to create a product
 //!  Example

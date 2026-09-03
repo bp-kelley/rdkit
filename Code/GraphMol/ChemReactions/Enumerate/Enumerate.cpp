@@ -113,8 +113,15 @@ size_t countMatches(const ROMol &bb, const ROMol &query, int maxMatches) {
 }  // namespace
 BBS removeNonmatchingReagents(const ChemicalReaction &rxn, BBS bbs,
                               const EnumerationParams &params) {
-  PRECONDITION(bbs.size() <= rxn.getNumReactantTemplates(),
+  // No reaction templates is a special case for Synthons and non-reaction
+  //  based enumeration
+  PRECONDITION(rxn.getNumReactantTemplates() == 0 ||
+	       bbs.size() == rxn.getNumReactantTemplates(),
                "Number of Reagents not compatible with reaction templates");
+  if(rxn.getNumReactantTemplates() == 0) {
+    return bbs;
+  }
+  
   BBS result;
   result.resize(bbs.size());
 
@@ -197,9 +204,9 @@ EnumerateLibrary::EnumerateLibrary(const ChemicalReaction &rxn, const BBS &bbs,
 EnumerateLibrary::EnumerateLibrary(const EnumerateLibrary &rhs)
     : EnumerateLibraryBase(rhs), m_bbs(rhs.m_bbs) {}
 
-std::vector<MOL_SPTR_VECT> EnumerateLibrary::next() {
-  PRECONDITION(static_cast<bool>(*this), "No more enumerations");
-  const RGROUPS &reactantIndices = m_enumerator->next();
+std::vector<MOL_SPTR_VECT> EnumerateLibrary::get(const RGROUPS &reactantIndices) const {
+  PRECONDITION(isValidPosition(reactantIndices), "Position out of range for library");
+
   MOL_SPTR_VECT reactants(m_bbs.size());
 
   for (size_t i = 0; i < m_bbs.size(); ++i) {
@@ -207,6 +214,12 @@ std::vector<MOL_SPTR_VECT> EnumerateLibrary::next() {
   }
 
   return m_rxn.runReactants(reactants);
+}
+  
+std::vector<MOL_SPTR_VECT> EnumerateLibrary::next() {
+  PRECONDITION(static_cast<bool>(*this), "No more enumerations");
+  const RGROUPS &reactantIndices = m_enumerator->next();
+  return get(reactantIndices);
 }
 
 void EnumerateLibrary::toStream(std::ostream &ss) const {

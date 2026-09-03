@@ -32,13 +32,14 @@
 import copy
 import itertools
 import os
+import pickle
 import sys
 import time
 import unittest
 
 import numpy as np
 
-from rdkit import Chem, RDConfig, rdBase
+from rdkit import Chem, Geometry, RDConfig, rdBase
 from rdkit.Chem import AllChem, rdChemReactions
 
 
@@ -643,6 +644,73 @@ class TestCase(unittest.TestCase):
     self.assertTrue(len(en.GetReagents()[0]) == 1)
     self.assertTrue(len(en.GetReagents()[1]) == 1)
     self.assertTrue(len(en.GetReagents()[2]) == 1)
+
+  def testSynthons(self):
+    synthons = [
+      [Chem.MolFromSmiles(m) for m in ['CCN[U]','C#CCN[U]']],
+      [Chem.MolFromSmiles(m) for m in ['O=C([U])[C@@H]1CO1','C/C=C/CC(=O)[U]']],
+    ]
+    
+    p = Chem.MolzipParams()
+    p.setAtomSymbols(['U'])
+    p.label = Chem.MolzipLabel.AtomType
+
+    smiresults = set()
+    for a in synthons[0]:
+      for b in synthons[1]:
+        z = Chem.molzip(a,b,p)
+        smiresults.add(Chem.MolToSmiles(z))
+        
+    en = rdChemReactions.EnumerateSynthons(synthons)
+    results = []
+    for result in en:
+      for prodSet in result:
+        for mol in prodSet:
+          results.append(Chem.MolToSmiles(mol))
+
+    self.assertEqual(set(results), set(smiresults))
+
+    if rdChemReactions.EnumerateLibraryCanSerialize():
+      pickle = en.Serialize()
+      enumerator2 = rdChemReactions.EnumerateSynthons()
+      enumerator2.InitFromString(pickle)
+      enumerator2.ResetState()
+
+      results = []
+      for result in enumerator2:
+        for prodSet in result:
+          for mol in prodSet:
+            results.append(Chem.MolToSmiles(mol))
+
+      self.assertEqual(set(results), set(smiresults))
+
+  def testIsValidPosition(self):
+      enEmpty = rdChemReactions.EnumerateLibrary()
+      self.assertFalse(enEmpty.IsValidPosition([0,0,0]))
+
+      fake = "[*:1].[*:2].[*:3]>>[*:1][*:2][*:3]"
+      rxn = rdChemReactions.ReactionFromSmarts(fake)
+
+      bbs = []
+      r1 = [
+        Chem.MolFromSmiles("CCNCC"),
+        Chem.MolFromSmiles("NCC"),
+      ]
+      r2 = [
+        Chem.MolFromSmiles("ClC1CCCC1"),
+        Chem.MolFromSmiles("ClC1CCCC1Cl"),
+      ]
+      r3 = [
+        Chem.MolFromSmiles("CCNCC"),
+        Chem.MolFromSmiles("NCC"),
+      ]
+      bbs = [r1, r2, r3]
+      en = rdChemReactions.EnumerateLibrary(rxn, bbs)
+      assert en
+      assert en.IsValidPosition([0,0,0])
+      assert en.IsValidPosition([1,1,1])
+      assert not en.IsValidPosition([1,1,2])
+      
 
 if __name__ == '__main__':
   unittest.main()

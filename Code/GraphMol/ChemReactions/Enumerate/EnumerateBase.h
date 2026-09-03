@@ -109,6 +109,11 @@ class RDKIT_CHEMREACTIONS_EXPORT EnumerateLibraryBase {
     return *m_enumerator;
   }
 
+  //! get the next set of products with the reactant indices (See run_Reactants) for details
+  /// This returns a vector of a vector of molecules.
+  /// Each result vector corresponds for a product template.
+  virtual std::vector<MOL_SPTR_VECT> get(const EnumerationTypes::RGROUPS &pos) const = 0;
+
   //! get the next set of products (See run_Reactants) for details
   /// This returns a vector of a vector of molecules.
   /// Each result vector corresponds for a product template.
@@ -129,6 +134,9 @@ class RDKIT_CHEMREACTIONS_EXPORT EnumerateLibraryBase {
   ///  from this position.
   const EnumerationTypes::RGROUPS &getPosition() const;
 
+  //! Returns true if  the current position into the reagent vectors is valid
+  virtual bool isValidPosition(const EnumerationTypes::RGROUPS &pos) const = 0;
+  
   //! Get the current state of the enumerator
   ///  This is the position of the enumerator and the enumerators
   ///  state that can be used to restart enumerating
