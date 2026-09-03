@@ -48,6 +48,15 @@ if(RDK_BUILD_MAEPARSER_SUPPORT OR RDK_BUILD_COORDGEN_SUPPORT)
   target_include_directories(maeparser INTERFACE
    $<BUILD_INTERFACE:${maeparser_INCLUDE_DIRS}>
    $<INSTALL_INTERFACE:include>)
+  # The static variant needs it too: static targets are linked to each other
+  # (see RDKitUtils.cmake), so a static consumer of MolWriters.h reaches
+  # maeparser_static, not maeparser, and without this cannot find
+  # <maeparser/Writer.hpp>.
+  if(TARGET maeparser_static)
+    target_include_directories(maeparser_static INTERFACE
+     $<BUILD_INTERFACE:${maeparser_INCLUDE_DIRS}>
+     $<INSTALL_INTERFACE:include>)
+  endif()
 
   set(RDK_MAEPARSER_LIBS ${maeparser_LIBRARIES}
       CACHE STRING "the external libraries" FORCE)
