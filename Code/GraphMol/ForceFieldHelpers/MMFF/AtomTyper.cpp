@@ -2334,7 +2334,8 @@ MMFFMolProperties::MMFFMolProperties(ROMol &mol, const std::string &mmffVariant,
                                      std::uint8_t verbosity,
                                      std::ostream &oStream)
     : d_valid(true),
-      d_mmffs(mmffVariant == "MMFF94s"),
+      d_mmffs(mmffVariant == "MMFF94s" || mmffVariant == "MMFF94s_TOR"),
+      d_refinedTor(isRefinedTorsionVariant(mmffVariant)),
       d_bondTerm(true),
       d_angleTerm(true),
       d_stretchBendTerm(true),
@@ -3624,6 +3625,40 @@ bool MMFFMolProperties::getMMFFStretchBendParams(
   return res;
 }
 
+//! Apply the Wahl et al. refined dihedral parameters
+/*!
+  J. Wahl, J. Freyss, M. von Korff, T. Sander, J. Cheminform. 2019, 11, 53.
+  The refinement re-fits V2 for the conjugated N-aryl systems whose stock MMFF
+  barrier is far too high; everything outside that chemistry is untouched, so
+  this is a narrow override on top of the stock lookup rather than a separate
+  parameter table.
+
+  Keyed on the MMFF atom types of the CENTRAL bond (j-k), order-independent.
+*/
+void MMFFMolProperties::applyRefinedTorsionParams(
+    const unsigned int atomTypeJ, const unsigned int atomTypeK,
+    ForceFields::MMFF::MMFFTor &mmffTorsionParams) const {
+  if (!this->d_refinedTor) {
+    return;
+  }
+  struct RefinedTor {
+    unsigned int typeJ, typeK;
+    double v2;
+  };
+  // 10 = N in amides, 37 = aromatic C, 39 = aromatic N in 5-ring (pyrrole).
+  static const RefinedTor refined[] = {
+      {10, 37, 2.7},  // N-aryl amide (anilide)
+      {37, 39, 2.6},  // N-aryl pyrrole
+  };
+  for (const auto &r : refined) {
+    if ((atomTypeJ == r.typeJ && atomTypeK == r.typeK) ||
+        (atomTypeJ == r.typeK && atomTypeK == r.typeJ)) {
+      mmffTorsionParams.V2 = r.v2;
+      return;
+    }
+  }
+}
+
 bool MMFFMolProperties::getMMFFTorsionParams(
     const ROMol &mol, const unsigned int idx1, const unsigned int idx2,
     const unsigned int idx3, const unsigned int idx4, unsigned int &torsionType,
@@ -3636,7 +3671,7 @@ bool MMFFMolProperties::getMMFFTorsionParams(
     unsigned int idx[4] = {idx1, idx2, idx3, idx4};
     unsigned int atomType[4];
     const MMFFTorCollection *mmffTor =
-        DefaultParameters::getMMFFTor(getMMFFVariant() == "MMFF94s");
+        DefaultParameters::getMMFFTor(this->d_mmffs);
     for (i = 0; i < 4; ++i) {
       atomType[i] = getMMFFAtomType(idx[i]);
     }
@@ -3659,6 +3694,7 @@ bool MMFFMolProperties::getMMFFTorsionParams(
            isDoubleZero(mmffTorParams->V3)));
     if (res) {
       mmffTorsionParams = *mmffTorParams;
+      applyRefinedTorsionParams(atomType[1], atomType[2], mmffTorsionParams);
     }
     if (areMMFFTorParamsEmpirical) {
       delete mmffTorParams;
@@ -3680,7 +3716,7 @@ bool MMFFMolProperties::getMMFFOopBendParams(
     unsigned int atomType[4];
 
     const MMFFOopCollection *mmffOop =
-        DefaultParameters::getMMFFOop(getMMFFVariant() == "MMFF94s");
+        DefaultParameters::getMMFFOop(this->d_mmffs);
     for (i = 0; i < 4; ++i) {
       atomType[i] = getMMFFAtomType(idx[i]);
     }

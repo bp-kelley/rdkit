@@ -29,6 +29,25 @@ class Bond;
 
 namespace MMFF {
 
+//! Is `mmffVariant` a valid force field
+/*!
+  "MMFF94" and "MMFF94s" are the original paper variants.  The "_TOR" suffixes select the
+  same force field with the REFINED DIHEDRAL parameters of
+  J. Wahl, J. Freyss, M. von Korff, T. Sander, J. Cheminform. 2019, 11, 53
+  (doi:10.1186/s13321-019-0371-6), which mainly correct the overestimated
+  aromatic C-N amide rotation barrier.  (CDPKit calls this set "MMFF94S_RTOR";
+  the R is for "refined", not "rotor".)
+*/
+inline bool isValidMMFFVariant(const std::string &mmffVariant) {
+  return mmffVariant == "MMFF94" || mmffVariant == "MMFF94s" ||
+         mmffVariant == "MMFF94_TOR" || mmffVariant == "MMFF94s_TOR";
+}
+
+inline bool isRefinedTorsionVariant(const std::string &mmffVariant) {
+  return mmffVariant == "MMFF94_TOR" || mmffVariant == "MMFF94s_TOR";
+}
+
+
 namespace DefaultParameters {
 RDKIT_FORCEFIELDHELPERS_EXPORT const ForceFields::MMFF::MMFFPropCollection *
 getMMFFProp();
@@ -126,13 +145,17 @@ class RDKIT_FORCEFIELDHELPERS_EXPORT MMFFMolProperties {
   void setMMFFEleTerm(const bool state) { this->d_eleTerm = state; }
   bool getMMFFEleTerm() const { return this->d_eleTerm; }
   void setMMFFVariant(const std::string &mmffVariant) {
-    PRECONDITION((mmffVariant == "MMFF94") || (mmffVariant == "MMFF94s"),
-                 "bad MMFF variant");
+    PRECONDITION(isValidMMFFVariant(mmffVariant), "bad MMFF variant");
 
-    this->d_mmffs = mmffVariant == "MMFF94s";
+    this->d_mmffs = (mmffVariant == "MMFF94s" || mmffVariant == "MMFF94s_TOR");
+    this->d_refinedTor = isRefinedTorsionVariant(mmffVariant);
   }
   const std::string getMMFFVariant() const {
-    return (this->d_mmffs ? "MMFF94s" : "MMFF94");
+    std::string v = this->d_mmffs ? "MMFF94s" : "MMFF94";
+    if (this->d_refinedTor) {
+      v += "_TOR";
+    }
+    return v;
   }
   void setMMFFDielectricConstant(const double dielConst) {
     PRECONDITION(dielConst > 0.0, "bad dielectric constant");
@@ -190,7 +213,13 @@ class RDKIT_FORCEFIELDHELPERS_EXPORT MMFFMolProperties {
     this->d_MMFFAtomPropertiesPtrVect[idx]->mmffPartialCharge = pChg;
   }
   bool d_valid;
+
+  void applyRefinedTorsionParams(
+      const unsigned int atomTypeJ, const unsigned int atomTypeK,
+      ForceFields::MMFF::MMFFTor &mmffTorsionParams) const;
+
   bool d_mmffs;
+  bool d_refinedTor = false; // _TOR variant
   bool d_bondTerm;
   bool d_angleTerm;
   bool d_stretchBendTerm;
