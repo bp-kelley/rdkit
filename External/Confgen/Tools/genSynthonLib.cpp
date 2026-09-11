@@ -45,7 +45,7 @@ void usage(const char *argv0) {
                "      --acyclic-confs N  conformers kept per ACYCLIC fragment.  [default 1]\n"
       "      --frag-rmsd F    RMSD radius (A) for the fragment pool [Default 0.1]\n"
       "      --style S        coarse | full (default coarse).  coarse embeds the\n"
-               "                       entire synthon to reduce the numnber or rotatable bonds\"
+               "                       entire synthon to reduce the number of rotatable bonds\n"
                "                       falling back to full per product when coarse fails\n"
                "                       n.b. coarse leaves a synthon on the ACYCLIC fragment class\n"
                "                       of 1 conformer -- see --acyclic-confs\n"
@@ -265,7 +265,7 @@ int main(int argc, char **argv) {
   if (rings && params.embedStyle == SynthonEmbedStyle::Coarse) {
     // Log that we found ring formation
     std::printf(
-        "[gensynthonlib] this synthon reaction closes %u ring(s): pre-creating final rigid fragments\n"
+        "[gensynthonlib] this synthon reaction closes %u ring(s): pre-creating final rigid fragments\n",
         rings);
   }
   params.prefillFraglib = prefill;
@@ -348,7 +348,7 @@ int main(int argc, char **argv) {
       }
     }
     std::printf(
-        "[gensynthonlib] precomputed cut bonds for %zu ring forming synthons (%zu bonds)\n"
+        "[gensynthonlib] precomputed cut bonds for %zu ring forming synthons (%zu bonds)\n",
         tagged, cutTotal);
   }
   // n.b. we need to track unembeddable synthons so the search doesn't keep
@@ -359,7 +359,7 @@ int main(int argc, char **argv) {
     if (const size_t bad = lib.fraglib()->numUnembeddable()) {
       std::printf(
 		  "[gensynthonlib] WARNING: %zu synthon(s) marked as unusable\n",
-		  bad)
+		  bad);
 
       double reachable = 1.0;
       for (unsigned int p = 0; p < lib.arity(); ++p) {
