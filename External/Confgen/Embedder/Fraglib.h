@@ -259,8 +259,35 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT Fraglib {
   static std::string generateKey(RWMol &frag, bool remap = true,
                                  std::vector<unsigned int> *outOrder = nullptr);
 
-  //! number of cached/embedded fragments
+  //! number of cached/embedded fragments (tombstones excluded)
   size_t size() const;
+
+  //! Fragments that could NOT be embedded and are remembered as such.
+  //!  These could be unphysical stereo or other effects
+  size_t numUnembeddable() const;
+
+  //! fragment count - number of conformers for fragment
+  //! Record a fragment as permanently unusable.
+  /*!
+    This keeps the fragment in the fraglib but notes that we can't
+    embed it for whatever reason to prevent future potentially costly
+    attempts.
+
+    It also can be used to log future efforts in forcefields/etc.
+
+    Returns trues if this call marked the tombstone, or false
+    if already marked or a live entry with coords exists
+  */
+  bool markUnembeddable(const ROMol &frag);
+
+  //! Conformer count for a cached fragment.
+  /*!
+    returns
+     nullopt if the fragment isn't in the library
+     0 if the fragment has been marked as unembeddable
+     >0 is the actual conformer count for the fragment.
+  */
+  std::optional<unsigned int> numFragmentConfs(const ROMol &frag) const;
 
   const FraglibParams &params() const { return d_params; }
 

@@ -244,18 +244,13 @@ int main(int argc, char **argv) {
   std::cerr << "embedding with " << describe(params) << " on " << nThreads
             << " thread(s)\n";
 
-  // FragmentConfGen supplies the exact run-time fragmentation; the injected
-  // Fraglib is populated as a side effect of fragmentAndEmbed (via get()).
   FragmentConfGenParams gp;
   gp.fraglib = lib;
   gp.sampleTrivialRotors = sampleTrivial;
   gp.wholeAcyclicFragments = wholeAcyclic;
   const FragmentConfGen gen(gp);
 
-  // Warm up any lazy one-time initialization single-threaded before the
-  // fan-out. (Skipped for single-threaded runs -- there is no fan-out to race,
-  // and the warm-up molecule's fragments would otherwise pollute a --sdf
-  // investigation dump.)
+  // Warm up any the generator when threading.
   if (nThreads > 1) {
     std::unique_ptr<ROMol> m(SmilesToMol("CCOc1ccccc1"));
     if (m) {

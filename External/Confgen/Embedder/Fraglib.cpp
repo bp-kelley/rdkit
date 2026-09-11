@@ -625,8 +625,21 @@ const RWMol *Fraglib::lookupOrEmbed(const std::string &key,
       return it->second;
     }
   }
-  RWMol *embedded = make();
+  RWMol *embedded = nullptr;
+  try {
+    embedded = make();
+  } catch (...) {
+    // we can't embed this
+    embedded = nullptr;
+  }
   if (!embedded) {
+    // If we can't embed record the failure as a nullptr
+    //  so we don't try again.  Some of these failures can
+    //  take eons before they fail
+    if (cache) {
+      std::lock_guard<std::mutex> lock(d_mutex);
+      d_fraglib.emplace(key, nullptr);
+    }
     return nullptr;
   }
   std::lock_guard<std::mutex> lock(d_mutex);
@@ -776,7 +789,54 @@ bool Fraglib::getConformerCoords(RWMol &frag, unsigned int nMolAtoms,
 
 size_t Fraglib::size() const {
   std::lock_guard<std::mutex> lock(d_mutex);
-  return d_fraglib.size();
+  size_t n = 0;
+  for (const auto &kv : d_fraglib) {
+    if (kv.second) {  // skip tombstones for fragments that cannot be embedded
+      ++n;
+    }
+  }
+  return n;
+}
+
+size_t Fraglib::numUnembeddable() const {
+  std::lock_guard<std::mutex> lock(d_mutex);
+  size_t n = 0;
+  for (const auto &kv : d_fraglib) {
+    if (!kv.second) {
+      ++n;
+    }
+  }
+  return n;
+}
+
+bool Fraglib::markUnembeddable(const ROMol &frag) {
+  RWMol withHs(frag);
+  MolOps::addHs(withHs);
+  const std::string key = generateKey(withHs, /*remap=*/true);
+  if (key.empty()) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(d_mutex);
+  return d_fraglib.emplace(key, nullptr).second;
+}
+
+std::optional<unsigned int> Fraglib::numFragmentConfs(
+    const ROMol &frag) const {
+  RWMol withHs(frag);
+  MolOps::addHs(withHs);
+  const std::string key = generateKey(withHs, /*remap=*/true);
+  if (key.empty()) {
+    return std::nullopt;
+  }
+  std::lock_guard<std::mutex> lock(d_mutex);
+  const auto found = d_fraglib.find(key);
+  if (found == d_fraglib.end()) {
+    return std::nullopt;  // never attempted: the caller must embed it
+  }
+  if (!found->second) {
+    return 0u;  // tombstone: attempted and known unembeddable, do not retry
+  }
+  return found->second->getNumConformers();
 }
 
 // Simple IO class for the fraglib
@@ -821,12 +881,18 @@ void Fraglib::serialize(std::ostream &os) const {
   wRaw(os, d_params.perClassEmbedding);
   wRaw(os, d_params.energyWindow);
 
+  // n.b. we need to pickle failures as well (empty mols/pickles)
+  //  as these are sentinels for failed embeddings
   wRaw(os, static_cast<std::uint64_t>(d_fraglib.size()));
   for (const auto &kv : d_fraglib) {
     wBlob(os, kv.first);
     std::string pkl;
-    MolPickler::pickleMol(*kv.second, pkl, PicklerOps::AtomProps);
-    wBlob(os, pkl);
+    if (kv.second) {
+      // Save annotations on molecules and atoms
+      MolPickler::pickleMol(*kv.second, pkl,
+                            PicklerOps::MolProps | PicklerOps::AtomProps);
+    }
+    wBlob(os, pkl);  // empty blob == marked as unembeddable
   }
 }
 
@@ -866,6 +932,10 @@ void Fraglib::initFromStream(std::istream &is) {
   for (std::uint64_t i = 0; i < n; ++i) {
     std::string key = rBlob(is);
     std::string pkl = rBlob(is);
+    if (pkl.empty()) {
+      d_fraglib[key] = nullptr;  // tombstone: known-unembeddable
+      continue;
+    }
     auto *m = new RWMol();
     MolPickler::molFromPickle(pkl, m);
     d_fraglib[key] = m;

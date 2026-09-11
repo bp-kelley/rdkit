@@ -32,7 +32,7 @@
 #include <RDBoost/Wrap.h>
 #include <GraphMol/ChemReactions/Enumerate/Enumerate.h>
 #include <Confgen/SynthonSearch/EnumerateSynthons3D.h>
-#include <Confgen/SynthonSearch/SynthonSearch.h>
+#include <Confgen/SynthonSearch/SynthonSearch3D.h>
 #include <boost/python/stl_iterator.hpp>
 #include <cstdint>
 #include <fstream>
@@ -143,14 +143,14 @@ SynthonProduct GetProductHelper(const EnumerateSynthons3DWrap &self,
   return self.getProduct(ToIdx(idx));
 }
 
-ROMOL_SPTR ZipProductHelper(const EnumerateSynthons3DWrap &self,
+ROMOL_SPTR get2DHelper(const EnumerateSynthons3DWrap &self,
                             python::object idx) {
-  return self.zipProduct(ToIdx(idx));
+  return self.get2D(ToIdx(idx));
 }
 
 //! score() takes a non-const ROMol (alignment mutates conformers), so the
 //! caller's molecule is copied rather than modified underneath them.
-python::object ScoreHelper(const ShapeProductScorer &self,
+python::object ScoreHelper(const ShapeScorer &self,
                            const ROMol &product) {
   ROMol copy(product);
   const auto v = self.score(copy);
@@ -177,24 +177,101 @@ python::list BestOf(const SynthonSearchResult &r) {
   return l;
 }
 
-SynthonSearchResult RefineHelper(const EnumerateSynthons3DWrap &lib,
-                                 const SynthonProductScorer &scorer,
-                                 python::object seed,
-                                 unsigned int maxIters, unsigned int numThreads,
-                                 int numBestProducts) {
-  return refineSynthons(lib, scorer, ToIdx(seed), maxIters, numThreads,
-                        numBestProducts);
+//! Keep stats for each reagent position
+python::list SweepStatsHelper(const EnumerateSynthons3DWrap &lib,
+                              const SynthonProductScorer &scorer,
+                              const SynthonSearch3DParams &params) {
+  MultipleTrajectoryStats stats;
+  synthonSearch3D(lib, scorer, params, &stats);
+  python::list out;
+  for (const auto &sw : stats.positionSweeps) {
+    python::dict d;
+    d["position"] = sw.position;
+    d["reagents"] = sw.reagents;
+    d["evaluations"] = sw.evaluations;
+    d["cacheHits"] = sw.cacheHits;
+    d["wallMs"] = sw.wallMs;
+    d["confgenMs"] = sw.confgenMs;
+    d["scoreMs"] = sw.scoreMs;
+    out.append(d);
+  }
+  return out;
 }
 
-//! Load a saved library from a file -- the production path (genSynthonLib
-//! writes it; a search loads it warm rather than re-embedding).
-EnumerateSynthons3DWrap *LoadSynthonLibrary(const std::string &path) {
+//! Whole-search accounting, including work the size filter skipped.
+python::dict SearchStatsHelper(const EnumerateSynthons3DWrap &lib,
+                               const SynthonProductScorer &scorer,
+                               const SynthonSearch3DParams &params) {
+  MultipleTrajectoryStats stats;
+  const auto result = synthonSearch3D(lib, scorer, params, &stats);
+  python::dict d;
+  d["score"] = result.score;
+  d["logicalRequests"] = stats.logicalRequests;
+  d["logicalScored"] = stats.logicalScored;
+  d["logicalUnscorable"] = stats.logicalUnscorable;
+  d["uniqueSearchAttempts"] = stats.uniqueSearchAttempts;
+  d["uniqueSearchScored"] = stats.uniqueSearchScored;
+  d["uniqueSearchUnscorable"] = stats.uniqueSearchUnscorable;
+  d["cacheHits"] = stats.cacheHits;
+  d["crossTrajectoryCacheHits"] = stats.crossTrajectoryCacheHits;
+  d["intraTrajectoryCacheHits"] = stats.intraTrajectoryCacheHits;
+  d["finalistEvaluations"] = stats.finalistEvaluations;
+  d["sizeFiltered"] = stats.sizeFiltered;
+  d["reagentsFiltered"] = stats.reagentsFiltered;
+  d["deadReagentsSkipped"] = stats.deadReagentsSkipped;
+  python::list sweeps;
+  for (const auto &sw : stats.positionSweeps) {
+    python::dict e;
+    e["position"] = sw.position;
+    e["reagents"] = sw.reagents;
+    e["evaluations"] = sw.evaluations;
+    e["cacheHits"] = sw.cacheHits;
+    e["wallMs"] = sw.wallMs;
+    e["confgenMs"] = sw.confgenMs;
+    e["scoreMs"] = sw.scoreMs;
+    sweeps.append(e);
+  }
+  d["positionSweeps"] = sweeps;
+  python::list reagents;
+  for (const auto r : result.reagents) {
+    reagents.append(r);
+  }
+  d["reagents"] = reagents;
+  return d;
+}
+
+SynthonSearchResult SearchHelper(const EnumerateSynthons3DWrap &lib,
+                                 const SynthonProductScorer &scorer,
+                                 const SynthonSearch3DParams &params) {
+  return synthonSearch3D(lib, scorer, params);
+}
+
+//! Load the fraglib file
+std::shared_ptr<Fraglib> LoadFraglibFile(const std::string &path) {
+  std::ifstream in(path, std::ios_base::binary);
+  if (!in) {
+    throw_value_error("could not open " + path);
+  }
+  FraglibParams flp;
+  auto lib = std::make_shared<Fraglib>(flp);
+  lib->initFromStream(in);
+  return lib;
+}
+
+EnumerateSynthons3DWrap *LoadSynthonLibrary(const std::string &path,
+                                            python::object fraglib) {
   std::ifstream in(path, std::ios_base::binary);
   if (!in) {
     throw_value_error("could not open " + path);
   }
   auto *lib = new EnumerateSynthons3DWrap();
   try {
+    if (fraglib != python::object()) {
+      python::extract<std::shared_ptr<Fraglib>> ex(fraglib);
+      if (ex.check()) {
+        lib->setFraglib(ex());
+      }
+    }
     lib->initFromStream(in);
   } catch (...) {
     delete lib;
@@ -212,11 +289,6 @@ void SaveSynthonLibrary(const EnumerateSynthons3DWrap &self,
   self.toStream(out);
 }
 
-SynthonSearchResult ThompsonHelper(const EnumerateSynthons3DWrap &lib,
-                                   const SynthonProductScorer &scorer,
-                                   const ThompsonSynthonParams &params) {
-  return thompsonSynthonSearch(lib, scorer, params);
-}
 
 }  // namespace
 
@@ -248,9 +320,7 @@ Options:\n\
                        &RDKit::EnumerateSynthons3DParams::storeFraglib)
         .def_readwrite("embedStyle",
                        &RDKit::EnumerateSynthons3DParams::embedStyle,
-                       "Full cuts at every rotatable bond; Coarse cuts ONLY at "
-                       "the synthon junctions (far fewer rotors per product). "
-                       "A library must be built for one style or the other.")
+                       "Coarse (embed full synthons) or Full (standard conformer generation)")
         .add_property(
             "numOutputConfs",
             +[](const RDKit::EnumerateSynthons3DParams &p) {
@@ -278,21 +348,18 @@ Options:\n\
         "SynthonProductScorer",
         "Abstract base: scores an assembled product.", python::no_init);
 
-    python::class_<RDKit::ShapeProductScorer, boost::noncopyable,
+    python::class_<RDKit::ShapeScorer, boost::noncopyable,
                    python::bases<RDKit::SynthonProductScorer>>(
-        "ShapeProductScorer",
+        "ShapeScorer",
         "Shape+colour overlay against a fixed query.  The query shape is built "
-        "once and reused, so one scorer should serve a whole search.",
+        "once and reused, so one scorer should serve a whole search.\n"
+	"The current expectation is a range of [0,1]",
         python::init<const RDKit::ROMol &, python::optional<int, bool>>(
             python::args("self", "query", "queryConfId", "allCarbonRadii")))
         .def("Score", &RDKit::ScoreHelper,
-             "Best-aligning conformer wins.  Returns None if the product could "
-             "not be scored.",
-             python::args("self", "product"))
-        .def("LastShape", &RDKit::ShapeProductScorer::lastShape,
-             python::args("self"))
-        .def("LastColour", &RDKit::ShapeProductScorer::lastColour,
-             python::args("self"));
+             "Returns score of best conformer, None if scoring is not possible",
+             python::args("self", "product"));
+
 
     python::class_<RDKit::SynthonSearchResult>("SynthonSearchResult",
                                                python::no_init)
@@ -301,34 +368,74 @@ Options:\n\
         .def_readonly("evaluations", &RDKit::SynthonSearchResult::evaluations)
         .def_readonly("unscorable", &RDKit::SynthonSearchResult::unscorable)
         .def_readonly("cacheHits", &RDKit::SynthonSearchResult::cacheHits)
+        .def_readonly("duplicatesRejected",
+                      &RDKit::SynthonSearchResult::duplicatesRejected)
         .def_readonly("confgenMs", &RDKit::SynthonSearchResult::confgenMs)
         .def_readonly("scoreMs", &RDKit::SynthonSearchResult::scoreMs)
         .add_property("best", &RDKit::BestOf,
                       "[(reagentIdx, score, mol), ...] highest score first.");
 
-    python::class_<RDKit::ThompsonSynthonParams>(
-        "ThompsonSynthonParams", python::init<>(python::args("self")))
-        .def_readwrite("budget", &RDKit::ThompsonSynthonParams::budget)
-        .def_readwrite("priorMean", &RDKit::ThompsonSynthonParams::priorMean)
-        .def_readwrite("priorVar", &RDKit::ThompsonSynthonParams::priorVar)
-        .def_readwrite("noiseVar", &RDKit::ThompsonSynthonParams::noiseVar)
-        .def_readwrite("batchSize", &RDKit::ThompsonSynthonParams::batchSize)
-        .def_readwrite("randomSeed", &RDKit::ThompsonSynthonParams::randomSeed)
-        .def_readwrite("numThreads", &RDKit::ThompsonSynthonParams::numThreads)
-        .def_readwrite("cacheScores", &RDKit::ThompsonSynthonParams::cacheScores)
+    python::class_<RDKit::SynthonSearch3DParams>(
+        "SynthonSearch3DParams",
+        "Parameters for the 3D synthon search.  numTrajectories is the knob "
+        "that matters: k=1 is a single greedy trajectory, k>=2 also reaches "
+        "targets that sit behind a scoring valley and which no single "
+        "trajectory can climb to.",
+        python::init<>(python::args("self")))
+        .def_readwrite("numTrajectories",
+                       &RDKit::SynthonSearch3DParams::numTrajectories)
+        .def_readwrite("randomSeed",
+                       &RDKit::SynthonSearch3DParams::randomSeed)
+        .def_readwrite("seedStride",
+                       &RDKit::SynthonSearch3DParams::seedStride)
+        .def_readwrite("samplesPerReagent",
+                       &RDKit::SynthonSearch3DParams::samplesPerReagent)
+        .def_readwrite("refineIters",
+                       &RDKit::SynthonSearch3DParams::refineIters)
+        .def_readwrite("pairRefineTopK",
+                       &RDKit::SynthonSearch3DParams::pairRefineTopK)
+        .def_readwrite("numThreads",
+                       &RDKit::SynthonSearch3DParams::numThreads)
         .def_readwrite("numBestProducts",
-                       &RDKit::ThompsonSynthonParams::numBestProducts);
+                       &RDKit::SynthonSearch3DParams::numBestProducts)
+        .def_readwrite("queryHeavyAtoms",
+                       &RDKit::SynthonSearch3DParams::queryHeavyAtoms,
+                       "Heavy atoms in the query; 0 disables the size filter.")
+        .def_readwrite("pruneMinimum",
+                       &RDKit::SynthonSearch3DParams::pruneMinimum,
+		       "Set the minimum difference in heavy atom percentage between product and query")
+        .def_readwrite("pruneMaximum",
+                       &RDKit::SynthonSearch3DParams::pruneMaximum,
+		       "Set the maximum difference in heavy atom percentage between product and query")
+      ;
 
-    python::def("ThompsonSynthonSearch", &RDKit::ThompsonHelper,
+
+    python::def("SynthonSearch3DSweepStats", &RDKit::SweepStatsHelper,
                 (python::arg("lib"), python::arg("scorer"),
-                 python::arg("params") = RDKit::ThompsonSynthonParams()),
-                "Thompson sampling over (position, reagent) arms.");
+                 python::arg("params") = RDKit::SynthonSearch3DParams()),
+                "Run a search and maintain the statistics of the sweep for debugging");
 
-    python::def("RefineSynthons", &RDKit::RefineHelper,
-                (python::arg("lib"), python::arg("scorer"), python::arg("seed"),
-                 python::arg("maxIters") = 5, python::arg("numThreads") = 0,
-                 python::arg("numBestProducts") = 10),
-                "Coordinate descent from a seed combination.");
+    python::def("SynthonSearch3DStats", &RDKit::SearchStatsHelper,
+                (python::arg("lib"), python::arg("scorer"),
+                 python::arg("params") = RDKit::SynthonSearch3DParams()),
+                "Run a search and return its full accounting as a dict, "
+                "including sizeFiltered: candidates the heavy-atom filter "
+                "skipped without assembling.");
+
+    python::def("DescribeSynthonSearch3DParams",
+                +[](const RDKit::SynthonSearch3DParams &params,
+                    const EnumerateSynthons3DWrap &lib) {
+                  return RDKit::describeParams(params, lib);
+                },
+                (python::arg("params"), python::arg("lib")),
+                "Return the resolved search parameters, one key=value per "
+                "line.  The same text the search writes to the info log.");
+
+    python::def("SynthonSearch3D", &RDKit::SearchHelper,
+                (python::arg("lib"), python::arg("scorer"),
+                 python::arg("params") = RDKit::SynthonSearch3DParams()),
+                "Search a 3D synthon library for products matching the "
+                "scorer's query.");
 
     docString = "";
     python::class_<EnumerateSynthons3DWrap, boost::noncopyable,
@@ -345,8 +452,7 @@ Options:\n\
             python::args("self", "reagents", "params")))
 
         .def("Prefill", &RDKit::EnumerateSynthons3D::prefill,
-             "Embed this library's synthon fragments into its cache. Returns "
-             "the number newly embedded (0 if already warm).",
+             "Pre-embed the synthons",
              python::args("self"))
 
         .def(
@@ -356,6 +462,13 @@ Options:\n\
                 1, python::with_custodian_and_ward_postcall<0, 1>>(),
             python::args("self"))
 
+        .def("ProductSizeRange",
+             +[](const EnumerateSynthons3DWrap &self) {
+               const auto r = self.productSizeRange();
+               return python::make_tuple(r.first, r.second);
+             },
+             "return the product heavy atom count (smallest, largest)",
+             python::args("self"))
         .def("Arity", &RDKit::EnumerateSynthons3DWrap::arity, python::args("self"))
         .def("NumReagents", &RDKit::EnumerateSynthons3DWrap::numReagents,
              python::args("self", "position"))
@@ -364,19 +477,27 @@ Options:\n\
         .def("GetProduct", &RDKit::GetProductHelper,
              "Assemble one product WITH conformers.",
              python::args("self", "reagentIdx"))
-        .def("ZipProduct", &RDKit::ZipProductHelper,
-             "The product GRAPH only -- no conformers.  Use this to build a "
-             "query independently, so it does not inherit the candidates' "
-             "conformers.",
+        .def("Get2D", &RDKit::get2DHelper,
+             "Get the product with no confs",
              python::args("self", "reagentIdx"))
         .def("Save", &RDKit::SaveSynthonLibrary,
              "Write this library, fragment cache included, to a file.",
              python::args("self", "path"));
 
+    python::class_<RDKit::Fraglib, std::shared_ptr<RDKit::Fraglib>,
+                   boost::noncopyable>("Fraglib", python::no_init)
+        .def("Size", &RDKit::Fraglib::size, python::args("self"))
+        .def("NumUnembeddable", &RDKit::Fraglib::numUnembeddable,
+             python::args("self"));
+
+    python::def("LoadFraglib", &RDKit::LoadFraglibFile,
+                "Load a precompiled fraglib into the enumeration",
+                python::arg("path"));
+
     python::def("LoadSynthonLibrary", &RDKit::LoadSynthonLibrary,
                 python::return_value_policy<python::manage_new_object>(),
-                "Load a library written by Save() or genSynthonLib.",
-                python::arg("path"));
+                "Load a synthon library written by Save()",
+                (python::arg("path"), python::arg("fraglib") = python::object()));
   }
 };
 

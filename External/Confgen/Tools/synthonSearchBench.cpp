@@ -12,7 +12,7 @@
 //    1. build (or load) a 3D synthon library for one reaction
 //    2. pick a product at random -- that IS the ground truth
 //    3. generate its conformers and use them as the shape QUERY
-//    4. Thompson-sample the library against that query
+//    4. run the selected synthon search against that query
 //    5. did the search recover the planted reagent indices?
 //
 //  A planted product is the only query whose right answer is known, so
@@ -26,8 +26,7 @@
 //  with [U] exit vectors (see External/Confgen/README.md).
 //
 #include <Confgen/SynthonSearch/EnumerateSynthons3D.h>
-#include <Confgen/SynthonSearch/SynthonSearch.h>
-#include <Confgen/SynthonSearch/SynthonSearchExperimental.h>
+#include <Confgen/SynthonSearch/SynthonSearch3D.h>
 #include <Confgen/Utils/ParamsIO.h>
 
 #include <GraphMol/Descriptors/Lipinski.h>
@@ -39,6 +38,7 @@
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <RDGeneral/RDLog.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -62,7 +62,8 @@ double nowMs() {
 
 void usage(const char *argv0) {
   std::cerr
-      << "usage: " << argv0 << " [options]\n\n"
+      << "usage: " << argv0
+      << " [options]\n\n"
          "  Library (one of):\n"
          "    --synthons FILE --rxn ID  build from a synthon table (CSV or\n"
          "                          TSV; columns found from the header:\n"
@@ -83,18 +84,16 @@ void usage(const char *argv0) {
          "    --noise-var F         observation noise; LARGER explores longer\n"
          "    --prior-var F         arm prior spread; larger explores longer\n"
          "    --threads N           workers (0 = hardware concurrency)\n"
-         "    --seeder S            greedy | beam | ts | ts-unique | both |\n"
-         "                          evenpairs | evenpairs+ts | evenpairs-argmax\n"
-         "                          (default ts).  greedy\n"
-         "                          scores every reagent once -- coverage TS\n"
-         "                          cannot guarantee; both primes TS with it.\n"
          "    --samples-per-reagent N  completions scored per reagent (greedy)\n"
+         "    --trajectories N      independent search trajectories (k)\n"
+         "    --trajectory-seed-stride N  seed gap between trajectories\n"
          "    --batch-size N        Thompson candidates per feedback round\n"
-         "    --beam-width N        partial assignments retained by beam\n"
-         "    --beam-samples N      shared completions per beam extension\n"
-         "    --beam-batch-size N   products per parallel beam scoring batch\n"
          "    --duplicate-retries N fresh TS proposals before mutation\n"
          "    --mutation-retries N  one-coordinate proposals before uniform\n"
+         "    --pair-tail N         redundant experiment: joint tail draws\n"
+         "    --pair-escape-draws N diagnostic two-coordinate moves\n"
+         "    --pair-escape-batch N scoring batch size for pair escape\n"
+         "    --pair-escape-rounds N improving jumps allowed (default 1)\n"
          "    --draws N             candidates drawn by evenpairs\n"
          "    --topk N              evenpairs aggregate: mean of a synthon's\n"
          "                          best N scores (1 = plain max)\n"
@@ -103,7 +102,7 @@ void usage(const char *argv0) {
          "                          reports how the planted product scores\n"
          "                          ACROSS fidelities: does a coarse product\n"
          "                          reproduce the shape a fine query defines?\n"
-     
+
          "    --query-pose N        which conformer of the planted product is\n"
          "                          the query pose (default 0 = lowest energy)\n"
          "    --sweep-trace         per-step report of where the target\n"
@@ -116,8 +115,9 @@ void usage(const char *argv0) {
          "    --exhaustive          ALSO score every product, to report where\n"
          "                          the planted one actually ranks.  Only\n"
          "                          sane for small spaces.\n"
-         "    --no-cache            do NOT memoise scores (A/B for the cache)\n"
+         "    --legacy-ts-replay    replay duplicate TS draws (A/B only)\n"
          "    --seed N              RNG seed for the planted picks\n"
+         "    --search-seed-offset N add only to search RNGs; targets unchanged\n"
          "    -h/--help\n";
 }
 
@@ -170,7 +170,8 @@ EnumerationTypes::BBS loadSynthonReaction(const std::string &path,
     }
   }
   if (cSmiles < 0 || cRole < 0 || cRxn < 0) {
-    std::cerr << "unrecognised header in " << path << " -- need a SMILES "
+    std::cerr << "unrecognised header in " << path
+              << " -- need a SMILES "
                  "column, a synthon role/# column and a reaction id column\n";
     return {};
   }
@@ -207,11 +208,21 @@ int main(int argc, char **argv) {
   size_t maxPerPos = 0;
   int productConfs = -1;  // -1 = leave the library default
   int trials = 5, budget = 8000, seed = 0xf00d;
+  // Added to the SEARCH RNGs only, never to the planted-product draw, so a
+  // RESTART can be measured against the identical set of targets.  The
+  // measured complementarity between two searches came from them landing in
+  // different basins, not from their mechanisms composing -- this isolates
+  // that.
+  int searchSeedOffset = 0;
+  //! Independent search trajectories run SEQUENTIALLY in this one process,
+  //! reduced at the end by keeping the best product.  Restarts share nothing
+  //! -- no model, no cache, no coordination -- so running them in one process
+  //! is equivalent to running them in k containers, and needs no orchestration.
+  int restarts = 1;
   double noiseVar = -1.0, priorVar = -1.0;  // <0 = leave the default
   unsigned int threads = 0;
-  bool prefill = true, refine = false, cache = true, coarse = false;
+  bool prefill = true, refine = false, rejectDuplicates = true, coarse = false;
   bool exhaustive = false;
-  bool independentQuery = true;
   bool sweepTrace = false;
   bool failureCensus = false;
   bool determinismCheck = false;
@@ -224,18 +235,19 @@ int main(int argc, char **argv) {
   long decoyScores = 0;
   int pairTopK = 0;
   int pairTailDraws = 0;
+  int pairEscapeDraws = 4000;
+  unsigned int pairEscapeBatch = 256;
+  unsigned int pairEscapeRounds = 1;
+  unsigned int trajectories = 2;
+  int trajectorySeedStride = 1000;
   std::string partners = "random";
   bool centralFirst = false;
   unsigned int queryPose = 0;
-  std::string seeder = "ts";
   std::string crossFile;
   unsigned int samplesPerReagent = 1;
   int evenDraws = 4000;
   int topK = 3;
   unsigned int batchSize = 64;
-  unsigned int beamWidth = 8;
-  unsigned int beamSamples = 4;
-  unsigned int beamBatchSize = 256;
   unsigned int duplicateRetries = 16;
   unsigned int mutationRetries = 64;
 
@@ -260,16 +272,6 @@ int main(int argc, char **argv) {
       maxPerPos = static_cast<size_t>(std::stoul(val("--max-per-pos")));
     } else if (a == "--product-confs") {
       productConfs = std::stoi(val("--product-confs"));
-    } else if (a == "--seeder") {
-      seeder = val("--seeder");
-      if (seeder != "greedy" && seeder != "beam" && seeder != "ts" &&
-          seeder != "ts-unique" && seeder != "both" &&
-          seeder != "evenpairs" && seeder != "evenpairs+ts" &&
-          seeder != "evenpairs-argmax") {
-        std::cerr << "--seeder must be greedy, beam, ts, ts-unique, both, "
-                     "evenpairs, evenpairs+ts or evenpairs-argmax\n";
-        return 1;
-      }
     } else if (a == "--topk") {
       topK = std::stoi(val("--topk"));
     } else if (a == "--draws") {
@@ -277,15 +279,13 @@ int main(int argc, char **argv) {
     } else if (a == "--samples-per-reagent") {
       samplesPerReagent =
           static_cast<unsigned int>(std::stoul(val("--samples-per-reagent")));
+    } else if (a == "--trajectories") {
+      trajectories =
+          static_cast<unsigned int>(std::stoul(val("--trajectories")));
+    } else if (a == "--trajectory-seed-stride") {
+      trajectorySeedStride = std::stoi(val("--trajectory-seed-stride"));
     } else if (a == "--batch-size") {
       batchSize = static_cast<unsigned int>(std::stoul(val("--batch-size")));
-    } else if (a == "--beam-width") {
-      beamWidth = static_cast<unsigned int>(std::stoul(val("--beam-width")));
-    } else if (a == "--beam-samples") {
-      beamSamples = static_cast<unsigned int>(std::stoul(val("--beam-samples")));
-    } else if (a == "--beam-batch-size") {
-      beamBatchSize =
-          static_cast<unsigned int>(std::stoul(val("--beam-batch-size")));
     } else if (a == "--duplicate-retries") {
       duplicateRetries =
           static_cast<unsigned int>(std::stoul(val("--duplicate-retries")));
@@ -301,6 +301,14 @@ int main(int argc, char **argv) {
       partners = val("--partners");
     } else if (a == "--pair-tail") {
       pairTailDraws = std::stoi(val("--pair-tail"));
+    } else if (a == "--pair-escape-draws") {
+      pairEscapeDraws = std::stoi(val("--pair-escape-draws"));
+    } else if (a == "--pair-escape-batch") {
+      pairEscapeBatch =
+          static_cast<unsigned int>(std::stoul(val("--pair-escape-batch")));
+    } else if (a == "--pair-escape-rounds") {
+      pairEscapeRounds =
+          static_cast<unsigned int>(std::stoul(val("--pair-escape-rounds")));
     } else if (a == "--central-first") {
       centralFirst = true;
     } else if (a == "--pair-refine") {
@@ -345,8 +353,13 @@ int main(int argc, char **argv) {
       threads = static_cast<unsigned int>(std::stoul(val("--threads")));
     } else if (a == "--refine") {
       refine = true;
-    } else if (a == "--no-cache") {
-      cache = false;
+    } else if (a == "--legacy-ts-replay" || a == "--no-cache") {
+      // --no-cache is retained as a compatibility alias for old A/B scripts.
+      rejectDuplicates = false;
+    } else if (a == "--restarts") {
+      restarts = std::stoi(val("--restarts"));
+    } else if (a == "--search-seed-offset") {
+      searchSeedOffset = std::stoi(val("--search-seed-offset"));
     } else if (a == "--seed") {
       seed = std::stoi(val("--seed"));
     } else if (a == "-h" || a == "--help") {
@@ -415,6 +428,7 @@ int main(int argc, char **argv) {
 
   // Report the size of the space we are searching.
   double space = 1.0;
+  const size_t fraglibAtStart = lib.fraglib() ? lib.fraglib()->size() : 0;
   std::printf("[synthonbench] arity=%u  reagents:", lib.arity());
   for (unsigned int p = 0; p < lib.arity(); ++p) {
     std::printf(" %u", lib.numReagents(p));
@@ -457,85 +471,48 @@ int main(int argc, char **argv) {
                     : "FULL");
   }
 
-  ThompsonSynthonParams tp;
-  tp.budget = budget;
-  tp.batchSize = batchSize;
-  tp.numBestProducts = topN;
-  tp.numThreads = threads;
-  tp.cacheScores = cache;
-  if (noiseVar > 0) {
-    tp.noiseVar = noiseVar;
-  }
-  if (priorVar > 0) {
-    tp.priorVar = priorVar;
-  }
-
-  UniqueThompsonSynthonParams utp;
-  utp.budget = budget;
-  utp.batchSize = batchSize;
-  utp.numBestProducts = topN;
-  utp.numThreads = threads;
-  utp.duplicateRetries = duplicateRetries;
-  utp.mutationRetries = mutationRetries;
-  if (noiseVar > 0) {
-    utp.noiseVar = noiseVar;
-  }
-  if (priorVar > 0) {
-    utp.priorVar = priorVar;
-  }
-
-  BeamGreedySynthonParams bgp;
-  bgp.beamWidth = beamWidth;
-  bgp.samplesPerExtension = beamSamples;
-  bgp.batchSize = beamBatchSize;
-  bgp.randomSeed = seed;
-  bgp.numThreads = threads;
-  bgp.numBestProducts = topN;
-
   // ALWAYS emit the complete effective experiment configuration.  A/B output
   // without this block is not a reproducible measurement.
-  std::cout << "[params.begin]\n"
-            << "seeder=" << seeder << "\n"
-            << "library.source=" << (loadFile.empty() ? csv : loadFile) << "\n"
-            << "library.reaction=" << rxn << "\n"
-            << "library.maxPerPosition=" << maxPerPos << "\n"
-            << "library.embedStyle="
-            << (lib.params3D().embedStyle == SynthonEmbedStyle::Coarse ? "Coarse"
-                                                                       : "Full")
-            << "\n"
-            << "library.prefill=" << lib.params3D().prefillFraglib << "\n"
-            << "trials=" << trials << "\n"
-            << "seed=" << seed << "\n"
-            << "threads=" << threads << "\n"
-            << "queryPose=" << queryPose << "\n"
-            << "refine=" << refine << "\n"
-            << "topN=" << topN << "\n"
-            << "thompson.budget=" << tp.budget << "\n"
-            << "thompson.batchSize=" << tp.batchSize << "\n"
-            << "thompson.priorMean=" << tp.priorMean << "\n"
-            << "thompson.priorVar=" << tp.priorVar << "\n"
-            << "thompson.noiseVar=" << tp.noiseVar << "\n"
-            << "thompson.cacheScores=" << tp.cacheScores << "\n"
-            << "unique.duplicateRetries=" << utp.duplicateRetries << "\n"
-            << "unique.mutationRetries=" << utp.mutationRetries << "\n"
-            << "unique.uniformRetries=" << utp.uniformRetries << "\n"
-            << "greedy.samplesPerReagent=" << samplesPerReagent << "\n"
-            << "greedy.aggregate=" << greedyAggregate << "\n"
-            << "greedy.partners=" << partners << "\n"
-            << "greedy.centralFirst=" << centralFirst << "\n"
-            << "greedy.pairTailDraws=" << pairTailDraws << "\n"
-            << "greedy.pairRefineTopK=" << pairTopK << "\n"
-            << "beam.width=" << bgp.beamWidth << "\n"
-            << "beam.samplesPerExtension=" << bgp.samplesPerExtension << "\n"
-            << "beam.aggregate=TopKMean\n"
-            << "beam.topK=AUTO\n"
-            << "beam.batchSize=" << bgp.batchSize << "\n"
-            << "evenPairs.draws=" << evenDraws << "\n"
-            << "evenPairs.topK=" << topK << "\n"
-            << "conformer.params.begin\n"
-            << fragmentConfGenParamsToString(lib.params3D().confgen)
-            << "conformer.params.end\n"
-            << "[params.end]\n";
+  std::cout
+      << "[params.begin]\n"
+      << "search=multipleTrajectory\n"
+      << "library.source=" << (loadFile.empty() ? csv : loadFile) << "\n"
+      << "library.reaction=" << rxn << "\n"
+      << "library.maxPerPosition=" << maxPerPos << "\n"
+      << "library.embedStyle="
+      << (lib.params3D().embedStyle == SynthonEmbedStyle::Coarse ? "Coarse"
+                                                                 : "Full")
+      << "\n"
+      << "library.prefill=" << lib.params3D().prefillFraglib << "\n"
+      << "trials=" << trials << "\n"
+      << "seed=" << seed << "\n"
+      << "trialSeed=seed+trialIndex\n"
+      << "searchSeedOffset=" << searchSeedOffset << "\n"
+      << "searchSeed=seed+trialIndex+searchSeedOffset\n"
+      << "threads=" << threads << "\n"
+      << "queryPose=" << queryPose << "\n"
+      << "refine=" << refine << "\n"
+      << "topN=" << topN << "\n"
+      << "greedy.samplesPerReagent=" << samplesPerReagent << "\n"
+      << "greedy.centralFirst=" << centralFirst << "\n"
+      << "greedy.pairRefineTopK=" << pairTopK << "\n"
+      << "greedy.internalCoordinateRefine=true\n"
+      << "multipleTrajectories.count=" << trajectories << "\n"
+      << "multipleTrajectories.seedStride=" << trajectorySeedStride << "\n"
+      << "multipleTrajectories.seed="
+         "seed+trialIndex+searchSeedOffset+trajectory*seedStride\n"
+      << "multipleTrajectories.workerPool=shared\n"
+      << "multipleTrajectories.tupleCache=per-query\n"
+      << "multipleTrajectories.cacheSemantics=trajectory-preserving\n"
+      << "multipleTrajectories.finalists=rebuilt-and-rescored\n"
+      << "timing.wallS=search-only; excludes library load, prefill, and query setup\n"
+      << "timing.componentMs=sum across worker threads, not wall time\n"
+      << "library.fraglibEntriesAtStart="
+      << (lib.fraglib() ? lib.fraglib()->size() : 0) << "\n"
+      << "conformer.params.begin\n"
+      << fragmentConfGenParamsToString(lib.params3D().confgen)
+      << "conformer.params.end\n"
+      << "[params.end]\n";
 
   // How many conformers does each SYNTHON actually get?  The per-class
   // embedding recipes assume FINE fragmentation, where an acyclic fragment has
@@ -549,7 +526,7 @@ int main(int argc, char **argv) {
       return 1;
     }
     std::map<unsigned int, unsigned int> hist, histRing, histAcyclic;
-    unsigned int missing = 0, total = 0;
+    unsigned int missing = 0, dead = 0, total = 0;
     for (const auto &position : lib.getReagents()) {
       for (const auto &synthon : position) {
         if (!synthon) {
@@ -570,12 +547,16 @@ int main(int argc, char **argv) {
         } catch (...) {
           continue;
         }
-        ROMOL_SPTR got = fl->get(whole, false);
-        if (!got) {
-          ++missing;
+        const auto nConfs = fl->numFragmentConfs(whole);
+        if (!nConfs) {
+          ++missing;  // never attempted
           continue;
         }
-        const unsigned int n = got->getNumConformers();
+        if (!*nConfs) {
+          ++dead;  // tombstoned: attempted and unembeddable
+          continue;
+        }
+        const unsigned int n = *nConfs;
         ++hist[n];
         if (whole.getRingInfo()->numRings()) {
           ++histRing[n];
@@ -598,7 +579,8 @@ int main(int argc, char **argv) {
       }
       std::printf("\n");
     };
-    std::printf("[fraglib] %u synthons, %u not in cache\n", total, missing);
+    std::printf("[fraglib] %u synthons, %u not in cache, %u tombstoned\n",
+                total, missing, dead);
     dump("all", hist);
     dump("ring", histRing);
     dump("acyclic", histAcyclic);
@@ -616,7 +598,7 @@ int main(int argc, char **argv) {
     std::function<void(unsigned int)> rec = [&](unsigned int pos) {
       if (pos == lib.arity()) {
         ++total;
-        ROMOL_SPTR m = lib.zipProduct(idx);
+        ROMOL_SPTR m = lib.get2D(idx);
         if (m) {
           ++built;
           ++routes[MolToSmiles(*m)];
@@ -668,7 +650,7 @@ int main(int argc, char **argv) {
         idx[p] = std::uniform_int_distribution<unsigned int>(
             0, lib.numReagents(p) - 1)(rng);
       }
-      ROMOL_SPTR m = lib.zipProduct(idx);
+      ROMOL_SPTR m = lib.get2D(idx);
       if (!m) {
         continue;
       }
@@ -708,8 +690,9 @@ int main(int argc, char **argv) {
                     lib.arity(), idx.size());
         continue;
       }
-      ROMOL_SPTR m = lib.zipProduct(idx);
-      const std::string smi = m ? MolToSmiles(*m) : std::string("<unbuildable>");
+      ROMOL_SPTR m = lib.get2D(idx);
+      const std::string smi =
+          m ? MolToSmiles(*m) : std::string("<unbuildable>");
       if (first.empty()) {
         first = smi;
       }
@@ -735,7 +718,7 @@ int main(int argc, char **argv) {
         idx[p] = std::uniform_int_distribution<unsigned int>(
             0, lib.numReagents(p) - 1)(drng);
       }
-      ROMOL_SPTR graph = lib.zipProduct(idx);
+      ROMOL_SPTR graph = lib.get2D(idx);
       if (!graph) {
         continue;
       }
@@ -763,9 +746,12 @@ int main(int argc, char **argv) {
         continue;
       }
       unsigned int nrot = 0;
-      { RWMol tmp(*a); nrot = Descriptors::calcNumRotatableBonds(tmp); }
+      {
+        RWMol tmp(*a);
+        nrot = Descriptors::calcNumRotatableBonds(tmp);
+      }
       // compare A's FIRST conformer as the query against each set
-      ShapeProductScorer sc(*a, a->getConformer(0).getId());
+      ShapeScorer sc(*a, a->getConformer(0).getId());
       const auto sa = sc.score(*a);
       const auto sb = sc.score(*b);
       // Best RMSD between the two ensembles: for each conformer of A, the
@@ -812,12 +798,12 @@ int main(int argc, char **argv) {
       // query conformer having no close partner (A conf 0 was 1.74A away).
       double closestPairScore = 0.0, closestShape = 0.0, closestColour = 0.0;
       if (bestIdA >= 0 && bestIdB >= 0) {
-        ShapeProductScorer pairSc(*a, bestIdA);
+        ShapeScorer pairSc(*a, bestIdA);
         auto bOne = boost::make_shared<RWMol>(*b);
         std::vector<int> drop;
         for (auto ci = bOne->beginConformers(); ci != bOne->endConformers();
              ++ci) {
-          if ((*ci)->getId() != bestIdB) {
+          if ((int)(*ci)->getId() != bestIdB) {
             drop.push_back((*ci)->getId());
           }
         }
@@ -826,17 +812,14 @@ int main(int argc, char **argv) {
         }
         const auto ps = pairSc.score(*bOne);
         closestPairScore = ps ? *ps : 0.0;
-        closestShape = pairSc.lastShape();
-        closestColour = pairSc.lastColour();
       }
       std::printf(
           "[determinism] rotors=%u  A confs=%u B confs=%u  "
           "A-vs-A=%.4f  A-vs-B(fresh, same seed)=%.4f  "
-          "bestRMSD(A,B)=%.2fA (confIds %d/%d -> combo %.4f shape %.4f colour "
-          "%.4f)  confA0->nearestB=%.2fA",
-          nrot, a->getNumConformers(), b->getNumConformers(),
-          sa ? *sa : 0.0, sb ? *sb : 0.0, bestPair, bestIdA, bestIdB,
-          closestPairScore, closestShape, closestColour, firstConfBest);
+          "bestRMSD(A,B)=%.2fA (confIds %d/%d -> combo %.4f confA0->nearestB=%.2fA",
+          nrot, a->getNumConformers(), b->getNumConformers(), sa ? *sa : 0.0,
+          sb ? *sb : 0.0, bestPair, bestIdA, bestIdB, closestPairScore,
+          firstConfBest);
       if (viaLib) {
         const auto sl = sc.score(*viaLib.mol);
         std::printf("  A-vs-LIBRARY(warm cache)=%.4f", sl ? *sl : 0.0);
@@ -883,10 +866,10 @@ int main(int argc, char **argv) {
     std::printf("\n[failure census] %zu products, %zu failed (%.1f%%)\n", total,
                 failed, 100.0 * failed / total);
     for (const auto &kv : byStatus) {
-      std::printf("  status %-28s %zu\n",
-                  synthonBuildStatusMessage(
-                      static_cast<SynthonBuildStatus>(kv.first)),
-                  kv.second);
+      std::printf(
+          "  status %-28s %zu\n",
+          synthonBuildStatusMessage(static_cast<SynthonBuildStatus>(kv.first)),
+          kv.second);
     }
     for (unsigned int q = 0; q < lib.arity(); ++q) {
       std::printf("  position %u: reagents implicated in a failure:\n", q);
@@ -905,10 +888,9 @@ int main(int argc, char **argv) {
   unsigned int recovered = 0, tied = 0, missed = 0, unbuildable = 0;
   unsigned int inTopN = 0;
 
-  std::printf(
-      "\n%-6s %-22s %-22s %8s %8s %9s %9s %9s %9s %7s\n", "trial", "planted",
-      "found", "score", "target", "draws", "cached", "confgenMs", "shapeMs",
-      "wallS");
+  std::printf("\n%-6s %-22s %-22s %8s %8s %9s %9s %9s %9s %9s %7s\n", "trial",
+              "planted", "found", "score", "target", "draws", "cached",
+              "rejected", "confCpuMs", "shapeCpu", "wallS");
 
   auto join = [](const std::vector<unsigned int> &v) {
     std::string s;
@@ -919,6 +901,7 @@ int main(int argc, char **argv) {
   };
 
   for (int t = 0; t < trials; ++t) {
+    const size_t cacheAtTrialStart = lib.fraglib() ? lib.fraglib()->size() : 0;
     // 1. plant a product at random
     std::vector<unsigned int> planted(lib.arity());
     for (unsigned int p = 0; p < lib.arity(); ++p) {
@@ -954,7 +937,7 @@ int main(int argc, char **argv) {
     }
 
     // 2. its conformers ARE the query
-    ShapeProductScorer scorer(*target.mol, queryConfId);
+    ShapeScorer scorer(*target.mol, queryConfId);
     const auto selfScore = scorer.score(*target.mol);
 
     // Noise floor: how well do RANDOM products score against this query?  More
@@ -992,7 +975,6 @@ int main(int argc, char **argv) {
             ds.back());
       }
     }
-    const double selfShape = scorer.lastShape(), selfColour = scorer.lastColour();
     // The ACHIEVABLE ceiling is the planted product as the LIBRARY builds it,
     // scored against this query -- not the query against itself.  With an
     // independent query nothing can reproduce the query's own conformers, so
@@ -1008,19 +990,17 @@ int main(int argc, char **argv) {
         }
         std::printf(
             "       planted: rotors=%u  query=1 pose (of %u)  BUILT confs=%u  "
-            "as-built scores %.4f (shape %.4f colour %.4f)\n",
-            nrot, target.mol->getNumConformers(),
-            built.mol->getNumConformers(), bs ? *bs : 0.0, scorer.lastShape(),
-            scorer.lastColour());
+            "as-built scores %.4f\n",
+            nrot, target.mol->getNumConformers(), built.mol->getNumConformers(),
+            bs ? *bs : 0.0);
       }
     }
     // A self-overlay is the ceiling: shape 1.0 AND colour 1.0, i.e. combo 2.0.
     // Anything less means one of the two terms is not contributing.
     if (t == 0) {
       std::printf(
-          "[synthonbench] self-overlay: combo=%.4f  shape=%.4f  colour=%.4f\n",
-          selfScore ? *selfScore : 0.0, scorer.lastShape(),
-          scorer.lastColour());
+          "[synthonbench] self-overlay: combo=%.4f\n",
+          selfScore ? *selfScore : 0.0);
     }
 
     // How does the SAME product, built at the other fidelity, score against
@@ -1033,11 +1013,11 @@ int main(int argc, char **argv) {
         const auto xs = scorer.score(*other.mol);
         std::printf(
             "       planted: this-style confs=%u self combo=%.4f "
-            "(shape %.4f colour %.4f) | other-style confs=%u cross combo=%.4f "
-            "(shape %.4f colour %.4f)\n",
+            "other-style confs=%u cross combo=%.4f "
+            "\n",
             target.mol->getNumConformers(), selfScore ? *selfScore : 0.0,
-            selfShape, selfColour, other.mol->getNumConformers(),
-            xs ? *xs : 0.0, scorer.lastShape(), scorer.lastColour());
+            other.mol->getNumConformers(),
+            xs ? *xs : 0.0);
       } else {
         std::printf("       planted: other style could not build it (%s)\n",
                     synthonBuildStatusMessage(other.status));
@@ -1045,225 +1025,29 @@ int main(int argc, char **argv) {
     }
 
     // 3. search for it
-    tp.randomSeed = seed + t;
-    utp.randomSeed = seed + t;
-    bgp.randomSeed = seed + t;
+    const size_t cacheAtSearchStart = lib.fraglib() ? lib.fraglib()->size() : 0;
     const double w0 = nowMs();
 
-    // (a) greedy sweep: every reagent scored at least once.  Cost is linear in
-    // the LIBRARY, not the product space, so it is the same work whether the
-    // space is 1e3 or 1e10 combinations.
-    SynthonArmScores arms;
-    unsigned int greedyEvals = 0;
-    double greedyConfgen = 0.0, greedyScore = 0.0;
-    if (seeder == "evenpairs" || seeder == "evenpairs+ts" ||
-        seeder == "evenpairs-argmax") {
-      EvenPairParams ep;
-      ep.draws = evenDraws;
-      ep.randomSeed = seed + t;
-      ep.numThreads = threads;
-      ep.topK = static_cast<unsigned int>(std::max(1, topK));
-      ep.aggregate = topK <= 1 ? ArmAggregate::Max : ArmAggregate::TopKMean;
-      arms = evenPairSweep(lib, scorer, ep);
-      greedyEvals = arms.evaluations;
-      greedyConfgen = arms.confgenMs;
-      greedyScore = arms.scoreMs;
-    } else if (seeder == "greedy" || seeder == "both") {
-      GreedySynthonParams gp2;
-      gp2.samplesPerReagent = samplesPerReagent;
-      gp2.pairTailDraws = pairTailDraws;
-      gp2.partnerSelection =
-          partners == "shape"
-              ? GreedySynthonParams::PartnerSelection::ShapeDiverse
-              : (partners == "paired"
-                     ? GreedySynthonParams::PartnerSelection::Paired
-                     : GreedySynthonParams::PartnerSelection::Random);
-      if (centralFirst) {
-        // The position with the most LINK BONDS constrains every other, so
-        // settle it first.  Counted from the exit vectors on the synthons
-        // themselves rather than assumed.
-        int bestPos = -1;
-        size_t bestLinks = 0;
-        for (unsigned int q = 0; q < lib.arity(); ++q) {
-          size_t links = 0;
-          for (const auto &syn : lib.getReagents()[q]) {
-            if (!syn) {
-              continue;
-            }
-            size_t n = 0;
-            for (const auto at : syn->atoms()) {
-              if (at->getAtomicNum() == 0 || at->getAtomicNum() == 92 ||
-                  at->getAtomicNum() == 93) {
-                ++n;
-              }
-            }
-            links = std::max(links, n);
-          }
-          if (static_cast<int>(links) > static_cast<int>(bestLinks)) {
-            bestLinks = links;
-            bestPos = static_cast<int>(q);
-          }
-        }
-        gp2.firstPosition = bestPos;
-        if (t == 0) {
-          std::printf("[synthonbench] central position = %d (%zu link bonds)\n",
-                      bestPos, bestLinks);
-        }
-      }
-      gp2.aggregate = greedyAggregate == "topkmean" ? ArmAggregate::TopKMean
-                                                    : ArmAggregate::Max;
-      gp2.randomSeed = seed + t;
-      gp2.numThreads = threads;
-      gp2.target = &planted;
-      gp2.reportTarget = sweepTrace;
-      arms = greedySynthonSweep(lib, scorer, gp2);
-      // Where did the TARGET reagent land at each position, and did the sweep
-      // fix it?  Computed here from the returned arm scores rather than read
-      // from the library's log, which drops lines.  This is the quantity that
-      // decides the search: refine can repair ONE wrong position by sweeping
-      // it exhaustively, but two wrong at once is a local optimum it cannot
-      // escape.
-      if (sweepTrace && !arms.empty()) {
-        unsigned int wrong = 0;
-        std::string detail;
-        for (unsigned int q = 0; q < lib.arity(); ++q) {
-          const unsigned int tgt = planted[q];
-          const double ts = arms.score[q][tgt];
-          size_t better = 0, scored = 0;
-          double bestS = -1e30;
-          unsigned int bestR = 0;
-          for (unsigned int r = 0; r < arms.score[q].size(); ++r) {
-            const double v = arms.score[q][r];
-            if (!std::isfinite(v)) {
-              continue;
-            }
-            ++scored;
-            if (v > ts + 1e-9) {
-              ++better;
-            }
-            if (v > bestS) {
-              bestS = v;
-              bestR = r;
-            }
-          }
-          const bool ok = (bestR == tgt);
-          if (!ok) {
-            ++wrong;
-          }
-          detail += "  p" + std::to_string(q) + " rank " +
-                    std::to_string(better + 1) + "/" + std::to_string(scored) +
-                    " (" + std::to_string(ts).substr(0, 5) + " vs " +
-                    std::to_string(bestS).substr(0, 5) + ")" +
-                    (ok ? "OK" : "WRONG");
-        }
-        std::printf("       sweep fixed %u/%u positions WRONG:%s\n", wrong,
-                    lib.arity(), detail.c_str());
-      }
-      greedyEvals = arms.evaluations;
-      greedyConfgen = arms.confgenMs;
-      greedyScore = arms.scoreMs;
-    }
-
-    // Where do the PLANTED reagents rank in the sweep's own per-reagent
-    // scores?  This separates two very different failures: the sweep ranked
-    // them top and the combination step lost them, or the per-reagent score
-    // simply does not identify them -- i.e. the objective is not separable
-    // across positions, which no amount of sweeping fixes.
-    if (!arms.empty()) {
-      std::string ranks, scores;
-      for (unsigned int p = 0; p < lib.arity(); ++p) {
-        const auto &row = arms.score[p];
-        const double mine = row[planted[p]];
-        size_t better = 0, scored = 0;
-        double best = -1e30;
-        for (double v : row) {
-          if (std::isfinite(v)) {
-            ++scored;
-            best = std::max(best, v);
-            if (v > mine + 1e-9) {
-              ++better;
-            }
-          }
-        }
-        ranks += (p ? " " : "") + std::to_string(better + 1) + "/" +
-                 std::to_string(scored);
-        char buf[64];
-        std::snprintf(buf, sizeof(buf), "%s%.3f(top %.3f)", p ? " " : "",
-                      std::isfinite(mine) ? mine : 0.0, best);
-        scores += buf;
-      }
-      std::printf("       planted reagent ranks: %s   scores: %s\n",
-                  ranks.c_str(), scores.c_str());
-    }
-
-    SynthonSearchResult res;
-    if (seeder == "beam") {
-      res = beamGreedySynthonSearch(lib, scorer, bgp);
-    } else if (seeder == "ts-unique") {
-      res = uniqueThompsonSynthonSearch(lib, scorer, utp);
-    } else if (seeder == "evenpairs-argmax") {
-      // Seed from the per-position ARGMAX of the aggregated per-synthon
-      // scores.  This is the only path that consults those scores at all --
-      // `evenpairs` refines from the best DRAWN combination and so is blind to
-      // how they were aggregated, which is why varying topK changed nothing.
-      std::vector<unsigned int> pick(lib.arity(), 0);
-      for (unsigned int p = 0; p < lib.arity(); ++p) {
-        double bs = -1e30;
-        for (unsigned int r = 0; r < lib.numReagents(p); ++r) {
-          if (arms.score[p][r] > bs) {
-            bs = arms.score[p][r];
-            pick[p] = r;
-          }
-        }
-      }
-      res = refineSynthons(lib, scorer, pick, 3, threads, topN, &arms,
-                           pairTopK);
-    } else if (seeder == "evenpairs") {
-      // refine from the best combination the pair sample actually produced
-      res = refineSynthons(lib, scorer,
-                           arms.best.empty() ? std::vector<unsigned int>(
-                                                   lib.arity(), 0)
-                                             : arms.best,
-                           3, threads, topN);
-    } else if (seeder == "evenpairs+ts") {
-      tp.armPriors = &arms;
-      res = thompsonSynthonSearch(lib, scorer, tp);
-      tp.armPriors = nullptr;
-    } else if (seeder == "greedy") {
-      // greedy alone: its own best combination, refined to a local optimum
-      std::vector<unsigned int> pick(lib.arity(), 0);
-      for (unsigned int p = 0; p < lib.arity(); ++p) {
-        double bs = -1e30;
-        for (unsigned int r = 0; r < lib.numReagents(p); ++r) {
-          if (arms.score[p][r] > bs) {
-            bs = arms.score[p][r];
-            pick[p] = r;
-          }
-        }
-      }
-      res = refineSynthons(lib, scorer, pick, 3, threads, topN, &arms,
-                           pairTopK);
-    } else {
-      if (seeder == "both" && !arms.empty()) {
-        tp.armPriors = &arms;
-      }
-      res = thompsonSynthonSearch(lib, scorer, tp);
-      tp.armPriors = nullptr;
-    }
-    res.evaluations += greedyEvals;
-    res.confgenMs += greedyConfgen;
-    res.scoreMs += greedyScore;
-    if (refine && !res.reagents.empty()) {
-      SynthonSearchResult r =
-          refineSynthons(lib, scorer, res.reagents, 3, threads, topN);
-      if (r.score > res.score) {
-        r.evaluations += res.evaluations;
-        r.confgenMs += res.confgenMs;
-        r.scoreMs += res.scoreMs;
-        res = r;
-      }
-    }
+    // ---- the search.  One entry point: k independent greedy+refine
+    // trajectories through a shared scorer, reduced to the best products.
+    // Every alternative that was measured against a budget-matched control --
+    // Thompson sampling, even-pair sweeps, a beam, partner panels, pair-tail
+    // and pair-escape -- lost or was equalled by simply running more
+    // trajectories, and has been retired.  See SynthonSearch/restarts.md.
+    SynthonSearch3DParams mp;
+    mp.numTrajectories = std::max(1u, trajectories);
+    mp.randomSeed = seed + t + searchSeedOffset;
+    mp.seedStride = trajectorySeedStride;
+    mp.samplesPerReagent = samplesPerReagent;
+    mp.refineIters = 3;
+    mp.pairRefineTopK = pairTopK;
+    mp.numThreads = threads;
+    mp.numBestProducts = topN;
+    MultipleTrajectoryStats multipleStats;
+    SynthonSearchResult res =
+        synthonSearch3D(lib, scorer, mp, &multipleStats);
     const double wallS = (nowMs() - w0) / 1000.0;
+    const size_t cacheAfterSearch = lib.fraglib() ? lib.fraglib()->size() : 0;
 
     // Recovery is a question about the MOLECULE, not about which synthons
     // were used to build it.  A synthon library is redundant: the same product
@@ -1273,8 +1057,8 @@ int main(int argc, char **argv) {
     bool exact = (res.reagents == planted);
     bool viaOtherRoute = false;
     if (!exact && !res.reagents.empty()) {
-      ROMOL_SPTR pm = lib.zipProduct(planted);
-      ROMOL_SPTR fm = lib.zipProduct(res.reagents);
+      ROMOL_SPTR pm = lib.get2D(planted);
+      ROMOL_SPTR fm = lib.get2D(res.reagents);
       if (pm && fm && MolToSmiles(*pm) == MolToSmiles(*fm)) {
         exact = true;
         viaOtherRoute = true;
@@ -1339,12 +1123,20 @@ int main(int argc, char **argv) {
     }
 
     std::printf(
-        "%-6d %-22s %-22s %8.4f %8.4f %9u %9u %9.0f %9.0f %7.2f%s\n", t,
+        "%-6d %-22s %-22s %8.4f %8.4f %9u %9u %9u %9.0f %9.0f %7.2f%s\n", t,
         join(planted).c_str(), join(res.reagents).c_str(), res.score,
         selfScore ? *selfScore : 0.0, res.evaluations, res.cacheHits,
-        res.confgenMs, res.scoreMs, wallS,
+        res.duplicatesRejected, res.confgenMs, res.scoreMs, wallS,
         exact ? (viaOtherRoute ? "  HIT*" : "  HIT")
               : (asGood ? "  tie" : "  miss"));
+    std::printf("       fragment-cache growth: setup +%zu, search +%zu\n",
+                cacheAtSearchStart - cacheAtTrialStart,
+                cacheAfterSearch - cacheAtSearchStart);
+    std::printf(
+        "       search accounting: scored=%u unscorable=%u attempted=%u\n",
+        res.evaluations, res.unscorable, res.evaluations + res.unscorable);
+    
+    
     // The deliverable of a shape search is the TOP HITS, and the planted
     // product is a PROXY for "did we surface good overlays" -- not the
     // definition of correct.  A different molecule that overlays as well is a
@@ -1352,12 +1144,12 @@ int main(int argc, char **argv) {
     // report where the planted product LANDS in the returned list rather than
     // only whether it came first.
     if (!res.best.empty()) {
-      ROMOL_SPTR pm = lib.zipProduct(planted);
+      ROMOL_SPTR pm = lib.get2D(planted);
       const std::string ps = pm ? MolToSmiles(*pm) : std::string();
       size_t rank = 0;
       double plantedInSearch = 0.0;
       for (size_t i = 0; i < res.best.size(); ++i) {
-        ROMOL_SPTR hm = lib.zipProduct(res.best[i].reagents);
+        ROMOL_SPTR hm = lib.get2D(res.best[i].reagents);
         if (hm && !ps.empty() && MolToSmiles(*hm) == ps) {
           rank = i + 1;
           plantedInSearch = res.best[i].score;
@@ -1373,9 +1165,8 @@ int main(int argc, char **argv) {
       std::printf(
           "       planted ranks %s of %zu returned  (top %.4f, planted "
           "as-built %.4f, in-search %s)\n",
-          rank ? std::to_string(rank).c_str() : "NOT IN TOP-N",
-          res.best.size(), res.best.front().score,
-          selfScore ? *selfScore : 0.0,
+          rank ? std::to_string(rank).c_str() : "NOT IN TOP-N", res.best.size(),
+          res.best.front().score, selfScore ? *selfScore : 0.0,
           rank ? (std::to_string(plantedInSearch)).c_str() : "never scored");
     }
 
@@ -1384,8 +1175,8 @@ int main(int argc, char **argv) {
     // shows up as a spurious "tie" at combo 1.0 -- print both so the two
     // cases are never confused.
     if (!exact && !res.reagents.empty()) {
-      ROMOL_SPTR pm = lib.zipProduct(planted);
-      ROMOL_SPTR fm = lib.zipProduct(res.reagents);
+      ROMOL_SPTR pm = lib.get2D(planted);
+      ROMOL_SPTR fm = lib.get2D(res.reagents);
       if (pm && fm) {
         std::printf("       planted: %s\n         found: %s\n",
                     MolToSmiles(*pm).c_str(), MolToSmiles(*fm).c_str());
@@ -1394,14 +1185,27 @@ int main(int argc, char **argv) {
     std::fflush(stdout);
   }
 
+  // Did anything embed ON DEMAND during the search?  A prefilled coarse
+  // library should already hold every fragment the assembler asks for, since
+  // the junction bonds are always cut and each fragment is therefore a whole
+  // synthon.  Growth here means the prefill is incomplete and production would
+  // pay that cost on every cold query.
+  std::printf(
+      "[synthonbench] fraglib entries: %zu at start -> %zu at end (%+d "
+      "embedded on demand)\n",
+      fraglibAtStart, lib.fraglib() ? lib.fraglib()->size() : 0,
+      static_cast<int>((lib.fraglib() ? lib.fraglib()->size() : 0) -
+                       fraglibAtStart));
+
   const int scored = trials - static_cast<int>(unbuildable);
   std::printf(
       "\n[synthonbench] %d/%d recovered (HIT* = same product, other route), "
       "%d tied (>= planted score), %d missed%s\n"
       "[synthonbench] planted product in the returned top-N: %d/%d\n",
       recovered, scored, tied, missed,
-      unbuildable ? (", " + std::to_string(unbuildable) + " unbuildable").c_str()
-                  : "",
+      unbuildable
+          ? (", " + std::to_string(unbuildable) + " unbuildable").c_str()
+          : "",
       inTopN, scored);
   return 0;
 }

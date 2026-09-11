@@ -9,8 +9,7 @@ rdkit_library(FragmentConfGen
 		    Joiner/FragmentJoiner.cpp
 		    Search/ThompsonSamplingSearch.cpp
 		    SynthonSearch/EnumerateSynthons3D.cpp
-		    SynthonSearch/SynthonSearch.cpp
-		    SynthonSearch/SynthonSearchExperimental.cpp
+		    SynthonSearch/SynthonSearch3D.cpp
 		    Search/RotorRefine.cpp
 		    Search/SystematicSearch.cpp
 		    Search/RigidRotorSearchExperimental.cpp
@@ -39,8 +38,7 @@ rdkit_headers(	      FragmentConfGen.h
 	      Sampler/TorsionSampler.h
 	      Sampler/TorsionSymmetries.h
 	      SynthonSearch/EnumerateSynthons3D.h
-	      SynthonSearch/SynthonSearch.h
-	      SynthonSearch/SynthonSearchExperimental.h
+	      SynthonSearch/SynthonSearch3D.h
 	      SynthonSearch/SynthonZipUtils.h
 	      Utils/RotorTopology.h
 	      Utils/NonbondedLookup.h
@@ -94,8 +92,25 @@ target_link_libraries(genSynthonLib
 
 # synthonSearchBench: RECOVERY BENCHMARK for the 3D synthon search.  Plants a
 # random product from a synthon library, uses its conformers as the shape query,
-# and reports whether Thompson sampling finds it again -- with draws, confgen
-# time and shape time split out.  Ships without data: point it at a synthon CSV.
+# and reports whether the selected search finds it again -- with logical and
+# physical work, confgen time, and shape time split out. Ships without data:
+# point it at a synthon CSV or a prepared 3D library.
+# synthonReachability: given (planted, found) pairs from a benchmark run, ask
+# whether the missed product was REACHABLE -- walk to it through single-reagent
+# substitutions and report whether the shape score rises along the way.  A test
+# utility: it explains recovery failures, it does not search.
+# synthonScan: is the search's answer actually the best product in there?
+# Exhaustive column scans plus a uniform random sample of the product space.
+add_executable(synthonScan Tools/synthonScan.cpp)
+target_link_libraries(synthonScan
+  FragmentConfGen ChemReactions DistGeomHelpers ForceFieldHelpers MolAlign Descriptors
+  GaussianShape FileParsers Threads::Threads)
+
+add_executable(synthonReachability Tools/synthonReachability.cpp)
+target_link_libraries(synthonReachability
+  FragmentConfGen ChemReactions DistGeomHelpers ForceFieldHelpers MolAlign Descriptors
+  GaussianShape FileParsers Threads::Threads)
+
 add_executable(synthonSearchBench Tools/synthonSearchBench.cpp)
 target_link_libraries(synthonSearchBench
   FragmentConfGen ChemReactions DistGeomHelpers ForceFieldHelpers MolAlign Descriptors

@@ -88,6 +88,23 @@ inline std::string dummyLabelKey(const Atom *atom, SynthonLabelScheme scheme) {
   }
 }
 
+//! Occasionally a synthon doesn't have sane chemistry until the final
+//!  product.  In these cases we can't embed the synthon seperately.
+//!  aromatic ring closures are one such case.
+inline unsigned int numRingClosures(
+    const std::vector<unsigned int> &exitCounts) {
+  if (exitCounts.size() < 2) {
+    return 0;
+  }
+  unsigned int total = 0;
+  for (unsigned int n : exitCounts) {
+    total += n;
+  }
+  const unsigned int treeNeeds =
+      2 * (static_cast<unsigned int>(exitCounts.size()) - 1);
+  return total > treeNeeds ? (total - treeNeeds) / 2 : 0;
+}
+
 inline SynthonZipperInfo sniffSynthons(const ROMol &mol) {
   SynthonZipperInfo info;
 
