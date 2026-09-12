@@ -6,10 +6,11 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-#include <RDGeneral/export.h>
-#include "Joiner/FragmentJoiner.h"  // RigidRotorSearchMode (joinerSearchMode passthrough)
 #ifndef RDKIT_FRAGMENT_CONFGEN_H
 #define RDKIT_FRAGMENT_CONFGEN_H
+
+#include <RDGeneral/export.h>
+#include "Joiner/FragmentJoiner.h"  // RigidRotorSearchMode
 
 #include "Sampler/TorsionSampler.h"
 #include "Embedder/Fraglib.h"  // FraglibParams + FragmentEmbedMode/FragmentMinimize enums

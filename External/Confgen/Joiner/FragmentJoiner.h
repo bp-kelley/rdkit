@@ -189,7 +189,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FragmentJoinerContext {
       const std::vector<unsigned int> &confChoice) const;
 
   //! symettrically RMSD prune
-  void symmetryDedupInPlace(std::vector<SearchResult> &v, double thr) const;
+  void symmetryDedup(std::vector<SearchResult> &v, double thr) const;
 };
 
 //! Coordinate-only greedy fragment join.

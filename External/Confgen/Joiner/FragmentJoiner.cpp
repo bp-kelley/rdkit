@@ -836,7 +836,7 @@ std::vector<double> FragmentJoinerContext::placeAll(
   return placeFragments(mol, frags, edges, root, confChoice);
 }
 
-void FragmentJoinerContext::symmetryDedupInPlace(
+void FragmentJoinerContext::symmetryDedup(
     std::vector<SearchResult> &v, double thr) const {
   if (thr <= 0.0 || v.size() <= 1) {
     return;

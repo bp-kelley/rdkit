@@ -31,7 +31,7 @@ namespace RDKit {
   \param nPasses    number of halving passes
   \param objective  optional alternative score; when null, drv.score() is used
 */
-RDKIT_FRAGMENTCONFGEN_EXPORT void refineRotorsInPlace(
+RDKIT_FRAGMENTCONFGEN_EXPORT void refineRotors(
     RotorDriver &drv, std::vector<SearchResult> &out, unsigned int nRefine,
     double stepDeg, unsigned int nPasses,
     const RotorDriver::ScoreFn &objective = {});

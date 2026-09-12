@@ -346,7 +346,7 @@ std::vector<SearchResult> TreeSearch::search(const FragmentJoinerContext &ctx,
   std::vector<SearchResult> kept;
   if (params.finalSymmetryDedup) {
     kept = std::move(all);
-    ctx.symmetryDedupInPlace(kept, thr); 
+    ctx.symmetryDedup(kept, thr); 
   } else {
     for (auto &r : all) {
       bool dup = false;

@@ -585,11 +585,11 @@ std::vector<SearchResult> SystematicSearch::search(
             });
   // Local coordinate descent around whatever basins were chosen
   if (params.thompson.refineSteps > 0) {
-    refineRotorsInPlace(drv, res, params.thompson.refineSteps,
+    refineRotors(drv, res, params.thompson.refineSteps,
                         params.thompson.refineStepDeg,
                         params.thompson.refinePasses);
   }
-  if (finalRms > 0.0) ctx.symmetryDedupInPlace(res, finalRms);
+  if (finalRms > 0.0) ctx.symmetryDedup(res, finalRms);
   return res;
 }
 

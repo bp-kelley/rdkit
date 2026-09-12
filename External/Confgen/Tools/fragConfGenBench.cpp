@@ -2555,7 +2555,7 @@ double singlePointE(
 //! For each crystal ligand, each flexible-ring fragment (SmallRing/LargeRing)
 //! is cut out (BFS not crossing link bonds, exactly like pocctx), embedded as
 //! an ISOLATED fragment with carbon-capped exits via ETKDGv3 (matching
-//! embedFragmentInPlace
+//! embedFragment
 //! -- raw pool, NO MMFF minimisation, FRAGRANK_POOL confs).  For every pool
 //! conformer we take (a) its single-point MMFF94s no-estat energy (the score
 //! our pipeline ranks by) and (b) its heavy-atom core RMSD to the crystal
@@ -2697,7 +2697,7 @@ void runFragRank() {
       for (int pi : core) refCoreIdx.push_back(r2s[pi]);
 
       // isolated probe = core + a CARBON cap per exit (matches
-      // embedFragmentInPlace's dummy->carbon capping); this is exactly the
+      // embedFragment's dummy->carbon capping); this is exactly the
       // fragment our pipeline embeds.
       std::map<int, int> p2s;
       auto probe = submolWithCoords(H, core, p2s);

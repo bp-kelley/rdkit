@@ -131,7 +131,7 @@ const char *fragmentClassName(FragmentClass cls) {
 }
 
 //! Embed a fragment
-bool embedFragmentInPlace(RWMol &frag, const FraglibParams &params) {
+bool embedFragment(RWMol &frag, const FraglibParams &params) {
   RDLog::LogStateSetter blocker;
   const long long tEmbed0 = detail::profiling() ? detail::nowNs() : 0;
 
@@ -675,7 +675,7 @@ ROMOL_SPTR Fraglib::get(const ROMol &frag, bool cache) const {
       key,
       [&]() -> RWMol * {
         auto *embedded = new RWMol(*q);
-        if (!embedFragmentInPlace(*embedded, d_params)) {
+        if (!embedFragment(*embedded, d_params)) {
           delete embedded;
           return nullptr;
         }
@@ -715,7 +715,7 @@ bool Fraglib::getConformerCoords(RWMol &frag, unsigned int nMolAtoms,
       [&]() -> RWMol * {
         // Embed in the full-atom canonical order (renumber THIS fragment to it).
         auto *embedded = static_cast<RWMol *>(MolOps::renumberAtoms(frag, order));
-        if (!embedFragmentInPlace(*embedded, d_params)) {
+        if (!embedFragment(*embedded, d_params)) {
           delete embedded;
           return nullptr;
         }

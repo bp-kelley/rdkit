@@ -13,7 +13,7 @@
 
 namespace RDKit {
 
-void refineRotorsInPlace(RotorDriver &drv, std::vector<SearchResult> &out,
+void refineRotors(RotorDriver &drv, std::vector<SearchResult> &out,
                          unsigned int nRefine, double stepDeg,
                          unsigned int nPasses,
                          const RotorDriver::ScoreFn &objective) {

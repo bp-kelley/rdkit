@@ -374,14 +374,14 @@ std::vector<SearchResult> ThompsonSamplingSearch::search(
     // refine in inter-frag scores
     //  XXX FIX ME why make ScoreFn here?
     RotorDriver::ScoreFn refineFn;
-    refineRotorsInPlace(drv, out, params.thompson.refineSteps,
+    refineRotors(drv, out, params.thompson.refineSteps,
                         params.thompson.refineStepDeg,
                         params.thompson.refinePasses, refineFn);
   }
 
 
   if (params.finalSymmetryDedup) {
-    ctx.symmetryDedupInPlace(out, divThr);
+    ctx.symmetryDedup(out, divThr);
   }
 
   // Keep maxConfs by the selected out mode

@@ -76,6 +76,9 @@ parameters to find optimal conformations:
 | Exhaustive | 30      | 1000    | 100      | 12      | 0.1  | MAXIMUM     | 0           |
 | Fast       | 10      | 100     | 20       | 8       | 0.1  | MAXIMUM     | 0           |
 
+Acyclic fragments are defined to be between or attached to rings.  They get an initial conformer,
+but all internal rotatable bonds are set to be searched in practice.
+
 Of note, the operator of Maximum computes rotor*confs/rotor for the desired number of samples.
 The operator of expoential computes 2^confs/rotor to search floppier rings.  For
 minimization, exit vectors (dummy atoms) are replaced with carbons to generate realistic

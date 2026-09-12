@@ -58,7 +58,7 @@ std::vector<SearchResult> MergedSearch::search(const FragmentJoinerContext &ctx,
                                               ? sp.diversityRmsThresh
                                               : 0.5);
   if (finalRms > 0.0) {
-    ctx.symmetryDedupInPlace(out, finalRms);
+    ctx.symmetryDedup(out, finalRms);
   }
   return out;
 }
