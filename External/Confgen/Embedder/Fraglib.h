@@ -90,7 +90,7 @@ struct FragmentParams {
   //! Allow overrides for the defaults
   std::optional<FragmentEmbedMode> embedMode = std::nullopt;
   std::optional<FragmentMinimize> minimizeMode = std::nullopt;
-  int minimizeMaxIters = kAutoI;
+  int minimizeMaxIters = AutoI;
 
   //! The number of conformers to sample to generate fragments
   int computeMaxSamples(int num_rotors) const {
@@ -135,7 +135,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FraglibParams {
   //! DG vs ETKDG for the embedding
   FragmentEmbedMode fragmentEmbedMode = FragmentEmbedMode::ETKDG;
   //! random seed forwarded to the embedder (-1 == not set)
-  int randomSeed = -1;
+  int randomSeed = AutoI;
   //! How each embedded conformer is scored (some scores minimize as well)
   FragmentMinimize minimizeMode = FragmentMinimize::Full;
 
@@ -173,7 +173,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FraglibParams {
   bool perClassEmbedding = true;
   //! Energy window (kcal/mol) for pooled-conformer selection (perClassEmbedding
   //! sets this per class; 0 = keep all within the pool regardless of energy).
-  double energyWindow = 0.0;
+  double energyWindow = Disabled;
 
   //! XXX Dead Code - slated for removal
   bool FRAGLIB_TRACE = false;  //!< if true debug fraglib steps to stderr

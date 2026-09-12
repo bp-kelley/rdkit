@@ -113,21 +113,21 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT RotatableBonds {
 };
 
 struct RDKIT_FRAGMENTCONFGEN_EXPORT FragmentConfGenParams {
-  int randomSeed = -1;
+  int randomSeed = AutoI;
 
   //! Number of conformers to output, lowest energy first.
   //!  **AUTO** -- scale with the molecule's rotatable-bond count, floppier
   //!     means more confs generated
   //!
-  int numOutputConfs = kAutoI;
+  int numOutputConfs = AutoI;
 
   //! energy window (kcal/mol) above the best conformer to keep
   double energyWindow = 10.0;
   //! Maximum number of rotatable bonds to embed.   0 == no limit
-  int maxRotatableBonds = 0;
+  int maxRotatableBonds = Disabled;
   //! Wall-clock budget per molecule, milliseconds.  0 = no limit.
   //!  when hit, return current ensemble
-  long timeBudgetMs = 0;
+  long timeBudgetMs = Disabled;
 
   //! sample "trivial" symmetric-top rotors too (e.g. -CF3, -C(CH3)3).
   bool sampleTrivialRotors = false;
@@ -174,7 +174,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FragmentConfGenParams {
     search.tree.beamWidth = 80;
     // -1 AUTO: 0.5 normally, 0.75 for floppy molecules whose rotors are
     // concentrated in one long chain (see Utils/RotorTopology.h).
-    search.diversityRmsThresh = kAutoD;
+    search.diversityRmsThresh = AutoR;
     search.thompson.backstopStepDeg = 60.0;
     search.thompson.noveltyAngleDeg = 30.0;
   }

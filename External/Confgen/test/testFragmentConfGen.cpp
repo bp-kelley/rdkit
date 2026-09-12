@@ -1752,16 +1752,16 @@ TEST_CASE("AUTO sentinels: 0 means DISABLED, AUTO means derive",
   }
   SECTION(
       "AUTO resolves to the derived value; 0 stays OFF; a real value is untouched") {
-    CHECK(resolveAuto(kAutoD, 0.5) == Catch::Approx(0.5));
+    CHECK(resolveAuto(AutoR, 0.5) == Catch::Approx(0.5));
     CHECK(resolveAuto(0.0, 0.5) ==
           Catch::Approx(0.0));  // DISABLED must survive
     CHECK(resolveAuto(0.25, 0.5) == Catch::Approx(0.25));
-    CHECK(resolveAuto(kAutoI, 1000) == 1000);
+    CHECK(resolveAuto(AutoI, 1000) == 1000);
     CHECK(resolveAuto(0, 1000) == 0);
   }
   SECTION("AUTO (-1) round-trips through the serializer as a plain number") {
     FragmentConfGenParams p;
-    p.search.systematic.finalRms = kAutoD;
+    p.search.systematic.finalRms = AutoR;
     p.search.systematic.nodeRms = 0.0;  // explicitly DISABLED
     p.search.systematic.dedupEnergyBand = 0.25;  // explicit value
     const std::string text = fragmentConfGenParamsToString(p);

@@ -21,7 +21,7 @@
 
 #include "Sampler/TorsionSampler.h"   // TorsionSampler
 #include "Utils/DiagnosticsParams.h"  // DiagnosticsParams
-#include "Utils/ParamSentinels.h"     // kAutoD / kDisabled / resolveAuto
+#include "Utils/ParamSentinels.h"     // AutoR / Disabled / resolveAuto
 
 namespace RDKit {
 
@@ -42,7 +42,7 @@ enum class OutputSelection {
 struct RDKIT_FRAGMENTCONFGEN_EXPORT ThompsonParams {
   //! --- informed prior + budget scaling ---
   double priorStrength = 3.0;     //!< Beta alpha for sampler-preferred angles (>=1)
-  double backstopStepDeg = 0.0;   //!< uniform-grid backstop step, deg (0 = none), alpha 1
+  double backstopStepDeg = Disabled;   //!< uniform-grid backstop step, deg (0 = none), alpha 1
   double sizePriorExp = 0.0;      //!< scale prior by (movingAtoms/max)^exp (0 = full prior)
   double noveltyAngleDeg = 0.0;  //!< in-sweep torsion-fingerprint novelty, deg (0 = coord RMSD)
   
@@ -52,11 +52,11 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT ThompsonParams {
   unsigned int minBudget = 300;   //!< minimum # samples (min)
   unsigned int maxBudget = 64000; //!< max samples
 
-  unsigned int maxConfs = 0;      //!< max number of output conformers (0 = nolimit)
+  unsigned int maxConfs = Disabled;      //!< max number of output conformers (0 = nolimit)
   OutputSelection outMode = OutputSelection::Energy;  //!< selection when capped
   bool flatContext = false;  //!< collapse the tree-descent context
   
-  unsigned int refineSteps = 0; //! Sample K lower basins for better energyies
+  unsigned int refineSteps = Disabled; //! Sample K lower basins for better energyies
   double refineStepDeg = 8.0;     //!< initial coordinate-descent step
   unsigned int refinePasses = 3;  //!< step halves each pass
   
@@ -67,13 +67,13 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT SystematicParams {
   long maxPoolConfs = 4000; //!< This is per pool, see combinePoolMultiplier as well
   int maxFragmentConfs = 16; //!< leaf fragment-conf limit
 
-  double finalRms = kAutoD; //!< finalRms thresh, kAutoD is auto selectin
-  double nodeRms = kAutoD;  //!< per node pruning
+  double finalRms = AutoR; //!< finalRms thresh, AutoR is auto selectin
+  double nodeRms = AutoR;  //!< per node pruning
   bool energyOnly = false;  //!< energy-window retention only (no RMSD-diverse)
 
   double upperEnergyWindow = 5.0; //<! drop early candidates prior to stabilizing MMFF basin
 
-  double dedupEnergyBand = 0.0; //!< Only RMS check within this energy window
+  double dedupEnergyBand = Disabled; //!< Only RMS check within this energy window
   bool junctionAngleTerms = false; //!< use a full FF not vdw only for driving
   int combinePoolMultiplier = 4; //!< When to trim pools to prevent memory explosion
 };
@@ -131,10 +131,10 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearchParams {
   unsigned int randomSeed = 0xf00d;  //!< RNG seed for the sampling searches
   double energyWindow = 25.0;        //!< energy retention window, kcal/mol
   
-  unsigned int thompsonBudget = 0; //!< Thompson draw budget, >0 explicit override
+  unsigned int thompsonBudget = Disabled; //!< Thompson draw budget, >0 explicit override
 
   RigidRotorSearchMode searchMode = RigidRotorSearchMode::Auto;
-  long timeBudgetMs = 0; //< Search time budget, 0 is no limit
+  long timeBudgetMs = Disabled; //< Search time budget, 0 is no limit
   unsigned int autoSystematicMinRotors = 11; //!< switch to Systematic at this # rotors
   unsigned int rootSeeds = 6; //< max number of low energy fragments confs to seed in search
   unsigned int fragConfBranch = 4;

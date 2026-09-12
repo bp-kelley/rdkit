@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "SynthonSearch/EnumerateSynthons3D.h"
+#include "Utils/ParamSentinels.h"  // AutoI / AutoR / Disabled
 
 namespace RDKit {
 
@@ -109,7 +110,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT SynthonSearch3DParams {
 
   unsigned int samplesPerReagent = 10;
   bool largestFirst = true;
-  int firstPosition = -1;  //!< -1 leaves largest-first ordering unchanged
+  int firstPosition = AutoI;  //!< -1 leaves largest-first ordering unchanged
 
   unsigned int refineIters = 3;
   int pairRefineTopK = 16;  //!< 0 disables the joint pair-refine
@@ -118,7 +119,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT SynthonSearch3DParams {
   int numBestProducts = 10;
 
   //! Query heavy-atom count, enabling the size filter.  0 = filter off.
-  unsigned int queryHeavyAtoms = 0;
+  unsigned int queryHeavyAtoms = Disabled;
   //! Size-filter thresholds, as [minimum, maximum].
   /*!
     Applied to coordinate refinement and the pair cross product ONLY, never
@@ -142,7 +143,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT SynthonSearch3DParams {
     pharmacophore features are present. Measure the false-negative rate
     before relying on it.
   */
-  double pruneMinimum = 0.0;
+  double pruneMinimum = Disabled;
   double pruneMaximum = 1.0;
 };
 

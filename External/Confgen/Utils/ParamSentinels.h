@@ -23,9 +23,9 @@
 
 namespace RDKit {
 
-constexpr int kAutoI = -1;       //!< "derive it" for counts
-constexpr double kAutoD = -1.0;  //!< "derive it" for thresholds bounded at zero
-constexpr int kDisabled = 0;  //!< "feature off" (same for both; spelled out for intent)
+constexpr int AutoI = -1;       //!< "derive it" for counts
+constexpr double AutoR = -1.0;  //!< "derive it" for thresholds bounded at zero
+constexpr int Disabled = 0;  //!< "feature off" (same for both; spelled out for intent)
 
 //! Any negative value asks to be derived; these parameters are all bounded at
 //! zero.
