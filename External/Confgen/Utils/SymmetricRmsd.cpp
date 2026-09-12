@@ -1,5 +1,8 @@
 //
 //  Symmetry-aware conformer dedup (see SymmetricRmsd.h).
+//  Ported by Claude from: https://github.com/pandegroup/IRMSD
+//   note: not SSE enabled for portability reasons, but hopefully
+//         the compiler can take care of that.
 //
 #include "Utils/SymmetricRmsd.h"
 #include "Utils/TheobaldRmsd.h"

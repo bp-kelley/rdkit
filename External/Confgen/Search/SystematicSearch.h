@@ -20,10 +20,9 @@ namespace RDKit {
 //!  When a rotor is proven to be > ewindow, drop it completely
 class RDKIT_FRAGMENTCONFGEN_EXPORT SystematicSearch : public RigidRotorSearch {
  public:
-  //! Builds its own MMFFMolProperties for the junction terms.
+
   bool checkFF(const std::string &ff) const override { return ff.find("MMFF") != std::string::npos; }
 
-  //! Systematic adds its pool/window knobs to what the base already checks.
   std::string validateParams(const RigidRotorSearchParams &sp,
                              const std::string &ffVariant) const override;
 

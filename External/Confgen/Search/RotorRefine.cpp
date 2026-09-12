@@ -55,8 +55,8 @@ void refineRotorsInPlace(RotorDriver &drv, std::vector<SearchResult> &out,
       }
     }
     out[i].coords = drv.positions();
-    // keep out[] on the SEARCH's scale even when the descent used another
-    // objective, so downstream ranking stays comparable
+    // Note:  we keep the search score even if the objective is
+    //  different.  I.e. sort on objective, score on drive score
     out[i].score = objective ? drv.score() : bestSc;
   }
 

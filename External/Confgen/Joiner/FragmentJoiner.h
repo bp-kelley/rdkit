@@ -51,13 +51,13 @@ class Fraglib;
   joining.
 
   \param childCoords  the child fragment's atoms (all of them), transformed in
-  place
+                      place
   \param childBondAtom index into childCoords of the atom that bonds to the
-  parent
+                       parent
   \param childExit     index into childCoords of the child's exit marker
   \param parentBondAtom world position of the parent atom the bond forms to
   \param parentExit    world position of the parent's exit marker (direction
-  only)
+                       only)
   \param bondLen       MMFF-ideal length for the new junction bond
 */
 RDKIT_FRAGMENTCONFGEN_EXPORT void placeChildCoords(

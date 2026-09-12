@@ -6,7 +6,7 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-//  The junction-angle SEARCH layer.  Rotor drives joined rigid fragments
+//  Rotor drives joined rigid fragments
 //  returns the lowest energy ensemble found.
 //
 #ifndef RDKIT_CONFGEN_RIGIDROTORSEARCH_H
@@ -57,17 +57,17 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearch {
   bool timedOut() const { return d_timedOut; }
 
  protected:
-  //! Search deadline in MS
-  static std::chrono::steady_clock::time_point deadlineFrom(
+  //! Compute the timeout
+  static std::chrono::steady_clock::time_point timeOut(
       const RigidRotorSearchParams &sp) {
     if (sp.timeBudgetMs <= 0)
       return std::chrono::steady_clock::time_point::max();
     return std::chrono::steady_clock::now() +
            std::chrono::milliseconds(sp.timeBudgetMs);
   }
-  bool pastDeadline(const std::chrono::steady_clock::time_point &deadline) {
-    if (deadline == std::chrono::steady_clock::time_point::max()) return false;
-    if (std::chrono::steady_clock::now() < deadline) return false;
+  bool timedOut(const std::chrono::steady_clock::time_point &timeout) {
+    if (timeout == std::chrono::steady_clock::time_point::max()) return false;
+    if (std::chrono::steady_clock::now() < timeout) return false;
     d_timedOut = true;
     return true;
   }

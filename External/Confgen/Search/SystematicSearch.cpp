@@ -370,15 +370,15 @@ std::vector<SearchResult> SystematicSearch::search(
 
   // Search each pool now and combine (most expensive step)
   //  XXX FIX ME -> why doesn't this use rotortree?
-  const auto deadline = deadlineFrom(params);
+  const auto deadline = timeOut(params);
   for (unsigned int f : edgeOrder) {
-    if (pastDeadline(deadline)) break;
+    if (timedOut(deadline)) break;
     std::vector<Conf> cur = std::move(pool[f]);
 
     std::vector<char> coords_changed(nAtoms, 0);
     for (unsigned int a : ctx.frags[f].atoms) coords_changed[a] = 1;
     for (size_t e : childEdges[f]) {
-      if (pastDeadline(deadline)) break;
+      if (timedOut(deadline)) break;
       const unsigned int cf = ctx.edges[e].childFrag;
       const unsigned int pa = ctx.edges[e].parentAtom,
                          ca = ctx.edges[e].childAtom;

@@ -45,8 +45,6 @@ std::vector<SearchResult> MergedSearch::search(const FragmentJoinerContext &ctx,
   out.insert(out.end(), std::make_move_iterator(b.begin()),
              std::make_move_iterator(b.end()));
 
-  // Both arms scored with the same inter-fragment objective, so the scores are
-  // directly comparable and a single sort is meaningful.
   std::sort(out.begin(), out.end(),
             [](const SearchResult &x, const SearchResult &y) {
               if (std::isnan(x.score)) return false;

@@ -23,15 +23,8 @@ namespace RDKit {
 
 //! EXPERIMENTAL -- run Systematic AND Thompson, merge their ensembles.
 /*!
-  Not a new search policy: the two existing searches reach largely DIFFERENT
-  molecules.  Measured on rot>=11 (n=43): systematic 46.51%, thompson 41.86%,
-  but they agree on only 27.9% and their union is 60.47% -- more headroom than
-  any single-policy change tried so far.
-
-  The union is an ORACLE number: it counts a molecule solved if EITHER run
-  produced a sub-1A pose.  A merged ensemble still has to RANK that pose into a
-  capped output, so this exists to measure how much of the oracle survives
-  selection.  If little does, the limit is ranking, not search.
+  Very expensive with small gains in practice.
+  Still, it is interesting and worth review.
 */
 class RDKIT_FRAGMENTCONFGEN_EXPORT MergedSearch : public RigidRotorSearch {
  public:

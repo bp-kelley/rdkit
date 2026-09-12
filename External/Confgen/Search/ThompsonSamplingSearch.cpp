@@ -39,6 +39,11 @@ inline double circDiff(double a, double b) {
 }
 }  // namespace
 
+// XXX FIX ME: I'm not fully versed on thompson sampling in general.
+//  I have a few candidates to look over this.
+//  It doesn't help as much as I would have hoped with larger nRotors
+//   where it really should shine.
+
 std::string ThompsonSamplingSearch::validateParams(
     const RigidRotorSearchParams &sp, const std::string &ffVariant) const {
   const std::string err = RigidRotorSearch::validateParams(sp, ffVariant);
@@ -80,6 +85,7 @@ std::vector<SearchResult> ThompsonSamplingSearch::search(
   // Assume rotor angles are informed priors
   // angles start at Beta alpha = priorStrength; a uniform-grid is simply alpha
   // ROTOR WEIGHT:  Add a size weight so a kept conformer credits rotors that move more atoms
+  //  THIS is s novel approach, but may be too clever for it's own good
   const double priorS = std::max(1.0, params.thompson.priorStrength);
   const double backstop = params.thompson.backstopStepDeg;
   const double sizeExp = std::max(0.0, params.thompson.sizePriorExp);
@@ -229,13 +235,13 @@ std::vector<SearchResult> ThompsonSamplingSearch::search(
   const double divLimit =
       divThr * divThr * static_cast<double>(nAtoms ? nAtoms : 1);
 
-  const auto deadline = deadlineFrom(params);
+  const auto deadline = timeOut(params);
   for (unsigned int s = 0; s < budget; ++s) {
     // Stop drawing on the budget; `kept` already holds every conformer accepted
     // so far.
     //  XXX FIX ME -> why check every 64 draws?
     //   This is an odd magic number
-    if ((s & 0x3F) == 0 && pastDeadline(deadline)) break;
+    if ((s & 0x3F) == 0 && timedOut(deadline)) break;
     // Thompson-pick a conformer for each fragment
     for (size_t f = 0; f < nf; ++f) {
       int ba = 0;
@@ -254,7 +260,7 @@ std::vector<SearchResult> ThompsonSamplingSearch::search(
     if (pit == conformerCache.end()) {
       pit = conformerCache.emplace(confChoice, ctx.placeAll(confChoice)).first;
     }
-    drv.positions() = pit->second;  // copy pristine placement; driving mutates it
+    drv.positions() = pit->second;  // need to copy copy placement; driving mutates it
     long long tp1 = profiling() ? nowNs() : 0;
     
     // Thompson-pick + rotor angle, coarse to fine

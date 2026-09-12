@@ -1612,6 +1612,24 @@ TEST_CASE("createFragmentConfGen validates params and builds",
     unreached.search.tree.beamWidth = 0;
     CHECK(unreached.validate().empty());
   }
+  SECTION("Tree ignores thompsonBudget: a warning, not an error") {
+    // RotorTree used to answer a non-zero budget with its OWN rotor-only
+    // Thompson, so the combination may be set deliberately and now means
+    // something else.  It stays VALID -- the run is well defined, the budget
+    // is simply unused -- and warns once instead.
+    FragmentConfGenParams p;
+    p.search.searchMode = RigidRotorSearchMode::Tree;
+    p.search.thompsonBudget = 500;
+    CHECK(p.validate().empty());
+    CHECK_NOTHROW(createFragmentConfGen(p));
+
+    // Under Auto the same budget SELECTS Thompson rather than being ignored,
+    // so there is nothing to warn about.
+    FragmentConfGenParams autoP;
+    REQUIRE(autoP.search.searchMode == RigidRotorSearchMode::Auto);
+    autoP.search.thompsonBudget = 500;
+    CHECK(autoP.validate().empty());
+  }
   SECTION("label variant may be empty (means: use joiner variant)") {
     FragmentConfGenParams p;
     p.labelFFVariant = "";  // empty is allowed

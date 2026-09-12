@@ -25,12 +25,9 @@
 
 namespace RDKit {
 
-//! Deterministic beam ("tree") search knobs.  See docs/tree-beam.md.
-//! Parameters specific to the deterministic beam (TreeSearch) ONLY.
-//! Anything read by more than one search lives on RigidRotorSearchParams --
-//! it used to live here, which made shared settings look tree-specific.
+//! Parameters for tree search, sometimes known as beam search
 struct RDKIT_FRAGMENTCONFGEN_EXPORT TreeSearchParams {
-  unsigned int beamWidth = 50;  //!< partial conformers kept per level
+  unsigned int beamWidth = 50;  //!< bucketed conformers kept per level
   double angleTolerance = 15.0;
 };
 
@@ -41,6 +38,7 @@ enum class OutputSelection {
   Stratify  //!< energy-stratified stride across the pool
 };
 
+//! ThompsonParams, so many parameters!
 struct RDKIT_FRAGMENTCONFGEN_EXPORT ThompsonParams {
   //! --- informed prior + budget scaling ---
   double priorStrength = 3.0;     //!< Beta alpha for sampler-preferred angles (>=1)
@@ -88,6 +86,8 @@ enum class JunctionBasinAngles {
              //!<   XXX FIX ME -> I think this is wrong
 };
 
+//! Does the current mode add basin angles to the rotors for sampling
+//!  Basin angles are small rotor additions to enhance sampling
 inline bool useBasinAnglesForRotor(JunctionBasinAngles mode, const ROMol &mol,
 				   unsigned int j, unsigned int k) {
   if (mode == JunctionBasinAngles::All) return true;
@@ -99,12 +99,12 @@ inline bool useBasinAnglesForRotor(JunctionBasinAngles mode, const ROMol &mol,
 }
 
 enum class RigidRotorSearchMode {
-  Auto,      //!< Thompson when budgeted, else the Tree beam XXX FIX ME -> bad auto
-  Tree,      //!< greedy deterministic beam using per-edge minimum energies
-  Thompson,  //!< one-armed-bandit sampling (maybe good for non-separable force
-             //!< fields)
-  Systematic,          //!< bottom-up systematic combine + prune
-  Merged  //!< experimental: run Systematic + Thompson, merge ensembles
+  Auto,       //!< Thompson when a thompson rotor budget is specified, else the Tree beam
+  Tree,       //!< Greedy deterministic tree/beam using per-edge minimum energies
+  Thompson,   //!< one-armed-bandit sampling (maybe good for non-separable force
+              //!< fields)
+  Systematic, //!< bottom-up systematic combine + prune
+  Merged      //!< experimental: run Systematic + Thompson, merge ensembles (expensive)
 };
 
 struct RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearchParams {
@@ -112,38 +112,31 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearchParams {
   //! bond count, clamped to the last entry.  Only consulted when
   //! diversityRmsThresh is AUTO (-1).
   /*!
+    At a rotor count of 9, increase the RMSD so we can find more
+    variety in conformers.
     A floppy molecule's conformer pool is dominated by near-duplicates, so a
     tight "these are the same pose" radius fills a fixed output budget with one
-    basin's worth of variations.  Widening it forces the same budget to span
-    more of the space.  Measured on Platinum + PDBbind (1049 molecules, rot>=7):
-    +2.0 to +7.1 %<1 at 0.75, with conformer counts unchanged.
+    basin's worth of variations.
 
-    NOT applied to the Tree search -- see autoDiversityRmsForMode().  There the
-    same number prunes the BEAM, so widening it explores less rather than
-    selecting better: measured 0 wins / 6 losses, p=0.031.
+    note: not applied to the TreeSearch as higher rms paradoxically explores
+    fewer basins.
   */
   std::vector<double> autoDiversityRmsByRotor = {0.5, 0.5, 0.5, 0.5, 0.5,
                                                  0.5, 0.5, 0.5, 0.75};
 
-  //! --- SHARED across searches (formerly on TreeSearchParams) --------------
-  //! How far apart two conformers must be to count as distinct.  Read by every
-  //! search, though each applies it at a different stage: Thompson as its
-  //! in-sweep novelty reward AND output dedup, systematic as per-node pool
-  //! retention (finalRms/nodeRms derive from it), the tree as a beam prune.
-  //! **-1 = AUTO** (autoDiversityRmsByRotor); 0 = no dedup.
+  //! set the diversityRmsThreshold, 0 = no dedup, -1 = Auto pick RMS
   double diversityRmsThresh = 0.0;
   //! Fallback angles when the torsion sampler returns nothing for a junction.
   std::vector<double> defaultAngles = {-180.0, -120.0, -60.0, 0.0, 60.0, 120.0};
   unsigned int randomSeed = 0xf00d;  //!< RNG seed for the sampling searches
-  double energyWindow = 25.0;        //!< retention window, kcal/mol
-  //! >0: an explicit Thompson draw budget, overriding thompson.autoBudget.
-  //! Also routes Auto: 0 with autoBudget off selects the tree.
-  unsigned int thompsonBudget = 0;
+  double energyWindow = 25.0;        //!< energy retention window, kcal/mol
+  
+  unsigned int thompsonBudget = 0; //!< Thompson draw budget, >0 explicit override
 
   RigidRotorSearchMode searchMode = RigidRotorSearchMode::Auto;
-  long timeBudgetMs = 0; //< Search Budget, 0 is no limit
+  long timeBudgetMs = 0; //< Search time budget, 0 is no limit
   unsigned int autoSystematicMinRotors = 11; //!< switch to Systematic at this # rotors
-  unsigned int rootSeeds = 6; //< max number of low fragments confs to seed
+  unsigned int rootSeeds = 6; //< max number of low energy fragments confs to seed in search
   unsigned int fragConfBranch = 4;
   std::shared_ptr<TorsionSampler> torsionSampler;
   JunctionBasinAngles junctionBasinAngles = JunctionBasinAngles::All;

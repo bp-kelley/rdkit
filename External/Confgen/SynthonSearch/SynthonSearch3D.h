@@ -218,14 +218,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT MultipleTrajectoryStats {
   std::vector<SynthonPositionSweep> positionSweeps;
 };
 
-//! Every resolved parameter, one "key=value" per line.
-/*!
-  Emitted to the info log at the start of every synthonSearch3D call so a run's
-  log records the settings it actually ran under.  Resolved, not requested:
-  numThreads and the size-filter cutoff are reported as the values the search
-  will use, since a log which cannot distinguish "filter off" from "filter not
-  reported" is worse than no log at all.
-*/
+//! Dump the parameters used for this search
 RDKIT_FRAGMENTCONFGEN_EXPORT std::string describeParams(
     const SynthonSearch3DParams &params, const EnumerateSynthons3D &lib);
 

@@ -53,8 +53,8 @@ namespace RDKit {
 class RDKIT_FRAGMENTCONFGEN_EXPORT RotorTree {
  public:
   //! Takes the whole search params: the beam needs the SHARED settings
-  //! (defaultAngles, diversityRmsThresh, randomSeed, energyWindow,
-  //! thompsonBudget) as well as its own beamWidth/angleTolerance.
+  //! (defaultAngles, diversityRmsThresh, randomSeed, energyWindow) as well as
+  //! its own beamWidth/angleTolerance.
   explicit RotorTree(RotorDriver &driver,
                      RigidRotorSearchParams params = {});
 
@@ -74,7 +74,6 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT RotorTree {
 
  private:
   const std::vector<double> &anglesForRotor(unsigned int rotor) const;
-  std::vector<SearchResult> searchThompson();
 
   RotorDriver &d_driver;
   RigidRotorSearchParams d_params;

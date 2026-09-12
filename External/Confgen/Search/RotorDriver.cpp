@@ -18,7 +18,7 @@
 namespace RDKit {
 
 namespace {
-// First neighbor of `a` other than `avoid`, preferring a heavy atom so the
+// First neighbor of atom `a` other than atom `avoid`, prefers a heavy atom so the
 // driven dihedral is defined by real substituents where possible.  -1 if none.
 int pickNbr(const ROMol &mol, unsigned int a, unsigned int avoid) {
   int fallback = -1;
@@ -37,9 +37,7 @@ int pickNbr(const ROMol &mol, unsigned int a, unsigned int avoid) {
   return fallback;
 }
 
-// Atoms reachable from `start` without crossing the start-`blocked` bond,
-// INCLUDING `start`.  Rotatable bonds are acyclic, so the two sides of a rotor
-// bond partition the atoms and this side never loops back through `blocked`.
+// Find the downstream tree that we will be rotating
 std::vector<unsigned int> sideAtoms(const ROMol &mol, unsigned int start,
                                     unsigned int blocked) {
   std::vector<char> seen(mol.getNumAtoms(), 0);
@@ -62,11 +60,8 @@ std::vector<unsigned int> sideAtoms(const ROMol &mol, unsigned int start,
   return out;
 }
 
-// Root the rotor hierarchy at the largest rigid fragment: cut the rotor bonds,
-// find the biggest resulting component, and return its lowest-index atom.  Any
-// atom of that fragment sits on the same (fixed) side of every rotor bond, so
-// the choice of atom within the fragment does not matter -- only which fragment
-// is root.
+// Pick the root of the rotor hierarchy at the largest rigid fragment: cut the rotor bonds,
+//  the thinking is this frag is fixed saving some computations
 unsigned int chooseRoot(const ROMol &mol,
                         const std::vector<unsigned int> &rotorBonds) {
   unsigned int n = mol.getNumAtoms();
@@ -150,10 +145,8 @@ void RotorDriver::init(const ROMol &mol,
     const Bond *b = mol.getBondWithIdx(bi);
     unsigned int a = b->getBeginAtomIdx();
     unsigned int c = b->getEndAtomIdx();
-    // Orient the rotor so k is the end AWAY from the root: the root side (j) is
-    // held fixed and the moving set hangs off k.  This makes moving sets nest
-    // -- a parent rotor's moving set strictly contains each child's -- so
-    // driving a parent carries its children rigidly.
+    // In a j-k junction, orient the rotor so k is the end AWAY from the root.
+    //  everything on side k will be rotated
     std::vector<unsigned int> aSide = sideAtoms(mol, a, c);
     bool rootOnA =
         std::find(aSide.begin(), aSide.end(), d_rootAtom) != aSide.end();
@@ -170,7 +163,7 @@ void RotorDriver::init(const ROMol &mol,
     rt.j = j;
     rt.k = k;
     rt.l = static_cast<unsigned int>(l);
-    // moving = the k-side minus k itself (j and k lie on the axis, stay fixed)
+    // moving = the k-side minus k itself (j-k) will remain fixed
     if (rootOnA) {
       rt.moving = sideAtoms(mol, c, a);
     } else {

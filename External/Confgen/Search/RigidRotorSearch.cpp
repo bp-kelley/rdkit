@@ -49,15 +49,13 @@ std::vector<RigidRotorSearchMode> reachableSearchModes(
     return {sp.searchMode};
   }
   // Auto's pick depends on the molecule's rotor count, which we do not have --
-  // but MOST of it is decided by the parameters alone.  Mirror the branch in
-  // runRigidRotorSearch() and keep only the arms it can still take, so we
-  // never fail a run over a knob belonging to a search that cannot be chosen.
+  //  so add Systematic as a baseline
   std::vector<RigidRotorSearchMode> modes;
   if (sp.autoSystematicMinRotors > 0) {
     modes.push_back(RigidRotorSearchMode::Systematic);
   }
-  // The rotor count only selects BETWEEN Systematic and this arm; which of
-  // Thompson/Tree the arm resolves to is fixed by the budget parameters.
+  // If we have a thompson budget or are auto selecting the budget
+  //  use thompson, otherwise use the tree search
   modes.push_back((sp.thompsonBudget > 0 || sp.thompson.autoBudget)
                       ? RigidRotorSearchMode::Thompson
                       : RigidRotorSearchMode::Tree);

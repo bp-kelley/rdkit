@@ -796,7 +796,7 @@ int main(int argc, char **argv) {
       // B conf bestJ alone.  If a 0.5A pair does not score near 1, the scorer
       // is over-sensitive; if it does, the earlier low numbers were simply the
       // query conformer having no close partner (A conf 0 was 1.74A away).
-      double closestPairScore = 0.0, closestShape = 0.0, closestColour = 0.0;
+      double closestPairScore = 0.0;
       if (bestIdA >= 0 && bestIdB >= 0) {
         ShapeScorer pairSc(*a, bestIdA);
         auto bOne = boost::make_shared<RWMol>(*b);

@@ -19,14 +19,16 @@
 #include "Search/TreeSearch.h"
 #include "Joiner/JoinerProfiling.h"
 
+#include <RDGeneral/RDLog.h>
+
 #include <algorithm>
+#include <mutex>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <iterator>
 #include <limits>
 #include <memory>
-#include <random>
 #include <set>
 
 namespace RDKit {
@@ -64,14 +66,8 @@ inline double circDiff(double a, double b) {
   double d = std::fmod(a - b + 540.0, 360.0) - 180.0;
   return std::fabs(d);
 }
-// True iff the coordinate RMSD between two same-length flat buffers is < thr
-// (shared frame -> no alignment needed; all partials keep the fixed root-side
-// atoms in place).  RMSD = sqrt(sum_sqdist / n), so RMSD < thr <=> sum_sqdist <
-// thr^2 * n; we accumulate the squared distance and bail the instant it reaches
-// that limit.  Most candidate pairs differ far more than thr, so the scan
-// aborts after a handful of coordinates instead of touching every atom --
-// bit-for-bit the same boolean as the old coordRms(a,b) < thr, just without the
-// wasted tail.
+// fast as-is rms check to throw away confs in the same basin.
+// fails as soon as possible.
 inline bool withinRms(const std::vector<double> &a,
                       const std::vector<double> &b, double thr) {
   const size_t n = a.size() / 3;
@@ -87,9 +83,6 @@ inline bool withinRms(const std::vector<double> &a,
 }  // namespace
 
 std::vector<SearchResult> RotorTree::search() {
-  if (d_params.thompsonBudget > 0) {
-    return searchThompson();
-  }
   struct State {
     std::vector<double> coords;
     double score;
@@ -117,12 +110,7 @@ std::vector<SearchResult> RotorTree::search() {
       if (haveWindow && !std::isnan(st.score) && st.score > best + window) {
         break;  // sorted, so nothing further is in-window
       }
-      // DIVERSITY-preserving retention: within the energy window, drop a
-      // candidate only if it is geometrically too close to one already kept.
-      // This keeps higher-energy-but-distinct conformers (the bioactive pose)
-      // that pure energy-greedy top-K would prune.  When off (divThr == 0),
-      // fall back to the cheap angle-fingerprint dedup and let the energy order
-      // + beamWidth decide.
+      // Fast check RMS for removal fallback to the angle fingerprint
       bool drop = false;
       if (divThr > 0.0) {
         for (const auto &k : kept) {
@@ -157,19 +145,8 @@ std::vector<SearchResult> RotorTree::search() {
     return kept;
   };
 
-  // INCREMENTAL junction-local rescoring.  Driving rotor r moves only the atoms
-  // in movingAtoms(r), so of the cross-fragment vdW pairs only those with
-  // EXACTLY ONE endpoint in that moving set change distance (a pair with BOTH
-  // endpoints moved rotates rigidly -> its distance, hence energy, is
-  // unchanged; XOR, not OR).  We precompute those "changing" pair indices per
-  // rotor once, then rescore a single- rotor move as  newTotal = oldScore -
-  // oldChangingVdW + newChangingVdW  plus the full junction-torsion delta
-  // (O(junction bonds), cheap).  Bit-for-bit equal to the full rescore;
-  // validated under ASM_SCOREVALIDATE.  Needs the inter-fragment vdW contrib
-  // handle (RotorTree::enableIncremental); otherwise fall back to full drive().
-  // The packing is built ONCE in enableIncremental() and reused across every
-  // search(), so a RotorTree hoisted out of the per-seed loop never re-packs.
-  // isValid() is false for the CHNOPS lookup variant -> full drive() below.
+  // INCREMENTAL junction-local rescoring.
+  // fragments are already scored so energy is InterFrag Energy + Fragments Energy
   const bool usePacked = d_incremental.isValid();
   const bool validate = usePacked && d_diag.ASM_SCOREVALIDATE;
   size_t mismatches = 0;
@@ -193,13 +170,7 @@ std::vector<SearchResult> RotorTree::search() {
     std::vector<State> next;
     next.reserve(beam.size() * angles.size());
     for (const auto &st : beam) {
-      // The "old" contributions at st.coords are INVARIANT across this rotor's
-      // candidate angles, so hoist them out of the angle loop (compute once per
-      // parent state, not once per candidate).  We also restore st.coords ONCE
-      // here: setDihedral sets the ABSOLUTE angle of only movingAtoms(r),
-      // leaving every other atom == st.coords, so successive candidate angles
-      // need no re-restore (rotor r is not nested in itself and this level's
-      // rotor is fixed).
+      // score the incremental changes, oldVdw and oldTor are invariant
       double oldVdw = 0.0, oldTor = 0.0;
       if (usePacked) {
         d_driver.positions() = st.coords;
@@ -215,14 +186,12 @@ std::vector<SearchResult> RotorTree::search() {
           double newVdw = d_incremental.changingVdw(nbuf, r);
           double newTor = d_incremental.torsionEnergy(nbuf);
           sc = st.score - oldVdw + newVdw - oldTor + newTor;
-          if (validate) {
-            double full =
-                d_driver.score();  // full inter-fragment sum at new coords
+          if (validate) { // debugging loop
+            double full = d_driver.score();  // full inter-fragment sum at new coords
             double allowed = 1.0e-4 * (1.0 + std::fabs(full));
             if (std::fabs(sc - full) > allowed) {
               ++mismatches;
-              // The incremental rescore is meant to be bit-equal to the full
-              // one; a mismatch is a bug in the packing, hence rdErrorLog.
+              // Validate the incremental versus full score
               BOOST_LOG(rdErrorLog)
                   << "[ASM_SCOREVALIDATE] MISMATCH rotor=" << r
                   << " angle=" << a << " incr=" << sc << " full=" << full
@@ -264,114 +233,6 @@ std::vector<SearchResult> RotorTree::search() {
   return out;
 }
 
-std::vector<SearchResult> RotorTree::searchThompson() {
-  const auto &order = d_driver.numRotorAtoms();
-  const size_t nr = d_driver.numRotors();
-  const std::vector<double> base = d_driver.positions();  // seed geometry
-
-  // bandit arms = each rotor's candidate angles, with Beta(a,b) reward params
-  std::vector<std::vector<double>> arms(nr);
-  std::vector<std::vector<double>> a(nr), b(nr);
-  for (size_t r = 0; r < nr; ++r) {
-    arms[r] = anglesForRotor(static_cast<unsigned int>(r));
-    a[r].assign(arms[r].size(), 1.0);
-    b[r].assign(arms[r].size(), 1.0);
-  }
-
-  std::mt19937 rng(d_params.randomSeed);
-  auto betaSample = [&](double alpha, double beta) {
-    std::gamma_distribution<double> ga(alpha, 1.0), gb(beta, 1.0);
-    double x = ga(rng), y = gb(rng);
-    return (x + y > 0.0) ? x / (x + y) : 0.5;
-  };
-
-  const double window = d_params.energyWindow;
-  const double divThr = d_params.diversityRmsThresh;
-
-  std::vector<SearchResult> kept;
-  double best = std::numeric_limits<double>::infinity();
-  std::vector<int> chosen(nr, 0);
-
-  for (unsigned int s = 0; s < d_params.thompsonBudget; ++s) {
-    d_driver.positions() = base;
-    // Thompson-pick + drive each rotor (coarse to fine, so a parent is set
-    // before its children -- the driven dihedrals stay independent)
-    for (unsigned int r : order) {
-      const auto &ar = arms[r];
-      if (ar.empty()) {
-        continue;
-      }
-      int bestArm = 0;
-      double bestT = -1.0;
-      for (size_t k = 0; k < ar.size(); ++k) {
-        double t = betaSample(a[r][k], b[r][k]);
-        if (t > bestT) {
-          bestT = t;
-          bestArm = static_cast<int>(k);
-        }
-      }
-      chosen[r] = bestArm;
-      d_driver.drive(r, ar[bestArm]);
-    }
-    double sc = d_driver.score();
-    if (!std::isnan(sc) && sc < best) {
-      best = sc;
-    }
-    // keep if in the (running) energy window and geometrically novel
-    bool inWindow =
-        std::isnan(sc) || !std::isfinite(best) || sc <= best + window;
-    bool novel = true;
-    if (divThr > 0.0) {
-      for (const auto &k : kept) {
-        if (withinRms(d_driver.positions(), k.coords, divThr)) {
-          novel = false;
-          break;
-        }
-      }
-    }
-    const bool keptIt = inWindow && novel;
-    if (keptIt) {
-      kept.push_back({d_driver.positions(), sc});
-    }
-    // reward the arms this sample chose
-    for (size_t r = 0; r < nr; ++r) {
-      if (arms[r].empty()) {
-        continue;
-      }
-      if (keptIt) {
-        a[r][chosen[r]] += 1.0;
-      } else {
-        b[r][chosen[r]] += 1.0;
-      }
-    }
-  }
-
-  // prune to the energy window of the final best, sort best-first
-  std::vector<SearchResult> out;
-  for (auto &k : kept) {
-    if (std::isnan(k.score) || !std::isfinite(best) ||
-        k.score <= best + window) {
-      out.push_back(std::move(k));
-    }
-  }
-  std::sort(out.begin(), out.end(),
-            [](const SearchResult &x, const SearchResult &y) {
-              if (std::isnan(x.score)) return false;
-              if (std::isnan(y.score)) return true;
-              return x.score < y.score;
-            });
-  if (!out.empty()) {
-    d_driver.positions() = out.front().coords;
-  }
-  return out;
-}
-
-// ---------------------------------------------------------------------------
-// TreeSearch: the deterministic beam RigidRotorSearch (declared in
-// TreeSearch.h). This is the old FragmentJoiner::assemble() deterministic path,
-// now a strategy driven by the shared FragmentJoinerContext.  It lives here,
-// next to the RotorTree it uses.
-// ---------------------------------------------------------------------------
 std::string TreeSearch::validateParams(const RigidRotorSearchParams &sp,
                                        const std::string &ffVariant) const {
   const std::string err = RigidRotorSearch::validateParams(sp, ffVariant);
@@ -380,6 +241,16 @@ std::string TreeSearch::validateParams(const RigidRotorSearchParams &sp,
   }
   if (sp.tree.beamWidth == 0) {
     return "search.tree.beamWidth must be > 0";
+  }
+  if (sp.thompsonBudget > 0) {
+    // Warn that no thompson will be done
+    static std::once_flag warned;
+    std::call_once(warned, [] {
+      BOOST_LOG(rdWarningLog)
+          << "search.thompsonBudget is ignored by RigidRotorSearchMode::Tree; "
+             "use Thompson or Auto for a sampled search"
+          << std::endl;
+    });
   }
   return {};
 }
@@ -416,9 +287,7 @@ std::vector<SearchResult> TreeSearch::search(const FragmentJoinerContext &ctx,
   RotorDriver drv(ctx.mol, ctx.rotorBonds, -1, ctx.scorer);
   RotorTree tree(drv, params);
   tree.setDiagnostics(sp.diagnostics);
-  // disableIncrementalScoring is an A/B against the full per-move rescore; the
-  // incremental path is bit-identical.  No-op when handles are null
-  // (useFullFFScorer).
+
   if (ctx.scoreHandles.vdw && !sp.disableIncrementalScoring) {
     tree.enableIncremental(ctx.scoreHandles.vdw, ctx.scoreHandles.tor);
   }
@@ -466,7 +335,7 @@ std::vector<SearchResult> TreeSearch::search(const FragmentJoinerContext &ctx,
               return a.score < b.score;
             });
 
-  // diversity-prune across seeds so we do not return near-duplicate conformers
+  // diversity-prune across seeds
   double thr = params.diversityRmsThresh;
   if (thr <= 0.0) {
     if (profiling()) prof().nOut += static_cast<long long>(all.size());
@@ -477,8 +346,7 @@ std::vector<SearchResult> TreeSearch::search(const FragmentJoinerContext &ctx,
   std::vector<SearchResult> kept;
   if (params.finalSymmetryDedup) {
     kept = std::move(all);
-    ctx.symmetryDedupInPlace(
-        kept, thr);  // symmetry-aware optimal-superposition (QCP)
+    ctx.symmetryDedupInPlace(kept, thr); 
   } else {
     for (auto &r : all) {
       bool dup = false;
