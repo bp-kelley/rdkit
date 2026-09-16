@@ -74,6 +74,15 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearch {
   bool d_timedOut = false;
 };
 
+//! Drop candidate angles that would cross to the other well.
+/*!
+  An atropisomer's two forms are separated by the barrier at 0/180, so the
+  admissible angles are those on the SAME side as the current torsion.  Applied
+  to the candidate list, never to the geometry.
+*/
+RDKIT_FRAGMENTCONFGEN_EXPORT std::vector<double> basinLimitAngles(
+    const std::vector<double> &angles, double currentDeg);
+
 //! Construct the RigidRotorSearch
 RDKIT_FRAGMENTCONFGEN_EXPORT std::unique_ptr<RigidRotorSearch>
 makeRigidRotorSearch(RigidRotorSearchMode mode);

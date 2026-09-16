@@ -17,6 +17,7 @@
 
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/MolOps.h>
+#include <GraphMol/Atropisomers.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
 #include <GraphMol/ChemTransforms/MolFragmenter.h>
@@ -113,6 +114,192 @@ TEST_CASE("SmirnoffTorsionSampler: parse offxml + energy-minima angles",
   }
 
   std::remove(path.c_str());
+}
+
+TEST_CASE("output GEOMETRY realises the input stereochemistry",
+          "[roundtrip][stereo]") {
+  // The round-trip test below compares canonical SMILES, which reads the
+  // STORED chiral tags -- it passes even if the 3D coordinates are the other
+  // enantiomer, or an E alkene has been driven to Z.  This one reassigns
+  // stereo FROM THE COORDINATES and compares that, so it tests geometry
+  // rather than bookkeeping.
+  auto stereoFrom3D = [](const ROMol &conf) {
+    RWMol m(conf);
+    MolOps::assignStereochemistryFrom3D(m);
+    MolOps::assignStereochemistry(m, /*cleanIt=*/true, /*force=*/true);
+    std::map<unsigned int, std::string> centres;
+    std::map<std::pair<unsigned int, unsigned int>, int> bonds;
+    for (const auto a : m.atoms()) {
+      std::string cip;
+      if (a->getPropIfPresent(common_properties::_CIPCode, cip)) {
+        centres[a->getIdx()] = cip;
+      }
+    }
+    for (const auto b : m.bonds()) {
+      if (b->getStereo() != Bond::STEREONONE) {
+        bonds[{b->getBeginAtomIdx(), b->getEndAtomIdx()}] =
+            static_cast<int>(b->getStereo());
+      }
+    }
+    return std::make_pair(centres, bonds);
+  };
+
+  FragmentConfGenParams p;
+  p.embedding.numConfsPerFragment = 4;
+  p.numOutputConfs = 6;
+  p.randomSeed = 0xf00d;
+
+  const std::vector<std::string> smis = {
+      "CC(C)C[C@@H](N)C(=O)O",                 // one stereocentre
+      "C[C@H](O)[C@@H](C)N",                   // two adjacent stereocentres
+      "OC(=O)[C@@H](Cc1ccccc1)Cc1ccncc1",      // stereocentre defined by 2 rotors
+      "C/C=C/CC",                              // E alkene next to a rotor
+      "CC/C=C\\CC",                            // Z alkene mid-chain
+      "CCC/C=C/CCC",                           // E alkene between two rotors
+  };
+
+  for (const auto &smi : smis) {
+    std::unique_ptr<ROMol> mol(SmilesToMol(smi));
+    REQUIRE(mol);
+    auto res = FragmentConfGen(p).build(*mol);
+    INFO("input=" << smi);
+    REQUIRE(!res.conformers.empty());
+
+    // reference: what the INPUT says, by the same CIP machinery
+    RWMol ref(*mol);
+    MolOps::assignStereochemistry(ref, true, true);
+    std::map<unsigned int, std::string> wantCentres;
+    std::map<std::pair<unsigned int, unsigned int>, int> wantBonds;
+    for (const auto a : ref.atoms()) {
+      std::string cip;
+      if (a->getPropIfPresent(common_properties::_CIPCode, cip)) {
+        wantCentres[a->getIdx()] = cip;
+      }
+    }
+    for (const auto b : ref.bonds()) {
+      if (b->getStereo() != Bond::STEREONONE) {
+        wantBonds[{b->getBeginAtomIdx(), b->getEndAtomIdx()}] =
+            static_cast<int>(b->getStereo());
+      }
+    }
+
+    for (size_t i = 0; i < res.conformers.size(); ++i) {
+      const auto got = stereoFrom3D(*res.conformers[i]);
+      INFO("conformer " << i << " of " << res.conformers.size());
+      CHECK(got.first.size() == wantCentres.size());
+      for (const auto &kv : wantCentres) {
+        const auto at = got.first.find(kv.first);
+        INFO("atom " << kv.first << " want " << kv.second);
+        REQUIRE(at != got.first.end());
+        CHECK(at->second == kv.second);
+      }
+      CHECK(got.second.size() == wantBonds.size());
+      for (const auto &kv : wantBonds) {
+        const auto bd = got.second.find(kv.first);
+        INFO("bond " << kv.first.first << "-" << kv.first.second);
+        REQUIRE(bd != got.second.end());
+        CHECK(bd->second == kv.second);
+      }
+    }
+  }
+}
+
+TEST_CASE("atropisomer axis is not inverted by rotor driving",
+          "[roundtrip][stereo][atropisomer]") {
+  // A hindered biaryl's axial chirality IS the sign of the torsion about the
+  // axis.  That bond matches the rotatable pattern
+  // "[!$(*#*)&!D1]-!@[!$(*#*)&!D1]" -- acyclic single bond, both ends
+  // non-terminal -- so it is driven like any other rotor and the sign can flip.
+  //
+  // Measured as geometry rather than via RDKit stereo perception, which reads
+  // atropisomers from molblock wedges rather than from arbitrary coordinates.
+  // A tetrahedral centre is safe (carried as an atom tag) and an alkene is
+  // safe (never a single bond, so never a rotor); this is neither.
+  std::unique_ptr<RWMol> mol(SmilesToMol("Cc1cccc(C)c1-c1c(C)cccc1C"));
+  REQUIRE(mol);
+  MolOps::addHs(*mol);
+  DGeomHelpers::EmbedParameters ep(DGeomHelpers::ETKDGv3);
+  ep.randomSeed = 0xf00d;
+  REQUIRE(DGeomHelpers::EmbedMolecule(*mol, ep) == 0);
+
+  // the axis: the one acyclic single bond joining two aromatic carbons
+  const Bond *axis = nullptr;
+  for (const auto b : mol->bonds()) {
+    if (b->getBondType() == Bond::SINGLE && !mol->getRingInfo()->numBondRings(b->getIdx()) &&
+        b->getBeginAtom()->getIsAromatic() && b->getEndAtom()->getIsAromatic()) {
+      axis = b;
+      break;
+    }
+  }
+  REQUIRE(axis);
+  auto orthoOf = [&](const Atom *a, const Atom *other) {
+    for (const auto nbr : mol->atomNeighbors(a)) {
+      if (nbr->getIdx() != other->getIdx() && nbr->getIsAromatic()) {
+        return nbr->getIdx();
+      }
+    }
+    return a->getIdx();
+  };
+  const unsigned int i0 = orthoOf(axis->getBeginAtom(), axis->getEndAtom());
+  const unsigned int i1 = axis->getBeginAtomIdx();
+  const unsigned int i2 = axis->getEndAtomIdx();
+  const unsigned int i3 = orthoOf(axis->getEndAtom(), axis->getBeginAtom());
+  auto torsionOf = [&](const Conformer &c) {
+    return MolTransforms::getDihedralDeg(const_cast<Conformer &>(c),
+                                         i0, i1, i2, i3);
+  };
+  const double want = torsionOf(mol->getConformer());
+  INFO("axis torsion " << i0 << "-" << i1 << "-" << i2 << "-" << i3
+                       << " input " << want);
+  REQUIRE(std::abs(want) > 20.0);  // genuinely twisted, i.e. an axis exists
+
+  // DECLARE the axis.  Nothing perceives atropisomers -- the barrier depends on
+  // temperature and solvent, not the graph -- so the flag is the whole input.
+  // It must AGREE with the pose: RDKit's ETKDG maps CW to a negative axis
+  // torsion and CCW to a positive one, so declaring the wrong one is asking
+  // for the other enantiomer and getting it.
+  const_cast<Bond *>(axis)->setStereo(want > 0 ? Bond::STEREOATROPCCW
+                                               : Bond::STEREOATROPCW);
+
+  FragmentConfGenParams p;
+  p.embedding.numConfsPerFragment = 4;
+  p.numOutputConfs = 10;
+  p.randomSeed = 0xf00d;
+  auto res = FragmentConfGen(p).build(*mol);
+  REQUIRE(!res.conformers.empty());
+
+  size_t keep = 0, invert = 0;
+  std::ostringstream seen;
+  for (const auto &c : res.conformers) {
+    const double got = torsionOf(c->getConformer());
+    seen << " " << got;
+    ((got > 0) == (want > 0)) ? ++keep : ++invert;
+  }
+  INFO("axis torsions:" << seen.str());
+  INFO("of " << res.conformers.size() << " conformers: " << keep
+             << " keep the axis sign, " << invert << " invert it");
+  CHECK(invert == 0);
+
+  // An UNDECLARED biaryl must stay an ordinary rotor: not perceiving is the
+  // intended behaviour, not an oversight.
+  RWMol plain(*mol);
+  for (const auto b : plain.bonds()) {
+    if (b->getStereo() == Bond::STEREOATROPCW ||
+        b->getStereo() == Bond::STEREOATROPCCW) {
+      b->setStereo(Bond::STEREONONE);
+    }
+  }
+  const auto plainRot = FragmentConfGen::findRotatableBonds(
+      plain, /*sampleTrivial=*/false, /*wholeAcyclicFragments=*/false);
+  const auto declaredRot =
+      FragmentConfGen::findRotatableBonds(*mol, false, false);
+  INFO("inter: undeclared " << plainRot.inter.size() << ", declared "
+                            << declaredRot.inter.size() << ";  intra: declared "
+                            << declaredRot.intra.size());
+  // declaring it moves the axis out of the CUT set and into INTRA -- kept
+  // inside one fragment, still available to basin sampling.
+  CHECK(plainRot.inter.size() == declaredRot.inter.size() + 1);
+  CHECK(declaredRot.intra.size() == plainRot.intra.size() + 1);
 }
 
 TEST_CASE("build round-trips the molecular graph", "[roundtrip]") {

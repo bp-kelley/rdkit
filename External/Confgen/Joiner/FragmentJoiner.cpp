@@ -387,7 +387,7 @@ FragmentJoinerInput buildFragmentJoinerInput(
       *m, asmParams && asmParams->sampleTrivialRotors,
       asmParams && asmParams->wholeAcyclicFragments);
   auto links = rb.inter;
-  out.intraRotorBonds = rb.intra;  // uncut rotatable bonds -> drivable INSIDE a fragment
+  out.intraRotorBonds = rb.intra;  // uncut bonds, each carrying its own rule
   if (linkBondsOverride) {
     // COARSE mode: the caller knows where the real seams are (e.g. the synthon
     // junctions a molzip just made) and wants the pieces between them kept
@@ -398,7 +398,7 @@ FragmentJoinerInput buildFragmentJoinerInput(
                                       linkBondsOverride->end());
     for (unsigned int b : links) {
       if (!keep.count(b)) {
-        out.intraRotorBonds.push_back(b);
+        out.intraRotorBonds.push_back({b, IntraRotorType::Free});
       }
     }
     links.assign(keep.begin(), keep.end());
@@ -660,11 +660,42 @@ const char *fragmentJoinerStatusMessage(FragmentJoinerStatus s) {
   return "unknown";
 }
 
+std::vector<unsigned int> FragmentJoinerContext::getIntraRotorBonds(
+    const RigidRotorSearchParams &sp) const {
+  std::vector<unsigned int> out;
+  for (const auto &r : intraRotorBonds) {
+    switch (r.type) {
+      case IntraRotorType::Free:
+      case IntraRotorType::PlanarAmide:
+        if (sp.driveIntraFragmentTorsions) {
+          out.push_back(r.bond);
+        }
+        break;
+      case IntraRotorType::Atropisomer:
+        if (sp.atropisomerSampling == AtropisomerSampling::Basin) {
+          out.push_back(r.bond);
+        }
+        break;
+    }
+  }
+  return out;
+}
+
+std::optional<IntraRotorType> FragmentJoinerContext::getIntraType(
+    unsigned int bond) const {
+  for (const auto &r : intraRotorBonds) {
+    if (r.bond == bond) {
+      return r.type;
+    }
+  }
+  return std::nullopt;
+}
+
 FragmentJoinerContext joinFragments(const ROMol &mol, std::vector<int> atomFragment,
                                     std::vector<JoinFragment> fragments,
                                     std::vector<JoinJunction> junctions,
                                     FragmentJoinerParams params,
-                                    std::vector<unsigned int> intraRotorBonds) {
+                                    std::vector<IntraRotor> intraRotorBonds) {
   FragmentJoinerContext ctx;
   ctx.mol = ROMol(mol);  // ROMol copy-ASSIGN is deleted; copy then move
   ctx.frags = std::move(fragments);

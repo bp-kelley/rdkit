@@ -10,10 +10,10 @@
 #define RDKIT_FRAGMENT_CONFGEN_H
 
 #include <RDGeneral/export.h>
-#include "Joiner/FragmentJoiner.h"  // RigidRotorSearchMode
+#include "Joiner/FragmentJoiner.h" 
 
 #include "Sampler/TorsionSampler.h"
-#include "Embedder/Embedder.h"  // EmbedderParams + FragmentEmbedMode/FragmentMinimize enums
+#include "Embedder/Embedder.h" 
 #include <GraphMol/RDKitBase.h>
 #include <memory>
 #include <vector>
@@ -55,11 +55,11 @@ inline RWMOL_SPTR_VECT getRWMolFrags(
         folded, charge-paired geometries that a solvated or bound ligand does
         not adopt.
 
-    1. SPLIT: perceive fragment-link (rotatable) bonds and split the molecule into its
+    1. FRAGMENT: perceive fragment-link (rotatable) bonds and split the molecule into its
        maximal rigid fragments,
     2. EMBED: generate 3D geometry for each fragment with RDKit distance geometry
        (plain DG) or ETKDG.
-    3. JOIN: re-assemble the fragments using preffered torsions
+    3. ZIP: re-assemble the fragments using preffered torsions
     4. SAMPLE+SEARCH: search the rotor space between fragments (and optionally sample intra fragment
         rotors as well)
     4. score, energy-window filter and RMSD-diversity select the ensemble.
@@ -105,12 +105,17 @@ enum class OutputRanking {
                   //!< intra strain)
 };
 
-//! The molecule's rotatable bonds
-//!   inter are between fragments
-//!   intra are internal to fragments (only used when wholeAcyclicFragments is true)
+//! The molecule's rotatable bonds.
+/*!
+  We seperate these into inter fragment - to speed up scoring
+  and intra.
+
+  IntraFragment rotors are typed to indicate what types or torsions
+  can be applied.
+*/
 struct RDKIT_FRAGMENTCONFGEN_EXPORT RotatableBonds {
-  std::vector<unsigned int> inter;  
-  std::vector<unsigned int> intra;
+  std::vector<unsigned int> inter;
+  std::vector<IntraRotor> intra;
 };
 
 struct RDKIT_FRAGMENTCONFGEN_EXPORT FragmentConfGenParams {

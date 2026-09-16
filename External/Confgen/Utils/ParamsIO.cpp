@@ -155,6 +155,28 @@ bool fromStr(const std::string &s, OutputRanking &m) {
   return false;
 }
   
+const char *toStr(AtropisomerSampling m) {
+  switch (m) {
+    case AtropisomerSampling::Basin:
+      return "Basin";
+    case AtropisomerSampling::Frozen:
+      return "Frozen";
+  }
+  return "Basin";
+}
+
+bool fromStr(const std::string &s, AtropisomerSampling &m) {
+  if (s == "Basin") {
+    m = AtropisomerSampling::Basin;
+    return true;
+  }
+  if (s == "Frozen") {
+    m = AtropisomerSampling::Frozen;
+    return true;
+  }
+  return false;
+}
+
 const char *toStr(RotorWeighting m) {
   switch (m) {
     case RotorWeighting::MovingAtoms:
@@ -276,6 +298,7 @@ void visitFields(P &p, V &v) {
 
   // --- search: Systematic ---
   v("search.junctionBasinAngles", p.search.junctionBasinAngles);
+  v("search.atropisomerSampling", p.search.atropisomerSampling);
   v("search.driveIntraFragmentTorsions", p.search.driveIntraFragmentTorsions);
   v("search.systematic.eWindow", p.search.systematic.eWindow);
   v("search.systematic.maxPoolConfs", p.search.systematic.maxPoolConfs);
@@ -327,6 +350,7 @@ struct Writer {
   void operator()(const char *k, OutputRanking m) { write(k, toStr(m)); }
   void operator()(const char *k, OutputSelection m) { write(k, toStr(m)); }
   void operator()(const char *k, RotorWeighting m) { write(k, toStr(m)); }
+  void operator()(const char *k, AtropisomerSampling m) { write(k, toStr(m)); }
 };
 
 struct Reader {
@@ -422,6 +446,9 @@ struct Reader {
   }
   void operator()(const char *k, RotorWeighting &m) {
     readEnum(k, m, "MovingAtoms|Uniform|Inverted");
+  }
+  void operator()(const char *k, AtropisomerSampling &m) {
+    readEnum(k, m, "Basin|Frozen");
   }
 };
 

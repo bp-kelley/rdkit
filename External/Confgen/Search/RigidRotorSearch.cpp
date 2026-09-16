@@ -83,6 +83,21 @@ std::string validateSearchParams(const RigidRotorSearchParams &sp,
   return {};
 }
 
+std::vector<double> basinLimitAngles(const std::vector<double> &angles,
+                                     double currentDeg) {
+  std::vector<double> out;
+  const bool positive = currentDeg > 0.0;
+  for (const double a : angles) {
+    if ((a > 0.0) == positive && std::abs(a) > 1e-9) {
+      out.push_back(a);
+    }
+  }
+  if (out.empty()) {
+    out.push_back(currentDeg);  // never strand a rotor with no candidates
+  }
+  return out;
+}
+
 std::unique_ptr<RigidRotorSearch> makeRigidRotorSearch(
     RigidRotorSearchMode mode) {
   switch (mode) {

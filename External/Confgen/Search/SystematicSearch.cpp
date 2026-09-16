@@ -485,10 +485,10 @@ std::vector<SearchResult> SystematicSearch::search(
   // If we want to twiddle torsions in the fragments themselves,
   //   here is were we do it.
   // XXX FIX ME -> this code is complicated and possibly unecessary
-  if (params.driveIntraFragmentTorsions && !ctx.intraRotorBonds.empty() &&
-      !rootPool.empty()) {
-    RotorDriver idrv(ctx.mol, ctx.intraRotorBonds, -1, ctx.scorer);
-    const size_t nIntra = ctx.intraRotorBonds.size();
+  const std::vector<unsigned int> intraDrivable = ctx.getIntraRotorBonds(params);
+  if (!intraDrivable.empty() && !rootPool.empty()) {
+    RotorDriver idrv(ctx.mol, intraDrivable, -1, ctx.scorer);
+    const size_t nIntra = intraDrivable.size();
     // candidate angles per torsions between fragments
     std::vector<std::vector<double>> iang(nIntra);
     for (size_t r = 0; r < nIntra; ++r) {

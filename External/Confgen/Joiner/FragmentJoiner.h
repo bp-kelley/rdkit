@@ -21,6 +21,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,20 @@
 #include "Utils/DiagnosticsParams.h"
 
 namespace RDKit {
+
+//! Fine-grained control over how torsions are sampled
+enum class IntraRotorType {
+  Free,         //!< ordinary rotor (wholeAcyclicFragments)
+  PlanarAmide,  //!< conjugated C(=X)-Y: a real torsion, but 0/180 only
+  Atropisomer   //!< declared axis: sample only WITHIN its own well, never
+                //!< across the barrier -- the far well is the other enantiomer
+};
+
+struct RDKIT_FRAGMENTCONFGEN_EXPORT IntraRotor {
+  unsigned int bond = 0;
+  IntraRotorType type = IntraRotorType::Free;
+};
+
 
 class Embedder;
 
@@ -170,9 +185,25 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FragmentJoinerContext {
   std::vector<JoinFragment> frags;
   std::vector<JoinEdge> edges;  //!< BFS sorted from parent out to the children
   std::vector<unsigned int> rotorBonds;  //!< bond idx per edge (INTER-fragment junctions)
-  //! Left over rotor bonds internal to fragments.  This allows the ability to
-  //! search these as well
-  std::vector<unsigned int> intraRotorBonds;
+  //! Left over rotor bonds internal to fragments.  Each has a designation
+  //!  to help refine sampling
+  std::vector<IntraRotor> intraRotorBonds;
+
+  //! The uncut rotors a search may actually drive, with every gate applied.
+  /*!
+    One call, so a search never switches on IntraRotorType.  Adding a new kind
+    changes this function and nothing else.
+
+      Free         driven when driveIntraFragmentTorsions
+      PlanarAmide  driven when driveIntraFragmentTorsions (a real 0/180 torsion)
+      Atropisomer  driven when atropisomerSampling == Basin, and then the caller
+                   must keep it inside its own well -- see basinLimitAngles()
+  */
+  std::vector<unsigned int> getIntraRotorBonds(
+      const RigidRotorSearchParams &sp) const;
+
+  //! The rule for one bond, or nullopt when it is not an uncut rotor.
+  std::optional<IntraRotorType> getIntraType(unsigned int bond) const;
   unsigned int root = 0;
   RotorDriver::ScoreFn scorer;
   //! raw contrib handles into `scorer`'s force field for INCREMENTAL scoring
@@ -212,7 +243,7 @@ RDKIT_FRAGMENTCONFGEN_EXPORT FragmentJoinerContext joinFragments(
     const ROMol &mol, std::vector<int> atomFragment,
     std::vector<JoinFragment> fragments, std::vector<JoinJunction> junctions,
     FragmentJoinerParams params = {},
-    std::vector<unsigned int> intraRotorBonds = {});
+    std::vector<IntraRotor> intraRotorBonds = {});
 
 //! Prepared input for the FragmentJoiner (full topology + fragment pools +
 //! junctions), all in full-molecule atom indices.
@@ -223,10 +254,10 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FragmentJoinerInput {
   std::vector<JoinJunction> junctions;
   //! Rotatable bonds NOT cut (they live inside a fragment) -- see
   //! FragmentJoinerContext.
-  std::vector<unsigned int> intraRotorBonds;
+  std::vector<IntraRotor> intraRotorBonds;
 };
 
-//! Join a prepared FragmentJoinerInput.  See joinFragments() above.
+//! Join a prepared FragmentJoinerInput.  See joinFragyments() above.
 RDKIT_FRAGMENTCONFGEN_EXPORT FragmentJoinerContext joinFragments(
     FragmentJoinerInput in, FragmentJoinerParams params = {});
 

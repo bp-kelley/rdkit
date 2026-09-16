@@ -65,24 +65,28 @@ std::vector<SearchResult> ThompsonSamplingSearch::search(
   const auto &params = sp;
   std::vector<SearchResult> out;
   unsigned int nNaN = 0;  //!< failed evaluations; see the NaN handling below
+
+  const std::vector<unsigned int> extraRotors = ctx.getIntraRotorBonds(sp);
   std::vector<unsigned int> driveBonds = ctx.rotorBonds;
-  if (sp.driveIntraFragmentTorsions) {
-    driveBonds.insert(driveBonds.end(), ctx.intraRotorBonds.begin(),
-                      ctx.intraRotorBonds.end());
-  }
+  driveBonds.insert(driveBonds.end(), extraRotors.begin(), extraRotors.end());
   
   RotorDriver drv(ctx.mol, driveBonds, -1, ctx.scorer);
   const size_t nr = drv.numRotors();
   
   // hash rotors to central bond
-  std::vector<char> rotorIsIntra(nr, 0);
-  if (sp.driveIntraFragmentTorsions && !ctx.intraRotorBonds.empty()) {
-    const std::set<unsigned int> intraSet(ctx.intraRotorBonds.begin(),
-                                          ctx.intraRotorBonds.end());
+  std::vector<char> rotorIsIntra(nr, 0), rotorIsAtrop(nr, 0);
+  if (!extraRotors.empty()) {
+    const std::set<unsigned int> intraSet(extraRotors.begin(),
+                                          extraRotors.end());
     for (size_t r = 0; r < nr; ++r) {
       const auto q = drv.torsion(static_cast<unsigned int>(r));
       const Bond *cb = ctx.mol.getBondBetweenAtoms(q[1], q[2]);
-      if (cb && intraSet.count(cb->getIdx())) rotorIsIntra[r] = 1;
+      if (cb && intraSet.count(cb->getIdx())) {
+        rotorIsIntra[r] = 1;
+        if (ctx.getIntraType(cb->getIdx()) == IntraRotorType::Atropisomer) {
+          rotorIsAtrop[r] = 1;
+        }
+      }
     }
   }
   const size_t nf = ctx.frags.size();
@@ -144,6 +148,20 @@ std::vector<SearchResult> ThompsonSamplingSearch::search(
     if (rotorArms[r].empty()) {
       rotorArms[r] = params.defaultAngles;
       rotorPrior[r].assign(rotorArms[r].size(), 1.0);
+    }
+    if (rotorIsAtrop[r]) {
+      // The far well is the OTHER enantiomer: keep the candidates on the side
+      // the declared axis is already on.
+      const auto kept = basinLimitAngles(
+          rotorArms[r], drv.dihedralDeg(static_cast<unsigned int>(r)));
+      std::vector<double> pri(kept.size(), 1.0);
+      for (size_t k = 0; k < kept.size(); ++k) {
+        for (size_t j = 0; j < rotorArms[r].size(); ++j) {
+          if (rotorArms[r][j] == kept[k]) { pri[k] = rotorPrior[r][j]; break; }
+        }
+      }
+      rotorArms[r] = kept;
+      rotorPrior[r] = pri;
     }
     rotorW[r] = static_cast<double>(drv.movingAtoms(r).size()) / maxMove;
   }

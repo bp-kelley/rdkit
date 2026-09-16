@@ -251,7 +251,8 @@ RotatableBonds FragmentConfGen::findRotatableBonds(const ROMol &mol,
   // Determine both
   std::vector<MatchVectType> matches;
   SubstructMatch(mol, *patt, matches, /*uniquify=*/true);
-  std::set<unsigned int> bonds, intra;
+  std::set<unsigned int> bonds;
+  std::map<unsigned int, IntraRotorType> intra;
   for (const auto &m : matches) {
     const Bond *b = mol.getBondBetweenAtoms(m[0].second, m[1].second);
     if (!b) {
@@ -262,20 +263,24 @@ RotatableBonds FragmentConfGen::findRotatableBonds(const ROMol &mol,
          isSymmetricSpinner(mol, b->getEndAtom(), b->getBeginAtomIdx()))) {
       continue;  // trivial rotor: neither cut nor driven
     }
+    if (b->getStereo() == Bond::STEREOATROPCW ||
+        b->getStereo() == Bond::STEREOATROPCCW) {
+      // We need to treat atropisomers differently as we can't change
+      //  the stereochemistry during driving.
+      intra[b->getIdx()] = IntraRotorType::Atropisomer;
+      continue;
+    }
     if (amideBonds.count(b->getIdx())) {
-      // planar amide/ester/urea C(=X)-Y: keep the sp2 core intact (do NOT cut)
-      // -- but it is a real (0/180) torsion, so it belongs to the INTRA set for
-      // the search to drive.
-      intra.insert(b->getIdx());
+      // AMIDE Bond -> sample at 0/180  C(=X)-Y:
+      intra[b->getIdx()] = IntraRotorType::PlanarAmide;
       continue;
     }
     bonds.insert(b->getIdx());
   }
 
-  // if wholeAcyclicFragments: don't cut on linker bonds, we will oversample
-  //  these before joining.  Note: the intra bonds here might eventually be
-  //  driven using simpler sampling, so report these as well as the normal
-  //  cut bonds.
+  // if wholeAcyclicFragments: we oversample the entire fragment
+  //  and only drive the junction bond.
+  //  NOTE -> this was the initial driver for synthon searching
   if (wholeAcyclicFragments && !bonds.empty()) {
     const RingInfo *ri = mol.getRingInfo();
     if (ri && ri->isInitialized()) {
@@ -286,7 +291,7 @@ RotatableBonds FragmentConfGen::findRotatableBonds(const ROMol &mol,
             ri->numAtomRings(b->getEndAtomIdx()) > 0) {
           ringAdjacent.insert(bi);
         } else {
-          intra.insert(bi);  // uncut chain-chain bond -> now an INTRA torsion
+          intra[bi] = IntraRotorType::Free;  // uncut chain-chain bond
         }
       }
       bonds.swap(ringAdjacent);
@@ -294,7 +299,9 @@ RotatableBonds FragmentConfGen::findRotatableBonds(const ROMol &mol,
   }
 
   res.inter.assign(bonds.begin(), bonds.end());
-  res.intra.assign(intra.begin(), intra.end());
+  for (const auto &kv : intra) {
+    res.intra.push_back({kv.first, kv.second});
+  }
   return res;
 }
 

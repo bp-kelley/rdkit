@@ -50,6 +50,16 @@ enum class OutputSelection {
 	       This, however, works well for the novelty weighting for
 	       pruning rotors.
 */
+//! What to do with a bond the input DECLARES as an atropisomer.
+/*!
+  We can either freeze it or do mild basin sampling ensuring we
+  don't change stereochemistry.
+*/
+enum class AtropisomerSampling {
+  Basin,  //!< drive it, but only within the well its declared sign names
+  Frozen  //!< neither cut nor driven; keep the embedded geometry
+};
+
 enum class RotorWeighting {
   MovingAtoms,  //!< weight by movingAtoms/maxMovingAtoms; largest rotor = 1
   Uniform,      //!< every rotor counts equally
@@ -164,21 +174,8 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearchParams {
   
   //! What Auto resolves to, indexed by ROTATABLE-BOND COUNT.
   /*!
-    A table, not a threshold: the right search is not monotone in rotor count,
-    so no min/max pair expresses it.  The last entry applies to every higher
-    count.  Measured on 772 PDBbind molecules at rot>=11, Systematic vs
-    Thompson (posteriorWeighting=Uniform):
-
-      band    n    sys %<1A   thompson    Cohen h   sys cost
-      11-12   315    19.7%      15.6%      -0.108      2.8x
-      13-15   205    14.1%      13.7%      -0.014     13.8x
-      16+     252     2.8%       3.2%      +0.023    103.3x
-
-    Systematic earns its keep at 11-12 and nowhere else: above 12 the two are
-    indistinguishable (p=1.0) while it costs 14-103x.
-
-    A Thompson entry still defers to the budget parameters -- with Thompson
-    switched off it means the Tree beam, as it always has.
+    This is just a heuristic based on PDBBind and Platinum datasets
+    so it may not translate to new datasets
   */
   static constexpr std::array<RigidRotorSearchMode, 14> AutoModeAtRotor = {
       RigidRotorSearchMode::Thompson,    // 0
@@ -208,6 +205,9 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearchParams {
   unsigned int fragConfBranch = 4;
   std::shared_ptr<TorsionSampler> torsionSampler;
   JunctionBasinAngles junctionBasinAngles = JunctionBasinAngles::All;
+  //! How a DECLARED atropisomer axis is handled.  Never cut either way.
+  AtropisomerSampling atropisomerSampling = AtropisomerSampling::Basin;
+
   bool driveIntraFragmentTorsions = false; //< coarse sample non junction torsions
 
   TreeSearchParams tree;
