@@ -237,7 +237,7 @@ TEST_CASE("FragmentConfGen basic fragmentation and generation",
     CHECK(frags.size() == links.size() + 1);
     // conformer count is governed per-fragment-class by
     // getDefaultFragmentParams() (numConfsPerFragment is no longer a sizing
-    // knob); every fragment must embed.
+    // parameter); every fragment must embed.
     for (const auto &f : frags) {
       CHECK(f->getNumConformers() >= 1);
     }
@@ -1603,7 +1603,7 @@ TEST_CASE("createFragmentConfGen validates params and builds",
     bad4.search.tree.beamWidth = 0;  // must be > 0 for the search that runs
     CHECK_FALSE(bad4.validate().empty());
 
-    // ... but under the DEFAULT Auto the same knob is not this run's problem:
+    // ... but under the DEFAULT Auto the same parameter is not this run's problem:
     // thompson.autoBudget is on by default, so Auto's non-Systematic arm
     // resolves to Thompson and the tree beam is never read.
     FragmentConfGenParams unreached;
@@ -1932,14 +1932,14 @@ TEST_CASE("FragmentConfGenParams text round-trips through the serializer",
     FragmentConfGenParams p;  // defaults
     const int origOut = p.numOutputConfs;
     const std::string err = fragmentConfGenParamsFromString(
-        "# just one knob\njoiner.ffVariant = MMFF94s\n", p);
+        "# just one parameter\njoiner.ffVariant = MMFF94s\n", p);
     CHECK(err.empty());
     CHECK(p.joiner.ffVariant == "MMFF94s");
     CHECK(p.numOutputConfs == origOut);  // untouched
   }
   SECTION("unknown key and bad value are reported, not silently ignored") {
     FragmentConfGenParams p;
-    CHECK_FALSE(fragmentConfGenParamsFromString("noSuchKnob = 3\n", p).empty());
+    CHECK_FALSE(fragmentConfGenParamsFromString("noSuchParameter = 3\n", p).empty());
     CHECK_FALSE(fragmentConfGenParamsFromString("numOutputConfs = banana\n", p)
                     .empty());
     CHECK_FALSE(fragmentConfGenParamsFromString("search.searchMode = Nope\n", p)
@@ -2156,7 +2156,7 @@ TEST_CASE("symmetry-aware RMSD dedup pool", "[symrmsd]") {
 
 TEST_CASE("search parameters are validated by the search that will run",
           "[assembler][search][params]") {
-  // Each search owns the rules for its own knobs, so FragmentConfGenParams
+  // Each search owns the rules for its own parameters, so FragmentConfGenParams
   // does not have to restate them and let the two drift.
   SECTION("the base rejects what every search reads") {
     RigidRotorSearchParams sp;
@@ -2170,7 +2170,7 @@ TEST_CASE("search parameters are validated by the search that will run",
                     ->isValid(neg, "MMFF94"));
   }
 
-  SECTION("a search only answers for its own knobs") {
+  SECTION("a search only answers for its own parameters") {
     RigidRotorSearchParams sp;
     sp.tree.beamWidth = 0;  // Tree's problem, nobody else's
     CHECK_FALSE(makeRigidRotorSearch(RigidRotorSearchMode::Tree)
@@ -2203,14 +2203,30 @@ TEST_CASE("search parameters are validated by the search that will run",
               ->isValid(sp, "MMFF94s"));
   }
 
+  SECTION("AutoModeAtRotor maps rotor count to a search, clamping past the end") {
+    using P = RigidRotorSearchParams;
+    // The measured result this table encodes: Systematic only at 11-12.
+    for (size_t n = 0; n <= 10; ++n) {
+      INFO("rotors " << n);
+      CHECK(P::autoModeForRotors(n) == RigidRotorSearchMode::Thompson);
+    }
+    CHECK(P::autoModeForRotors(11) == RigidRotorSearchMode::Systematic);
+    CHECK(P::autoModeForRotors(12) == RigidRotorSearchMode::Systematic);
+    CHECK(P::autoModeForRotors(13) == RigidRotorSearchMode::Thompson);
+    // ...and every count past the end takes the LAST entry, not out of bounds.
+    for (size_t n : {14u, 20u, 99u, 10000u}) {
+      INFO("rotors " << n);
+      CHECK(P::autoModeForRotors(n) == P::AutoModeAtRotor.back());
+    }
+  }
+
   SECTION("Auto is checked against only the searches it can still pick") {
     // The rotor count decides Systematic vs the Thompson/Tree arm, but WHICH of
     // those two the arm takes is fixed by the budget parameters -- so Auto is
-    // never all four, and a knob for an unreachable search must not fail a run.
+    // never all four, and a parameter for an unreachable search must not fail a run.
     RigidRotorSearchParams sp;
     sp.searchMode = RigidRotorSearchMode::Auto;
     sp.thompson.autoBudget = true;  // the arm resolves to Thompson, not Tree
-    sp.autoSystematicMinRotors = 12;
     auto modes = reachableSearchModes(sp);
     CHECK(modes.size() == 2);
     CHECK(std::find(modes.begin(), modes.end(),
@@ -2229,10 +2245,9 @@ TEST_CASE("search parameters are validated by the search that will run",
     sp.systematic.maxPoolConfs = 0;
     CHECK_FALSE(validateSearchParams(sp, "MMFF94").empty());
 
-    // switch Systematic off and it stops being checked
-    sp.autoSystematicMinRotors = 0;
-    CHECK(reachableSearchModes(sp).size() == 1);
-    CHECK(validateSearchParams(sp, "MMFF94").empty());
+    // Systematic is reachable because the TABLE names it; that is a
+    // compile-time fact now, not a parameter, so there is no longer a knob
+    // that switches it off for a run.
 
     // ... and naming one search checks exactly that search
     sp.searchMode = RigidRotorSearchMode::Tree;

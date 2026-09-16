@@ -377,7 +377,7 @@ Options:\n\
 
     python::class_<RDKit::SynthonSearch3DParams>(
         "SynthonSearch3DParams",
-        "Parameters for the 3D synthon search.  numTrajectories is the knob "
+        "Parameters for the 3D synthon search.  numTrajectories is the parameter "
         "that matters: k=1 is a single greedy trajectory, k>=2 also reaches "
         "targets that sit behind a scoring valley and which no single "
         "trajectory can climb to.",
@@ -398,6 +398,13 @@ Options:\n\
                        &RDKit::SynthonSearch3DParams::numThreads)
         .def_readwrite("numBestProducts",
                        &RDKit::SynthonSearch3DParams::numBestProducts)
+        .def_readwrite("largestFirst",
+                       &RDKit::SynthonSearch3DParams::largestFirst,
+                       "Sweep positions largest-mean-atoms first (default true)")
+        .def_readwrite("firstPosition",
+                       &RDKit::SynthonSearch3DParams::firstPosition,
+                       "Move this reagent position to the front of the sweep order; "
+                       "-1 (AutoI) leaves the largestFirst ordering alone")
         .def_readwrite("queryHeavyAtoms",
                        &RDKit::SynthonSearch3DParams::queryHeavyAtoms,
                        "Heavy atoms in the query; 0 disables the size filter.")

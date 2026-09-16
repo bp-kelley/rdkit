@@ -48,13 +48,13 @@
 #include <Confgen/Sampler/TorsionSampler.h>
 #include <Confgen/Embedder/Fraglib.h>
 #include <Confgen/Joiner/FragmentJoiner.h>
-#include <Confgen/Search/RigidRotorSearch.h>  // runRigidRotorSearch (xtalrecon)
-#include <Confgen/Utils/ParamsIO.h>  // FRAGCG_PARAMS: serialized-params knob overrides
+#include <Confgen/Search/RigidRotorSearch.h>
+#include <Confgen/Utils/ParamsIO.h>
 #include <GraphMol/ChemTransforms/MolFragmenter.h>
 #include <GraphMol/ChemTransforms/ChemTransforms.h>
 #include <ForceField/ForceField.h>
-#include <ForceField/MMFF/StretchBend.h>  // StretchBendContrib (inter-fragment SB, termtable)
-#include <ForceField/MMFF/Params.h>  // MMFFStbn/MMFFBond/MMFFAngle
+#include <ForceField/MMFF/StretchBend.h>
+#include <ForceField/MMFF/Params.h>
 #include <RDGeneral/RDLog.h>
 
 #include <algorithm>
@@ -532,10 +532,6 @@ void runPlatinum() {
   if (const char *e = std::getenv("PLATINUM_MAXMOLS")) {
     maxMols = static_cast<size_t>(std::atoi(e));
   }
-  // Diagnostic knobs: override per-fragment conf count, turn on fragment
-  // MMFF-min (cold builds only -- the warm lib is fixed at build time), and
-  // skip the heavy DG/ETKDG baseline matrix for fast ours-only
-  // iteration.
   unsigned int nconfFrag = 0;  // 0 = keep default
   if (const char *e = std::getenv("PLATINUM_NCONF")) {
     nconfFrag = static_cast<unsigned int>(std::atoi(e));
@@ -856,8 +852,7 @@ void runPlatinum() {
     if (const char *e = std::getenv("ASM_SYMDEDUP")) {
       pc.search.finalSymmetryDedup = std::atoi(e) != 0;
     }
-    // Ceiling / search-width knobs (measure the best the current fraglib can
-    // do).
+
     if (const char *e = std::getenv("ASM_FRAGBRANCH"))
       pc.search.fragConfBranch = std::atoi(e);
     if (const char *e = std::getenv("ASM_ROOTSEEDS"))
@@ -3965,10 +3960,10 @@ void runXtalRecon() {
 
 //! Per-rotor-count timing crossover: run ETKDG and TorLib samplers, each with
 //! BOTH the deterministic tree/beam search AND Thompson sampling, over the full
-//! Platinum set, and bucket ASSEMBLY-ONLY wall time (embed excluded,
+//! Platinum set, and bucket JOINER-ONLY wall time (embed excluded,
 //! per-molecule) by the FRAGCG_PARAMS=<file>: load a serialized
 //! FragmentConfGenParams text file (key = value; see Utils/ParamsIO) and layer
-//! it over each run's params, so any knob can be driven from a config file
+//! it over each run's params, so any parameter can be driven from a config file
 //! instead of a bespoke env var.  Returns the file text (empty if unset);
 //! validates once up front and hard-exits on a parse error so a typo can't
 //! silently no-op.
@@ -4784,7 +4779,7 @@ void runTorsionDump() {
   }
 }
 
-//! Dump a full FragmentConfGenParams template (every knob at its default) as
+//! Dump a full FragmentConfGenParams template as
 //! editable text, to FRAGCG_PARAMS_OUT if set, else stdout.  Feed the edited
 //! file back via FRAGCG_PARAMS.
 void runParamsTemplate() {

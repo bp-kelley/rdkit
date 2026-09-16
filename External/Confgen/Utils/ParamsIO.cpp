@@ -15,6 +15,9 @@
 #include <ostream>
 #include <sstream>
 #include <map>
+#include <RDGeneral/RDLog.h>
+
+#include <set>
 #include <string>
 #include <cctype>
 
@@ -152,6 +155,34 @@ bool fromStr(const std::string &s, OutputRanking &m) {
   return false;
 }
   
+const char *toStr(RotorWeighting m) {
+  switch (m) {
+    case RotorWeighting::MovingAtoms:
+      return "MovingAtoms";
+    case RotorWeighting::Uniform:
+      return "Uniform";
+    case RotorWeighting::Inverted:
+      return "Inverted";
+  }
+  return "MovingAtoms";
+}
+
+bool fromStr(const std::string &s, RotorWeighting &m) {
+  if (s == "MovingAtoms") {
+    m = RotorWeighting::MovingAtoms;
+    return true;
+  }
+  if (s == "Uniform") {
+    m = RotorWeighting::Uniform;
+    return true;
+  }
+  if (s == "Inverted") {
+    m = RotorWeighting::Inverted;
+    return true;
+  }
+  return false;
+}
+
 const char *toStr(OutputSelection m) {
   switch (m) {
     case OutputSelection::Energy:
@@ -213,7 +244,6 @@ void visitFields(P &p, V &v) {
 
   // --- search: common ---
   v("search.searchMode", p.search.searchMode);
-  v("search.autoSystematicMinRotors", p.search.autoSystematicMinRotors);
   v("search.rootSeeds", p.search.rootSeeds);
   v("search.fragConfBranch", p.search.fragConfBranch);
   v("search.finalSymmetryDedup", p.search.finalSymmetryDedup);
@@ -230,6 +260,9 @@ void visitFields(P &p, V &v) {
   v("search.thompson.backstopStepDeg", p.search.thompson.backstopStepDeg);
   v("search.thompson.sizePriorExp", p.search.thompson.sizePriorExp);
   v("search.thompson.noveltyAngleDeg", p.search.thompson.noveltyAngleDeg);
+  v("search.thompson.noveltyWeighting", p.search.thompson.noveltyWeighting);
+  v("search.thompson.noveltyWeightExp", p.search.thompson.noveltyWeightExp);
+  v("search.thompson.posteriorWeighting", p.search.thompson.posteriorWeighting);
   v("search.thompson.autoBudget", p.search.thompson.autoBudget);
   v("search.thompson.perRotor", p.search.thompson.perRotor);
   v("search.thompson.perFragConf", p.search.thompson.perFragConf);
@@ -240,7 +273,6 @@ void visitFields(P &p, V &v) {
   v("search.thompson.refinePasses", p.search.thompson.refinePasses);
   v("search.thompson.maxConfs", p.search.thompson.maxConfs);
   v("search.thompson.outMode", p.search.thompson.outMode);
-  v("search.thompson.flatContext", p.search.thompson.flatContext);
 
   // --- search: Systematic ---
   v("search.junctionBasinAngles", p.search.junctionBasinAngles);
@@ -266,6 +298,7 @@ void visitFields(P &p, V &v) {
   v("diagnostics.ASM_EXACT_GEOM", p.diagnostics.ASM_EXACT_GEOM);
   v("diagnostics.SYS_VALIDATE", p.diagnostics.SYS_VALIDATE);
   v("diagnostics.FRAGCG_DUMP_PARAMS", p.diagnostics.FRAGCG_DUMP_PARAMS);
+  v("diagnostics.TS_ARMSTATS", p.diagnostics.TS_ARMSTATS);
 }
 
 // ---- writer -----------------------------------------------------------------
@@ -293,6 +326,7 @@ struct Writer {
   void operator()(const char *k, JunctionBasinAngles m) { write(k, toStr(m)); }
   void operator()(const char *k, OutputRanking m) { write(k, toStr(m)); }
   void operator()(const char *k, OutputSelection m) { write(k, toStr(m)); }
+  void operator()(const char *k, RotorWeighting m) { write(k, toStr(m)); }
 };
 
 struct Reader {
@@ -386,6 +420,9 @@ struct Reader {
   void operator()(const char *k, OutputSelection &m) {
     readEnum(k, m, "Energy|Diverse|Stratify");
   }
+  void operator()(const char *k, RotorWeighting &m) {
+    readEnum(k, m, "MovingAtoms|Uniform|Inverted");
+  }
 };
 
 std::string trim(const std::string &s) {
@@ -436,6 +473,24 @@ std::string readFragmentConfGenParams(std::istream &is,
   Reader r{kv, err};
   visitFields(p, r);
   if (!err.empty()) return err;
+  // Keys that USED to exist.  A retired key must not invalidate a whole stored
+  // parameter block -- a serialized library outlives the parameter that was
+  // dropped, and failing the parse silently reverts it to defaults, losing the
+  // settings it was actually built with.  Genuine typos still fail.
+  static const std::set<std::string> retired = {
+      "search.thompson.flatContext",
+      "search.autoSystematicMinRotors",
+      "search.autoSystematicMaxRotors",
+  };
+  for (auto it = kv.begin(); it != kv.end();) {
+    if (retired.count(it->first)) {
+      BOOST_LOG(rdWarningLog)
+          << "ignoring retired parameter '" << it->first << "'" << std::endl;
+      it = kv.erase(it);
+    } else {
+      ++it;
+    }
+  }
   if (!kv.empty()) return "unknown key '" + kv.begin()->first + "'";
   return {};
 }

@@ -28,6 +28,9 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT DiagnosticsParams {
       false;  //!< Search/sys: subtree-energy self-check vs full score
   bool FRAGCG_DUMP_PARAMS =
       false;  //!< top:        dump the resolved parameter tree
+  bool TS_ARMSTATS =
+      false;  //!< Search/ts:  per-rotor arm coverage + posterior entropy,
+              //!< bucketed by moving-atom quartile
 };
 
 }  // namespace RDKit
