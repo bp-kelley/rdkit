@@ -9,6 +9,10 @@
 #include "Search/RotorRefine.h"
 #include "Search/ThompsonSamplingSearch.h"
 
+#include <RDGeneral/RDLog.h>
+
+#include <cstdio>
+
 #include <set>
 
 #include "Joiner/JoinerProfiling.h"
@@ -60,6 +64,7 @@ std::vector<SearchResult> ThompsonSamplingSearch::search(
     const FragmentJoinerContext &ctx, const RigidRotorSearchParams &sp) {
   const auto &params = sp;
   std::vector<SearchResult> out;
+  unsigned int nNaN = 0;  //!< failed evaluations; see the NaN handling below
   std::vector<unsigned int> driveBonds = ctx.rotorBonds;
   if (sp.driveIntraFragmentTorsions) {
     driveBonds.insert(driveBonds.end(), ctx.intraRotorBonds.begin(),
@@ -141,6 +146,37 @@ std::vector<SearchResult> ThompsonSamplingSearch::search(
       rotorPrior[r].assign(rotorArms[r].size(), 1.0);
     }
     rotorW[r] = static_cast<double>(drv.movingAtoms(r).size()) / maxMove;
+  }
+
+  // rotorW affects two unrelated params.
+  //  we need to be able to twiddle both independently for A/B testing
+  double minMove = std::numeric_limits<double>::max();
+  for (size_t r = 0; r < nr; ++r) {
+    minMove = std::min(minMove, static_cast<double>(drv.movingAtoms(r).size()));
+  }
+  minMove = std::max(1.0, minMove);
+  auto weightFor = [&](RotorWeighting w, size_t r, double exp) {
+    switch (w) {
+      case RotorWeighting::MovingAtoms:
+        return exp == 1.0 ? rotorW[r] : std::pow(rotorW[r], exp);
+      case RotorWeighting::Inverted:
+        // mirror of MovingAtoms: the SMALLEST rotor gets 1.0 and larger ones
+        // less, so this is the same shape reflected rather than a new scale.
+	//  XXX FIX ME -> this was just to see if the opposite
+	//                guess from what I thought would be better would
+	//                actually be worse.  It is.
+        return minMove /
+               std::max(1.0, static_cast<double>(drv.movingAtoms(r).size()));
+      case RotorWeighting::Uniform:
+        break;
+    }
+    return 1.0;
+  };
+  std::vector<double> novW(nr, 1.0), postW(nr, 1.0);
+  for (size_t r = 0; r < nr; ++r) {
+    novW[r] = weightFor(params.thompson.noveltyWeighting, r,
+                        std::max(0.0, params.thompson.noveltyWeightExp));
+    postW[r] = weightFor(params.thompson.posteriorWeighting, r, 1.0);
   }
   
   // sample fragment confs
@@ -293,8 +329,12 @@ std::vector<SearchResult> ThompsonSamplingSearch::search(
     }
     if (!std::isnan(sc) && sc < best) best = sc;
     
-    bool inWindow =
-        std::isnan(sc) || !std::isfinite(best) || sc <= best + window;
+    // Drop any score which is noncomputable
+    if (std::isnan(sc)) {
+      ++nNaN;
+    }
+    const bool inWindow = !std::isnan(sc) &&
+                          (!std::isfinite(best) || sc <= best + window);
     bool novel = true;
     std::vector<double> curAng;
     if (useFp) {  // use novelty fp for pruning
@@ -305,8 +345,8 @@ std::vector<SearchResult> ThompsonSamplingSearch::search(
         double num = 0.0, den = 0.0;
         for (size_t r = 0; r < nr; ++r) {
           const double d = circDiff(curAng[r], ka[r]);
-          num += rotorW[r] * d * d;
-          den += rotorW[r];
+          num += novW[r] * d * d;
+          den += novW[r];
         }
         if (den > 0.0 && num / den < angThrSq) {
           novel = false;
@@ -350,16 +390,88 @@ std::vector<SearchResult> ThompsonSamplingSearch::search(
     
     for (size_t r = 0; r < nr; ++r) {
       if (rotorArms[r].empty()) continue;
-      rA[r][rotArm[r]] += reward * rotorW[r];
-      rB[r][rotArm[r]] += (1.0 - reward) * rotorW[r];
+      rA[r][rotArm[r]] += reward * postW[r];
+      rB[r][rotArm[r]] += (1.0 - reward) * postW[r];
+    }
+  }
+
+  // TS_ARMSTATS: (NOTE: CLAUDE REVIEW)
+  // is the posterior actually LEARNING per rotor, and does that
+  // depend on how many atoms the rotor moves?  rotorW scales every update by
+  // movingAtoms/maxMoving, so a terminal rotor can finish a run still close to
+  // its prior no matter how often it was pulled.  Bucketing by moving-atom
+  // quartile separates "never pulled" from "pulled but never learned".
+  //
+  // evidence = total Beta mass added beyond the prior (a+b - prior), i.e. how
+  // much this arm was actually updated.  entropy is over the arm-choice
+  // distribution mean(a/(a+b)) -- high entropy at the end of a run means the
+  // posterior never committed.
+  if (params.diagnostics.TS_ARMSTATS && nr) {
+    std::vector<size_t> byMove(nr);
+    for (size_t r = 0; r < nr; ++r) {
+      byMove[r] = r;
+    }
+    std::sort(byMove.begin(), byMove.end(), [&](size_t x, size_t y) {
+      return drv.movingAtoms(x).size() < drv.movingAtoms(y).size();
+    });
+    std::printf("[ts_armstats] rotors=%zu budget=%u\n", nr, budget);
+    std::printf(
+        "[ts_armstats] %-6s %6s %8s %8s %9s %9s\n", "quart", "rotors",
+        "movAtoms", "rotorW", "evidence", "entropy");
+    for (int q = 0; q < 4; ++q) {
+      const size_t lo = nr * q / 4, hi = nr * (q + 1) / 4;
+      if (lo >= hi) {
+        continue;
+      }
+      double mov = 0.0, w = 0.0, ev = 0.0, ent = 0.0;
+      size_t cnt = 0;
+      for (size_t i = lo; i < hi; ++i) {
+        const size_t r = byMove[i];
+        if (rotorArms[r].empty()) {
+          continue;
+        }
+        mov += static_cast<double>(drv.movingAtoms(r).size());
+        w += postW[r];
+        double tot = 0.0;
+        std::vector<double> p(rotorArms[r].size(), 0.0);
+        for (size_t k = 0; k < rotorArms[r].size(); ++k) {
+          // subtract the prior so this reports EVIDENCE, not initial mass
+          ev += (rA[r][k] + rB[r][k]) - (rotorPrior[r][k] + 1.0);
+          p[k] = rA[r][k] / std::max(1e-9, rA[r][k] + rB[r][k]);
+          tot += p[k];
+        }
+        double e = 0.0;
+        for (double v : p) {
+          const double pp = v / std::max(1e-9, tot);
+          if (pp > 0.0) {
+            e -= pp * std::log(pp);
+          }
+        }
+        // normalise so 1.0 == uniform over this rotor's arms, i.e. "learned
+        // nothing"; comparable across rotors with different arm counts
+        ent += rotorArms[r].size() > 1
+                   ? e / std::log(static_cast<double>(rotorArms[r].size()))
+                   : 0.0;
+        ++cnt;
+      }
+      if (!cnt) {
+        continue;
+      }
+      std::printf("[ts_armstats] Q%-5d %6zu %8.1f %8.3f %9.1f %9.4f\n", q + 1,
+                  cnt, mov / cnt, w / cnt, ev / cnt, ent / cnt);
     }
   }
 
   for (auto &k : kept) {
-    if (std::isnan(k.score) || !std::isfinite(best) ||
-        k.score <= best + window) {
+    if (!std::isnan(k.score) &&
+        (!std::isfinite(best) || k.score <= best + window)) {
       out.push_back(std::move(k));
     }
+  }
+  if (nNaN) {
+    BOOST_LOG(rdWarningLog)
+        << "ThompsonSamplingSearch: " << nNaN << " of " << budget
+        << " draws scored NaN and were discarded" << std::endl;
   }
   
   std::sort(out.begin(), out.end(),
