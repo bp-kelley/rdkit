@@ -6,10 +6,7 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-//  Plain parameter structs for the assembly search strategies.  These replace
-//  the per-strategy environment-variable knobs; the top layer (a CLI/tool)
-//  populates them, the library reads them.  Defaults reproduce the historical
-//  (all-knobs-off) behavior.
+//  Plain parameter structs for the search strategies. 
 //
 #ifndef RDKIT_CONFGEN_SEARCHPARAMS_H
 #define RDKIT_CONFGEN_SEARCHPARAMS_H
@@ -20,6 +17,8 @@
 #include <vector>
 
 #include "Sampler/TorsionSampler.h"   // TorsionSampler
+#include <array>
+
 #include "Utils/DiagnosticsParams.h"  // DiagnosticsParams
 #include "Utils/ParamSentinels.h"     // AutoR / Disabled / resolveAuto
 
@@ -39,6 +38,24 @@ enum class OutputSelection {
 };
 
 //! ThompsonParams, so many parameters!
+//! How a rotor's influence is weighted.
+/*!
+  MovingAtoms scales by movingAtoms/maxMovingAtoms -- a geometric importance
+  heuristic, not Bayesian evidence strength.
+
+  XXX FIX ME:  the uniform posterior works the best, everything else either
+               biases away from small rotor exploration or large.
+	       everything else should be dropped
+
+	       This, however, works well for the novelty weighting for
+	       pruning rotors.
+*/
+enum class RotorWeighting {
+  MovingAtoms,  //!< weight by movingAtoms/maxMovingAtoms; largest rotor = 1
+  Uniform,      //!< every rotor counts equally
+  Inverted      //!< minMovingAtoms/movingAtoms; SMALLEST rotor = 1
+};
+
 struct RDKIT_FRAGMENTCONFGEN_EXPORT ThompsonParams {
   //! --- informed prior + budget scaling ---
   double priorStrength = 3.0;     //!< Beta alpha for sampler-preferred angles (>=1)
@@ -46,6 +63,16 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT ThompsonParams {
   double sizePriorExp = 0.0;      //!< scale prior by (movingAtoms/max)^exp (0 = full prior)
   double noveltyAngleDeg = 0.0;  //!< in-sweep torsion-fingerprint novelty, deg (0 = coord RMSD)
   
+  //! Weight on the torsion-fingerprint novelty distance.
+  RotorWeighting noveltyWeighting = RotorWeighting::MovingAtoms;
+  //! Exponent on that moving atom weight
+  double noveltyWeightExp = 1.0;
+  //! Rotor Weight on the Beta posterior update.
+  /*!
+    See FIX ME above
+  */
+  RotorWeighting posteriorWeighting = RotorWeighting::Uniform;
+
   bool autoBudget = true;         //!< auto-scale #draws with rotors + frag-conf arms
   unsigned int perRotor = 400;    //!< draws per rotor
   unsigned int perFragConf = 30;  //!< draws per fragment-conf arm
@@ -54,7 +81,6 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT ThompsonParams {
 
   unsigned int maxConfs = Disabled;      //!< max number of output conformers (0 = nolimit)
   OutputSelection outMode = OutputSelection::Energy;  //!< selection when capped
-  bool flatContext = false;  //!< collapse the tree-descent context
   
   unsigned int refineSteps = Disabled; //! Sample K lower basins for better energyies
   double refineStepDeg = 8.0;     //!< initial coordinate-descent step
@@ -80,7 +106,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT SystematicParams {
 
 //! Which junction-angle search runs.
 enum class JunctionBasinAngles {
-  All,       //!< every junction gets the full (tolerance/basin) angle set
+  All,       //!< every junction gets the full angle set + small basin samples
   None,      //!< every junction gets base angles only
   ChainOnly  //!< tolerance ONLY on chain-chain junctions
              //!<   XXX FIX ME -> I think this is wrong
@@ -135,7 +161,49 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearchParams {
 
   RigidRotorSearchMode searchMode = RigidRotorSearchMode::Auto;
   long timeBudgetMs = Disabled; //< Search time budget, 0 is no limit
-  unsigned int autoSystematicMinRotors = 11; //!< switch to Systematic at this # rotors
+  
+  //! What Auto resolves to, indexed by ROTATABLE-BOND COUNT.
+  /*!
+    A table, not a threshold: the right search is not monotone in rotor count,
+    so no min/max pair expresses it.  The last entry applies to every higher
+    count.  Measured on 772 PDBbind molecules at rot>=11, Systematic vs
+    Thompson (posteriorWeighting=Uniform):
+
+      band    n    sys %<1A   thompson    Cohen h   sys cost
+      11-12   315    19.7%      15.6%      -0.108      2.8x
+      13-15   205    14.1%      13.7%      -0.014     13.8x
+      16+     252     2.8%       3.2%      +0.023    103.3x
+
+    Systematic earns its keep at 11-12 and nowhere else: above 12 the two are
+    indistinguishable (p=1.0) while it costs 14-103x.
+
+    A Thompson entry still defers to the budget parameters -- with Thompson
+    switched off it means the Tree beam, as it always has.
+  */
+  static constexpr std::array<RigidRotorSearchMode, 14> AutoModeAtRotor = {
+      RigidRotorSearchMode::Thompson,    // 0
+      RigidRotorSearchMode::Thompson,    // 1
+      RigidRotorSearchMode::Thompson,    // 2
+      RigidRotorSearchMode::Thompson,    // 3
+      RigidRotorSearchMode::Thompson,    // 4
+      RigidRotorSearchMode::Thompson,    // 5
+      RigidRotorSearchMode::Thompson,    // 6
+      RigidRotorSearchMode::Thompson,    // 7
+      RigidRotorSearchMode::Thompson,    // 8
+      RigidRotorSearchMode::Thompson,    // 9
+      RigidRotorSearchMode::Thompson,    // 10
+      RigidRotorSearchMode::Systematic,  // 11
+      RigidRotorSearchMode::Systematic,  // 12
+      RigidRotorSearchMode::Thompson,    // 13 and every higher count
+  };
+
+  //! Table lookup, clamped: every count past the end takes the last entry.
+  static constexpr RigidRotorSearchMode autoModeForRotors(size_t nRotors) {
+    return AutoModeAtRotor[nRotors < AutoModeAtRotor.size()
+                               ? nRotors
+                               : AutoModeAtRotor.size() - 1];
+  }
+
   unsigned int rootSeeds = 6; //< max number of low energy fragments confs to seed in search
   unsigned int fragConfBranch = 4;
   std::shared_ptr<TorsionSampler> torsionSampler;
