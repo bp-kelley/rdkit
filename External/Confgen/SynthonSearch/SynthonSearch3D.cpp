@@ -334,7 +334,7 @@ void noteObserved(std::map<Reagents, double> &observed,
   }
 }
 
-void account(const std::vector<Request> &requests, const BatchResult &batch,
+void assembleStats(const std::vector<Request> &requests, const BatchResult &batch,
              std::vector<Trajectory> &trajectories, std::map<Reagents, double> &observed,
              MultipleTrajectoryStats &stats) {
   for (size_t i = 0; i < requests.size(); ++i) {
@@ -607,9 +607,7 @@ SynthonSearchResult synthonSearch3D(
 
   //! True when this reagent cannot contribute to any admissible product.
   auto reagentImpossible = [&](unsigned int position, unsigned int reagent) {
-    // Unconditional, unlike the size bound: a tombstoned synthon yields
-    // nothing buildable at all, so this is not a prune with a policy behind
-    // it, it is skipping work whose outcome is already known.
+    // Dynamic programming - skip work whos result is known
     if (lib.synthonUnusable(position, reagent)) {
       ++stats.deadReagentsSkipped;
       return true;
@@ -619,6 +617,24 @@ SynthonSearchResult synthonSearch3D(
     }
     if (reagentBound(position, reagent) < cutoff()) {
       ++stats.reagentsFiltered;
+      return true;
+    }
+    return false;
+  };
+
+  //! Psuedo shape-filter based on number of hvy atoms
+  auto sizeFilterOne = [&](const Reagents &reagents) {
+    if (!pruning) {
+      return false;
+    }
+    const unsigned int np = lib.productHeavyCount(reagents);
+    if (!np) {
+      return false;
+    }
+    const double lo = std::min<double>(params.queryHeavyAtoms, np);
+    const double hi = std::max<double>(params.queryHeavyAtoms, np);
+    if (hi > 0.0 && lo / hi < cutoff()) {
+      ++stats.sizeFiltered;
       return true;
     }
     return false;
@@ -668,6 +684,11 @@ SynthonSearchResult synthonSearch3D(
         if (reagentImpossible(position, reagent)) {
           continue;
         }
+        // Note:  don't filter away every sample, otherwise we can't
+	//  properly evaluate this window or, worse, entirely rely on the
+	//  size estimate which isn't really shape.
+        size_t kept = 0;
+        Reagents first;
         for (unsigned int sample = 0; sample < samples; ++sample) {
           Reagents candidate(lib.arity(), 0);
           for (unsigned int p = 0; p < lib.arity(); ++p) {
@@ -680,16 +701,26 @@ SynthonSearchResult synthonSearch3D(
                   0, lib.numReagents(p) - 1)(trajectory.rng);
             }
           }
+          if (sample == 0) {
+            first = candidate;
+          }
+          if (sizeFilterOne(candidate)) {
+            continue;  // cannot reach the cutoff: skip assembly AND scoring
+          }
           requests.push_back({trajectoryIndex, std::move(candidate)});
+          ++kept;
+        }
+        if (!kept) {
+          requests.push_back({trajectoryIndex, std::move(first)});
         }
       }
     }
 
-    // Deliberately NOT size-filtered: see sizeFilter's comment.  The sweep
-    // picks an argmax over partial assignments, so dropping candidates moves
-    // the winner rather than merely saving work.
+    // Deliberately NOT size-filtered: see sizeFilter's comment.
+    //  We still want an argmax of the samples to keep a realistic
+    //  estimate
     const auto batch = sharedScorer.score(requests);
-    account(requests, batch, trajectories, observed, stats);
+    assembleStats(requests, batch, trajectories, observed, stats);
     {
       SynthonPositionSweep sweep;
       sweep.position = position;
@@ -749,7 +780,7 @@ SynthonSearchResult synthonSearch3D(
   }
   {
     const auto batch = sharedScorer.score(seeds);
-    account(seeds, batch, trajectories, observed, stats);
+    assembleStats(seeds, batch, trajectories, observed, stats);
     for (size_t i = 0; i < seeds.size(); ++i) {
       if (batch.scores[i]) {
         trajectories[i].summary.score = *batch.scores[i];
@@ -784,7 +815,7 @@ SynthonSearchResult synthonSearch3D(
       }
       sizeFilter(requests);
       const auto batch = sharedScorer.score(requests);
-      account(requests, batch, trajectories, observed, stats);
+      assembleStats(requests, batch, trajectories, observed, stats);
       std::vector<double> bestScore(trajectories.size(),
                                     -std::numeric_limits<double>::infinity());
       std::vector<Reagents> bestCandidate(trajectories.size());
@@ -833,7 +864,7 @@ SynthonSearchResult synthonSearch3D(
           }
           sizeFilter(requests);
       const auto batch = sharedScorer.score(requests);
-          account(requests, batch, trajectories, observed, stats);
+          assembleStats(requests, batch, trajectories, observed, stats);
           std::vector<double> bestScore(
               trajectories.size(), -std::numeric_limits<double>::infinity());
           std::vector<Reagents> bestCandidate(trajectories.size());
