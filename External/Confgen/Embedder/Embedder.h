@@ -243,8 +243,6 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT Embedder {
                           std::vector<double> *energiesOut = nullptr,
                           bool cache = true) const;
 
-  static std::string cacheKey(const ROMol &frag);
-
   //! Generate a canoincal cache key for a molecule (here it is isomeric smiles
   //! with dummy
   //!  atoms.  Stereo dummy atoms are labeled with isotopes to preserve stereo

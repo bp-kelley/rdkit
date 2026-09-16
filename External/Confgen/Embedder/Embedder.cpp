@@ -470,30 +470,42 @@ bool embedFragment(RWMol &frag, const EmbedderParams &params) {
 
 }  // namespace
 
-std::string Embedder::cacheKey(const ROMol &frag) {
-  // XXX FIX ME -> this is currently unused.  It might or might not be important
-  //  at a later date to check enhanced stereo, but a single conf should
-  //  not be a mixture so...
-  // Canonical isomeric SMILES plus ONLY the enhanced-stereo CX tags: stable
-  // (no coordinates / atom labels / other CX noise) but still distinguishes
-  // fragments that differ solely in enhanced (AND/OR/relative) stereo.
+namespace {
+//! CX tag naming a declared atropisomer's axis, or "" when there is none.
+/*!
+  We need to tag fragments with atropisomers differently than non,
+  this just adds a suffix in this case.  Each cache key must encode
+  exactly one stereo configuration.
+*/
+std::string atropisomerSuffix(const ROMol &frag) {
+  bool any = false;
+  for (const auto b : frag.bonds()) {
+    if (b->getStereo() == Bond::STEREOATROPCW ||
+        b->getStereo() == Bond::STEREOATROPCCW) {
+      any = true;
+      break;
+    }
+  }
+  if (!any) {
+    return {};
+  }
   try {
-    SmilesWriteParams ps;  // canonical + isomeric by default
-    return MolToCXSmiles(frag, ps,
-                         SmilesWrite::CXSmilesFields::CX_ENHANCEDSTEREO);
+    SmilesWriteParams ps;
+    const std::string cx = MolToCXSmiles(
+        frag, ps, SmilesWrite::CXSmilesFields::CX_BOND_CFG);
+    const size_t bar = cx.find(" |");
+    return bar == std::string::npos ? std::string() : cx.substr(bar);
   } catch (...) {
-    return std::string();
+    return {};
   }
 }
+}  // namespace
 
 std::string Embedder::generateKey(RWMol &frag, bool remap,
                                  std::vector<unsigned int> *outOrder) {
   static const char *kExitIsoProp = "_fraglibExitIso";
 
-  // Exit-vector isotopes are per-cut bookkeeping for zipping, not fragment
-  // identity: stash them so the key ignores which junction-index labels a
-  // fragment carries.  They ride along through renumberAtoms and are restored
-  // at the end.
+  // Remove book-keeping data before making the key
   std::vector<unsigned int> exitDummies;
   for (auto atom : frag.atoms()) {
     if (atom->getAtomicNum() == 0 && atom->getIsotope() > 0) {
@@ -545,6 +557,7 @@ std::string Embedder::generateKey(RWMol &frag, bool remap,
         }
       }
       key = MolToSmiles(frag);
+      key += atropisomerSuffix(frag);
     } else {
       // Canonically DISAMBIGUATE the chiral exits: try every assignment of the
       // small isotopes {1..k} and keep the one with the
@@ -561,7 +574,7 @@ std::string Embedder::generateKey(RWMol &frag, bool remap,
         for (unsigned int i = 0; i < chiralExits.size(); ++i) {
           frag.getAtomWithIdx(chiralExits[i])->setIsotope(perm[i]);
         }
-        const std::string s = MolToSmiles(frag);
+        const std::string s = MolToSmiles(frag) + atropisomerSuffix(frag);
         if (key.empty() || s < key) {
           key = s;
           best = perm;
