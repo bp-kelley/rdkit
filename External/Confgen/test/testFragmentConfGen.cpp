@@ -24,7 +24,7 @@
 #include <Confgen/FragmentConfGen.h>
 #include <Confgen/Search/InterFragScore.h>
 #include <Confgen/Sampler/TorsionSampler.h>
-#include <Confgen/Embedder/Fraglib.h>
+#include <Confgen/Embedder/Embedder.h>
 #include <Confgen/Utils/ParamSentinels.h>
 #include <Confgen/Utils/ParamsIO.h>
 #include <Confgen/Search/RotorDriver.h>
@@ -319,27 +319,27 @@ boost::shared_ptr<RWMol> relabelAndScramble(const ROMol &piece) {
 }
 }  // namespace
 
-TEST_CASE("Fraglib::generateKey is label-agnostic and canonicalizes order",
+TEST_CASE("Embedder::generateKey is label-agnostic and canonicalizes order",
           "[generatekey]") {
-  using RDKit::Fraglib;
+  using RDKit::Embedder;
 
   SECTION("exit-vector isotope labels do not change the key") {
     auto a = std::unique_ptr<RWMol>(new RWMol(*SmilesToMol("[1000*]c1ccccc1")));
     auto b = std::unique_ptr<RWMol>(new RWMol(*SmilesToMol("[1007*]c1ccccc1")));
     REQUIRE(a);
     REQUIRE(b);
-    CHECK(Fraglib::generateKey(*a) == Fraglib::generateKey(*b));
+    CHECK(Embedder::generateKey(*a) == Embedder::generateKey(*b));
     // ... but a genuinely different fragment differs
     auto c = std::unique_ptr<RWMol>(new RWMol(*SmilesToMol("[1000*]c1ccncc1")));
     REQUIRE(c);
-    CHECK(Fraglib::generateKey(*a) != Fraglib::generateKey(*c));
+    CHECK(Embedder::generateKey(*a) != Embedder::generateKey(*c));
   }
 
   SECTION("the fragment keeps its own isotopes after keying") {
     auto a =
         std::unique_ptr<RWMol>(new RWMol(*SmilesToMol("[1000*]CCO[1001*]")));
     REQUIRE(a);
-    Fraglib::generateKey(*a);
+    Embedder::generateKey(*a);
     std::vector<unsigned int> isos;
     for (const auto atom : a->atoms()) {
       if (atom->getAtomicNum() == 0) {
@@ -359,8 +359,8 @@ TEST_CASE("Fraglib::generateKey is label-agnostic and canonicalizes order",
         new RWMol(*SmilesToMol("[2001*]OCC[2000*]")));  // dummy-O-C-C-dummy
     REQUIRE(a);
     REQUIRE(b);
-    const std::string ka = Fraglib::generateKey(*a);  // canonicalizes *a
-    const std::string kb = Fraglib::generateKey(*b);  // canonicalizes *b
+    const std::string ka = Embedder::generateKey(*a);  // canonicalizes *a
+    const std::string kb = Embedder::generateKey(*b);  // canonicalizes *b
     CHECK(ka == kb);
     REQUIRE(a->getNumAtoms() == b->getNumAtoms());
     // atom-for-atom the two are now in the same canonical order
@@ -385,18 +385,18 @@ TEST_CASE("Fraglib::generateKey is label-agnostic and canonicalizes order",
         new RWMol(*SmilesToMol("[1001*]OCC[1000*]")));  // non-canonical order
     auto b = std::unique_ptr<RWMol>(new RWMol(*a));
     REQUIRE(a);
-    const std::string kRemap = Fraglib::generateKey(*a, /*remap=*/true);
-    const std::string kNo = Fraglib::generateKey(*b, /*remap=*/false);
+    const std::string kRemap = Embedder::generateKey(*a, /*remap=*/true);
+    const std::string kNo = Embedder::generateKey(*b, /*remap=*/false);
     CHECK(kRemap == kNo);  // key is canonical regardless of reordering
   }
 
   SECTION("fragment with no exit vectors is handled") {
     auto a = std::unique_ptr<RWMol>(new RWMol(*SmilesToMol("c1ccccc1")));
     REQUIRE(a);
-    const std::string k = Fraglib::generateKey(*a);
+    const std::string k = Embedder::generateKey(*a);
     CHECK(!k.empty());
     // idempotent: keying an already-canonical fragment gives the same key
-    CHECK(Fraglib::generateKey(*a) == k);
+    CHECK(Embedder::generateKey(*a) == k);
   }
 
   SECTION(
@@ -415,8 +415,8 @@ TEST_CASE("Fraglib::generateKey is label-agnostic and canonicalizes order",
 
     auto ag = std::unique_ptr<RWMol>(new RWMol(*a));
     auto agRev = std::unique_ptr<RWMol>(new RWMol(*aRev));
-    const std::string k1 = Fraglib::generateKey(*ag);
-    const std::string k2 = Fraglib::generateKey(*agRev);
+    const std::string k1 = Embedder::generateKey(*ag);
+    const std::string k2 = Embedder::generateKey(*agRev);
     INFO("chiral-rotor key1=" << k1 << " key2=" << k2);
     CHECK(k1 == k2);                            // order-stable now
     CHECK(k1.find("1*") != std::string::npos);  // chiral exits got small marks
@@ -431,8 +431,8 @@ TEST_CASE("Fraglib::generateKey is label-agnostic and canonicalizes order",
         new RWMol(*SmilesToMol("[1000*][C@H](CC)[1001*]")));
     REQUIRE(cached);
     auto query = relabelAndScramble(*cached);
-    const std::string kc = Fraglib::generateKey(*cached);
-    const std::string kq = Fraglib::generateKey(*query);
+    const std::string kc = Embedder::generateKey(*cached);
+    const std::string kq = Embedder::generateKey(*query);
     INFO("kc=" << kc << " kq=" << kq);
     CHECK(kc == kq);
     REQUIRE(cached->getNumAtoms() == query->getNumAtoms());
@@ -459,8 +459,8 @@ TEST_CASE("Fraglib::generateKey is label-agnostic and canonicalizes order",
     auto query = std::unique_ptr<RWMol>(
         new RWMol(*SmilesToMol("[1000*][C@@H](CC)[1001*]")));  // requested
     REQUIRE(MolToSmiles(*cached) != MolToSmiles(*query));  // truly different
-    const std::string kc = Fraglib::generateKey(*cached);  // canonicalizes
-    const std::string kq = Fraglib::generateKey(*query);
+    const std::string kc = Embedder::generateKey(*cached);  // canonicalizes
+    const std::string kq = Embedder::generateKey(*query);
     CHECK(kc == kq);  // same cache entry (dedup)
     REQUIRE(cached->getNumAtoms() == query->getNumAtoms());
     const auto exits = exitIdxs(*cached);
@@ -508,8 +508,8 @@ TEST_CASE("Fraglib::generateKey is label-agnostic and canonicalizes order",
         auto cached = boost::make_shared<RWMol>(*piece);  // the "stored" one
         auto query = relabelAndScramble(*piece);          // the "lookup" one
 
-        const std::string kc = Fraglib::generateKey(*cached);  // canonicalizes
-        const std::string kq = Fraglib::generateKey(*query);   // canonicalizes
+        const std::string kc = Embedder::generateKey(*cached);  // canonicalizes
+        const std::string kq = Embedder::generateKey(*query);   // canonicalizes
         INFO("fragment key(cached)=" << kc << " key(query)=" << kq);
         CHECK(kc == kq);  // label- and order-agnostic
 
@@ -589,15 +589,15 @@ TEST_CASE("FragmentConfGenResult::isValid flags MMFF-untypeable molecules",
     CHECK(gen.build(*saltOfDrug).resultType() == FragConfGenResultType::OK);
   }
 
-  SECTION("Fraglib still embeds boron fragments (DG/ETKDG need no MMFF)") {
+  SECTION("Embedder still embeds boron fragments (DG/ETKDG need no MMFF)") {
     std::unique_ptr<ROMol> mol(SmilesToMol("B1(OCc2c1ccc(c2)F)O"));
     REQUIRE(mol);
-    FraglibParams fp;
+    EmbedderParams fp;
     fp.numConfsPerFragment = 4;
     fp.randomSeed = 0xf00d;
     fp.minimizeMode =
         FragmentMinimize::Full;  // must be skipped gracefully, not crash
-    Fraglib lib(fp);
+    Embedder lib(fp);
     ROMOL_SPTR e = lib.get(*mol);
     REQUIRE(e);
     CHECK(e->getNumConformers() >=
@@ -605,8 +605,8 @@ TEST_CASE("FragmentConfGenResult::isValid flags MMFF-untypeable molecules",
   }
 }
 
-TEST_CASE("Fraglib embed cache", "[fraglib]") {
-  FraglibParams params;
+TEST_CASE("Embedder embed cache", "[embedder]") {
+  EmbedderParams params;
   params.numConfsPerFragment = 4;
   params.randomSeed = 0xf00d;
 
@@ -625,7 +625,7 @@ TEST_CASE("Fraglib embed cache", "[fraglib]") {
 
   SECTION(
       "embeds on first get, caches on second (returns a fresh owned copy)") {
-    Fraglib lib(params);
+    Embedder lib(params);
     CHECK(lib.size() == 0);
 
     auto benzene = mol("c1ccccc1");
@@ -671,17 +671,17 @@ TEST_CASE("Fraglib embed cache", "[fraglib]") {
     auto ring = mol("C1CCCCC1");
     REQUIRE(ring);
 
-    Fraglib def(params);  // empty classParams -> built-in recipe
+    Embedder def(params);  // empty classParams -> built-in recipe
     ROMOL_SPTR d = def.get(*ring);
     REQUIRE(d);
     CHECK(d->getNumConformers() >= 1);
 
-    FraglibParams ov = params;
+    EmbedderParams ov = params;
     FragmentParams sr = getDefaultFragmentParams(FragmentClass::SmallRing);
     sr.maxConfs = 1;  // keep exactly one
     ov.setClassParam(FragmentClass::SmallRing,
                      sr);  // helper == classParams[cls] = sr
-    Fraglib lib(ov);
+    Embedder lib(ov);
     ROMOL_SPTR m = lib.get(*ring);
     REQUIRE(m);
     CHECK(m->getNumConformers() == 1);  // the override took effect
@@ -689,11 +689,11 @@ TEST_CASE("Fraglib embed cache", "[fraglib]") {
 
     // the override is keyed by CLASS: an Acyclic override leaves the SmallRing
     // fragment alone.
-    FraglibParams other = params;
+    EmbedderParams other = params;
     FragmentParams ac = getDefaultFragmentParams(FragmentClass::Acyclic);
     ac.maxConfs = 1;
     other.classParams[FragmentClass::Acyclic] = ac;
-    Fraglib lib2(other);
+    Embedder lib2(other);
     ROMOL_SPTR m2 = lib2.get(*ring);
     REQUIRE(m2);
     CHECK(m2->getNumConformers() == d->getNumConformers());  // unaffected
@@ -702,7 +702,7 @@ TEST_CASE("Fraglib embed cache", "[fraglib]") {
   SECTION(
       "exit-vector fragments are label-agnostic; copy keeps the caller's id") {
     // isotope-labelled exit vectors, as produced by the joiner's cuts
-    Fraglib lib(params);
+    Embedder lib(params);
     auto frag = mol("[1000*]c1ccccc1");
     REQUIRE(frag);
     ROMOL_SPTR m = lib.get(*frag);
@@ -724,7 +724,7 @@ TEST_CASE("Fraglib embed cache", "[fraglib]") {
   }
 
   SECTION("unembeddable fragment returns null") {
-    Fraglib lib(params);
+    Embedder lib(params);
     // a lone dummy has nothing to embed once promoted to H
     auto empty = mol("[1000*]");
     REQUIRE(empty);
@@ -735,7 +735,7 @@ TEST_CASE("Fraglib embed cache", "[fraglib]") {
   }
 
   SECTION("serialize / initFromStream round-trips the cache with conformers") {
-    Fraglib lib(params);
+    Embedder lib(params);
     auto benzene = mol("c1ccccc1");
     auto etohFrag = mol("[1000*]CCO");
     REQUIRE(benzene);
@@ -752,11 +752,11 @@ TEST_CASE("Fraglib embed cache", "[fraglib]") {
 
     // Construct the target with DIFFERENT params to prove initFromStream
     // restores the serialized embedding params, not the constructor's.
-    FraglibParams other;
+    EmbedderParams other;
     other.numConfsPerFragment = 99;
     other.fragmentEmbedMode = FragmentEmbedMode::DG;
     other.randomSeed = 12345;
-    Fraglib loaded(other);
+    Embedder loaded(other);
     loaded.initFromStream(ss);
     CHECK(loaded.size() == 2);
     CHECK(loaded.params().numConfsPerFragment == params.numConfsPerFragment);
@@ -786,11 +786,11 @@ TEST_CASE("Fraglib embed cache", "[fraglib]") {
   SECTION("fragmentAndEmbed uses an injected shared cache") {
     // A shared cache passed through params should be populated by the fragment
     // embedding step and reused; the cut fragments must land in it.
-    auto sharedLib = std::make_shared<Fraglib>(params);
+    auto sharedLib = std::make_shared<Embedder>(params);
     FragmentConfGenParams p;
     p.embedding.numConfsPerFragment = params.numConfsPerFragment;
     p.randomSeed = params.randomSeed;
-    p.fraglib = sharedLib;
+    p.embedder = sharedLib;
 
     auto biphenyl = mol("c1ccccc1-c1ccccc1");
     REQUIRE(biphenyl);
@@ -808,11 +808,11 @@ TEST_CASE("Fraglib embed cache", "[fraglib]") {
     // recur across inputs, so caching them is the point.  This previously used a separate
     // private cache, which meant the same molecule was re-embedded on every call and left one
     // code path silently using different embedding parameters from the rest of the pipeline.
-    auto sharedLib = std::make_shared<Fraglib>(params);
+    auto sharedLib = std::make_shared<Embedder>(params);
     FragmentConfGenParams p;
     p.embedding.numConfsPerFragment = params.numConfsPerFragment;
     p.randomSeed = params.randomSeed;
-    p.fraglib = sharedLib;
+    p.embedder = sharedLib;
 
     auto benzene = mol("c1ccccc1");  // no rotatable bonds -> not fragmented
     REQUIRE(benzene);
@@ -829,12 +829,12 @@ TEST_CASE("Fraglib embed cache", "[fraglib]") {
   }
 
   SECTION("a generator with no injected library still gets one") {
-    // The constructor guarantees d_params.fraglib is never null, so every path can use it
+    // The constructor guarantees d_params.embedder is never null, so every path can use it
     // unconditionally -- that invariant is what removed the private-cache branch.
     FragmentConfGenParams p;
     p.embedding.numConfsPerFragment = params.numConfsPerFragment;
     p.randomSeed = params.randomSeed;
-    const FragmentConfGen gen(p);          // no p.fraglib set
+    const FragmentConfGen gen(p);          // no p.embedder set
     auto biphenyl = mol("c1ccccc1-c1ccccc1");
     REQUIRE(biphenyl);
     std::vector<unsigned int> links;
@@ -1658,27 +1658,27 @@ TEST_CASE("createFragmentConfGen validates params and builds",
     // A library built with a different embedding holds fragments that do not
     // mean what this run expects.  This used to be a per-molecule throw from
     // inside build(); it is a property of the parameters, so it belongs to
-    // validate() -- and setFraglib() applies it at the point of assignment.
+    // validate() -- and setEmbedder() applies it at the point of assignment.
     FragmentConfGenParams p;
-    FraglibParams other = p.embedding;
+    EmbedderParams other = p.embedding;
     other.numConfsPerFragment = p.embedding.numConfsPerFragment + 7;
-    auto wrongLib = std::make_shared<Fraglib>(other);
+    auto wrongLib = std::make_shared<Embedder>(other);
 
-    CHECK_THROWS_AS(p.setFraglib(wrongLib), std::invalid_argument);
-    CHECK(p.fraglib == nullptr);   // rejected: parameters left as they were
+    CHECK_THROWS_AS(p.setEmbedder(wrongLib), std::invalid_argument);
+    CHECK(p.embedder == nullptr);   // rejected: parameters left as they were
     CHECK(p.validate().empty());
 
-    // assigning the field directly bypasses setFraglib, so validate() (and
+    // assigning the field directly bypasses setEmbedder, so validate() (and
     // therefore createFragmentConfGen) has to catch it too
-    p.fraglib = wrongLib;
+    p.embedder = wrongLib;
     CHECK_FALSE(p.validate().empty());
     CHECK_THROWS_AS(createFragmentConfGen(p), std::invalid_argument);
 
     // ... and a matching library is accepted
     FragmentConfGenParams q;
-    auto goodLib = std::make_shared<Fraglib>(q.embedding);
-    CHECK_NOTHROW(q.setFraglib(goodLib));
-    CHECK(q.fraglib == goodLib);
+    auto goodLib = std::make_shared<Embedder>(q.embedding);
+    CHECK_NOTHROW(q.setEmbedder(goodLib));
+    CHECK(q.embedder == goodLib);
     CHECK(q.validate().empty());
   }
 }

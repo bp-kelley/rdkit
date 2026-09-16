@@ -291,7 +291,7 @@ void visitFields(P &p, V &v) {
 
 
 
-  v("diagnostics.FRAGLIB_TRACE", p.diagnostics.FRAGLIB_TRACE);
+  v("diagnostics.EMBEDDER_TRACE", p.diagnostics.EMBEDDER_TRACE);
   v("diagnostics.ASM_PROFILE", p.diagnostics.ASM_PROFILE);
   v("diagnostics.ASM_INCRSTATS", p.diagnostics.ASM_INCRSTATS);
   v("diagnostics.ASM_SCOREVALIDATE", p.diagnostics.ASM_SCOREVALIDATE);
@@ -437,7 +437,7 @@ std::string trim(const std::string &s) {
 void writeFragmentConfGenParams(std::ostream &os,
                                 const FragmentConfGenParams &p) {
   os << "# FragmentConfGen parameters (key = value; '#' comments; dotted sub-struct keys).\n"
-     << "# torsionSampler and fraglib are runtime-wired, not serialized here.\n";
+     << "# torsionSampler and embedder are runtime-wired, not serialized here.\n";
   Writer w{os};
   visitFields(p, w);
 }
@@ -479,6 +479,7 @@ std::string readFragmentConfGenParams(std::istream &is,
   // settings it was actually built with.  Genuine typos still fail.
   static const std::set<std::string> retired = {
       "search.thompson.flatContext",
+      "diagnostics.FRAGLIB_TRACE",  // renamed to EMBEDDER_TRACE
       "search.autoSystematicMinRotors",
       "search.autoSystematicMaxRotors",
   };
@@ -502,7 +503,7 @@ FragmentConfGenParams resolvedFragmentConfGenParams(
   FragmentConfGenParams r = p;
 
   // --- derivations that FragmentConfGen::build applies before running anything
-  // ------------- one force field for the whole pipeline (see getFraglibParams)
+  // ------------- one force field for the whole pipeline (see getEmbedderParams)
   r.embedding.ffVariant = r.joiner.ffVariant;
   // the search beam runs on a WIDER window than the output keep-window
   r.search.energyWindow = r.energyWindow > 0 ? r.energyWindow * 2.5 : 25.0;

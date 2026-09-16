@@ -54,7 +54,7 @@ void usage(const char *argv0) {
                "      --no-prefill     skip embedding entirely\n"
                "      --threads N      prefill workers (0 = all cores)\n"
                "      --fraglib FILE   fragment file to create or append to\n"
-               "                       Note: keep the same fraglib for each reaction.\n"
+               "                       Note: keep the same embedder for each reaction.\n"
                "  -h/--help\n";
 }
 
@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
   int productConfs = -1;
   bool prefill = true;
   unsigned int threads = 1;
-  std::string fraglibPath;
+  std::string embedderPath;
 
   for (int i = 1; i < argc; ++i) {
     const std::string a = argv[i];
@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
     } else if (a == "--threads") {
       threads = static_cast<unsigned int>(std::stoul(val("--threads")));
     } else if (a == "--fraglib") {
-      fraglibPath = val("--fraglib");
+      embedderPath = val("--fraglib");
     } else if (a == "--no-prefill") {
       prefill = false;
     } else if (a == "-h" || a == "--help") {
@@ -268,7 +268,7 @@ int main(int argc, char **argv) {
         "[gensynthonlib] this synthon reaction closes %u ring(s): pre-creating final rigid fragments\n",
         rings);
   }
-  params.prefillFraglib = prefill;
+  params.prefillEmbedder = prefill;
   
   // Embedding overrides, mostly heuristic
   // If we miss some ring forms, this might be where it happens.
@@ -286,7 +286,7 @@ int main(int argc, char **argv) {
     }
     params.confgen.embedding.classParams = cp;
   }
-  params.storeFraglib = true;
+  params.storeEmbedder = true;
   if (productConfs > 0) {
     params.confgen.numOutputConfs = productConfs;
   }
@@ -304,22 +304,22 @@ int main(int argc, char **argv) {
               prefill ? "yes" : "no");
   std::fflush(stdout);
 
-  // We always add to the shared fraglib
-  std::shared_ptr<Fraglib> shared;
-  if (!fraglibPath.empty()) {
-    FraglibParams flp = params.confgen.embedding;
+  // We always add to the shared embedder
+  std::shared_ptr<Embedder> shared;
+  if (!embedderPath.empty()) {
+    EmbedderParams flp = params.confgen.embedding;
     flp.randomSeed = params.confgen.randomSeed;
     flp.ffVariant = params.confgen.joiner.ffVariant;
-    shared = std::make_shared<Fraglib>(flp);
-    std::ifstream in(fraglibPath, std::ios_base::binary);
+    shared = std::make_shared<Embedder>(flp);
+    std::ifstream in(embedderPath, std::ios_base::binary);
     if (in) {
       shared->initFromStream(in);
-      std::printf("[gensynthonlib] shared fraglib: %zu entries on entry\n",
+      std::printf("[gensynthonlib] shared embedder: %zu entries on entry\n",
                   shared->size());
     }
-    params.confgen.fraglib = shared;
-    params.prefillFraglib = false;  
-    params.storeFraglib = false;    
+    params.confgen.embedder = shared;
+    params.prefillEmbedder = false;  
+    params.storeEmbedder = false;    
   }
 
   const double t0 = nowMs();
@@ -355,8 +355,8 @@ int main(int argc, char **argv) {
   //  trying to make them.  Report them per position and price them in
   //  products, because "15 dead synthons" and "111k dead products" are the
   //  same fact and only the second one tells you whether to care.
-  if (lib.fraglib()) {
-    if (const size_t bad = lib.fraglib()->numUnembeddable()) {
+  if (lib.embedder()) {
+    if (const size_t bad = lib.embedder()->numUnembeddable()) {
       std::printf(
 		  "[gensynthonlib] WARNING: %zu synthon(s) marked as unusable\n",
 		  bad);
@@ -397,7 +397,7 @@ int main(int argc, char **argv) {
         "%.1f s\n",
         threads, added, shared->size(), (nowMs() - p0) / 1000.0);
 
-    std::ofstream out(fraglibPath, std::ios_base::binary);
+    std::ofstream out(embedderPath, std::ios_base::binary);
     if (out) {
       shared->serialize(out);
     }

@@ -46,7 +46,7 @@
 #include <Confgen/FragmentConfGen.h>
 #include <Confgen/Search/InterFragScore.h>
 #include <Confgen/Sampler/TorsionSampler.h>
-#include <Confgen/Embedder/Fraglib.h>
+#include <Confgen/Embedder/Embedder.h>
 #include <Confgen/Joiner/FragmentJoiner.h>
 #include <Confgen/Search/RigidRotorSearch.h>
 #include <Confgen/Utils/ParamsIO.h>
@@ -556,9 +556,9 @@ void runPlatinum() {
   // Optional warm fragment cache (production scenario): identical geometry to
   // the cold build (same seed/embed), just embedding served from the cache ->
   // lets us report warm-cache timing next to the cold-cache RMSD.
-  std::shared_ptr<Fraglib> lib;
+  std::shared_ptr<Embedder> lib;
   if (const char *libEnv = std::getenv("FRAGLIB")) {
-    lib = std::make_shared<Fraglib>();
+    lib = std::make_shared<Embedder>();
     std::ifstream in(libEnv);
     if (!in) {
       std::cerr << "platinum: cannot open FRAGLIB " << libEnv << "\n";
@@ -573,7 +573,7 @@ void runPlatinum() {
   }
   FragmentConfGenParams pWarm = pCold;
   if (lib) {
-    pWarm.fraglib = lib;
+    pWarm.embedder = lib;
     // PLATINUM_FRAGLIB_GEOM: use the loaded library for the ACCURACY (cold)
     // path too -- substitute its fragment GEOMETRY into the measured ensemble
     // (fragment isolation experiment).  Cache HIT -> loaded conformers;
@@ -582,14 +582,14 @@ void runPlatinum() {
     if (std::getenv("PLATINUM_FRAGLIB_GEOM")) {
       std::cerr << "platinum: FRAGLIB_GEOM on -- " << lib->size()
                 << " loaded fragments feed the accuracy path\n";
-      pCold.fraglib = lib;
+      pCold.embedder = lib;
     }
   }
 
   // torlib+backstop variant: Hamburg TorsionLibrary preferred angles unioned
   // with a coarse uniform-grid backstop (kills crowded-junction outliers).
   // Needs the external TorsionLibrary.xml; skipped if it can't be loaded.  Same
-  // fraglib works (embedding is sampler-independent; only the assembly torsion
+  // embedder works (embedding is sampler-independent; only the assembly torsion
   // sweep changes).
   bool doTlib = false;
   FragmentConfGenParams pTlibCold = pCold;
@@ -805,7 +805,7 @@ void runPlatinum() {
     }
       };
   // Fresh per-thread params: each worker owns its samplers so concurrent
-  // build()s never share sampler state (the fraglib IS shared -- it is
+  // build()s never share sampler state (the embedder IS shared -- it is
   // thread-safe).
   auto makeParams = [&](FragmentConfGenParams &pc, FragmentConfGenParams &pw,
                         FragmentConfGenParams &ptc,
@@ -872,7 +872,7 @@ void runPlatinum() {
       pc.search.thompson.perFragConf = std::atoi(e);
     pw = pc;
     if (lib) {
-      pw.fraglib = lib;
+      pw.embedder = lib;
     }
     ptc = pc;
     ptw = pw;
@@ -2112,13 +2112,13 @@ void runMatrix() {
 
         // Per-cell in-memory shared library, embedding-matched to `base` so the
         // load guard is satisfied and pass 2 is genuinely warm.
-        FraglibParams flp;
+        EmbedderParams flp;
         flp.numConfsPerFragment = base.embedding.numConfsPerFragment;
         flp.fragmentEmbedMode = base.embedding.fragmentEmbedMode;
         flp.randomSeed = seed;
         flp.minimizeMode = base.embedding.minimizeMode;
         flp.classParams = base.embedding.classParams;
-        base.fraglib = std::make_shared<Fraglib>(flp);
+        base.embedder = std::make_shared<Embedder>(flp);
 
         double coldMs = 0.0, warmMs = 0.0, genN = 0.0;
         size_t lt1 = 0, lt2 = 0, scored = 0;
@@ -2501,7 +2501,7 @@ void runPocCtx() {
 // fragrank: SAMPLING vs RANKING diagnostic for flexible-ring fragments
 // ---------------------------------------------------------------------------
 
-//! Replicates Fraglib.cpp's classifyFragment (which lives in an anonymous
+//! Replicates Embedder.cpp's classifyFragment (which lives in an anonymous
 //! namespace and cannot be linked here) for a fragment CORE submol.  Returns
 //! the flexible-ring class as a small code: 1=SmallRing (5-9-membered
 //! saturated), 2=LargeRing (>=10), 0=other (Rigid: all-aromatic / <=4-membered
@@ -3624,7 +3624,7 @@ void runXtalRecon() {
   if (!embed)
     setenv("ASM_EXACT_GEOM", "1", 1);  // else buildFragmentJoinerInput embeds
 
-  // XTAL_OVERSAMPLE: run the warm-path fraglib with an oversampled pool +
+  // XTAL_OVERSAMPLE: run the warm-path embedder with an oversampled pool +
   // RMSD-diverse selection.  ETKDG -> keep ETKDG coords, RANK by shrugged-MMFF
   // energy (FRAGLIB_SCORE_SHRUG); DG (XTAL_DG) -> MMFF-min each (loose 0.25
   // gradient) and keep the minimised coords.
@@ -3635,9 +3635,9 @@ void runXtalRecon() {
   // + shrug-score).
   const bool etkdgMin = std::getenv("XTAL_ETKDG_MIN") != nullptr;
   const bool doMin = useDGtop || etkdgMin;
-  std::shared_ptr<Fraglib> lib;
+  std::shared_ptr<Embedder> lib;
   if (oversample) {
-    FraglibParams flp;
+    EmbedderParams flp;
     flp.perClassEmbedding = false;  // xtalrecon uses an explicit flat pool/keep
     flp.fragmentEmbedMode =
         useDGtop ? FragmentEmbedMode::DG : FragmentEmbedMode::ETKDG;
@@ -3657,7 +3657,7 @@ void runXtalRecon() {
         std::getenv("XTAL_POOL") ? std::atoi(std::getenv("XTAL_POOL")) : 1000;
     flp.setFlatPool(xtalPool);
     flp.randomSeed = seed;
-    lib = std::make_shared<Fraglib>(flp);
+    lib = std::make_shared<Embedder>(flp);
     const char *label = useDGtop   ? "DG+MMFF(loose)"
                         : etkdgMin ? "ETKDG+MMFF(loose)"
                                    : "ETKDG+shrug-score";
@@ -3756,7 +3756,7 @@ void runXtalRecon() {
       const bool useDG = std::getenv("XTAL_DG") != nullptr;
       const bool fragMin = embed && (useDG || !std::getenv("XTAL_EMBED_RAW"));
       // warm path (oversample lib) ignores the useDG/minMMFF args -- its
-      // FraglibParams govern.
+      // EmbedderParams govern.
       FragmentJoinerInput in = buildFragmentJoinerInput(
           *m, embed ? 16 : 1, seed, var, useDG, /*minMMFF=*/fragMin, lib.get());
       if (!in.mol || in.fragments.size() < 2 || in.junctions.empty()) continue;
@@ -4362,7 +4362,7 @@ void runBank() {
   const bool useTorlib = std::getenv("BANK_TORLIB") != nullptr;
   const std::string paramsOverride =
       loadParamsOverrideText();  // FRAGCG_PARAMS override file
-  // ONE shared fragment cache for all worker threads (Fraglib is thread-safe:
+  // ONE shared fragment cache for all worker threads (Embedder is thread-safe:
   // mutex-guarded map, masters immutable once inserted).  Without this each of
   // the N threads builds its own private cache -> N copies of every embedded
   // fragment -> memory blows up under parallel runs (and no cross-thread
@@ -4377,14 +4377,14 @@ void runBank() {
   sharedTmpl.joiner.ffVariant = mmff;  // as the per-molecule pp below sets it
   if (!paramsOverride.empty())
     RDKit::fragmentConfGenParamsFromString(paramsOverride, sharedTmpl);
-  FraglibParams sharedFlp = sharedTmpl.embedding;
-  // getFraglibParams() drives the embedder's variant from the joiner's (one
-  // force field for the whole pipeline).  This path builds the Fraglib
+  EmbedderParams sharedFlp = sharedTmpl.embedding;
+  // getEmbedderParams() drives the embedder's variant from the joiner's (one
+  // force field for the whole pipeline).  This path builds the Embedder
   // directly, so apply the same rule -- otherwise the shared cache embeds under
   // a different force field than every per-molecule run assumes.
   sharedFlp.ffVariant = sharedTmpl.joiner.ffVariant;
   sharedFlp.randomSeed = seed;
-  auto sharedLib = std::make_shared<Fraglib>(sharedFlp);
+  auto sharedLib = std::make_shared<Embedder>(sharedFlp);
   // BANK_FRAGLIB: preload a CANNED library built offline by genFragLib -- the
   // shipping warm-cache scenario, as opposed to BANK_SHARE's within-run
   // warming.  Implies BANK_SHARE (a preloaded library is useless unpassed).
@@ -4559,7 +4559,7 @@ void runBank() {
           pp.numOutputConfs = maxConfs;
           pp.randomSeed = seed;
           if (haveCannedLib || std::getenv("BANK_SHARE"))
-            pp.fraglib = sharedLib;  // opt-in: cross-molecule reuse (SPEED), at
+            pp.embedder = sharedLib;  // opt-in: cross-molecule reuse (SPEED), at
                                      // the cost of
           // accumulating every unique fragment for the whole run (MORE memory,
           // not less -- the default per-build cache is per-molecule and tiny).

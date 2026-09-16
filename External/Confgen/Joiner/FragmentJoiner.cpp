@@ -15,7 +15,7 @@
 #include <GraphMol/MolOps.h>
 #include <GraphMol/ChemTransforms/MolFragmenter.h>
 #include <GraphMol/DistGeomHelpers/Embedder.h>
-#include "Embedder/Fraglib.h"
+#include "Embedder/Embedder.h"
 #include "Utils/SymmetricRmsd.h"
 #include <GraphMol/ForceFieldHelpers/MMFF/AtomTyper.h>
 #include <GraphMol/ForceFieldHelpers/MMFF/Builder.h>
@@ -352,7 +352,7 @@ std::vector<double> embedMin(RWMol &m, unsigned int nConfs, int seed,
 FragmentJoinerInput buildFragmentJoinerInput(
     const ROMol &input, unsigned int nConfs, int seed,
     const std::string &ffVariant, bool fragUseDG, bool fragMinimizeFF,
-    const Fraglib *lib, const FragmentJoinerParams *asmParams,
+    const Embedder *lib, const FragmentJoinerParams *asmParams,
     const std::vector<unsigned int> *linkBondsOverride) {
   FragmentJoinerInput out;
 

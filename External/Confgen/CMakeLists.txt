@@ -1,7 +1,7 @@
 
 rdkit_library(FragmentConfGen
 		    FragmentConfGen.cpp
-		    Embedder/Fraglib.cpp
+		    Embedder/Embedder.cpp
 		    Search/RotorDriver.cpp
 		    Search/InterFragScore.cpp
 		    Search/TreeSearch.cpp
@@ -34,7 +34,7 @@ if(TARGET FragmentConfGen_static)
 endif()
 
 rdkit_headers(	      FragmentConfGen.h
-	      Embedder/Fraglib.h
+	      Embedder/Embedder.h
 	      Sampler/TorsionSampler.h
 	      Sampler/TorsionSymmetries.h
 	      SynthonSearch/EnumerateSynthons3D.h

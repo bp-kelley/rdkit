@@ -16,7 +16,7 @@
 namespace RDKit {
 
 struct RDKIT_FRAGMENTCONFGEN_EXPORT DiagnosticsParams {
-  bool FRAGLIB_TRACE = false;  //!< Embedder
+  bool EMBEDDER_TRACE = false;  //!< Embedder
   bool ASM_PROFILE = false;    //!< Joiner:  whole-process timing
   bool ASM_INCRSTATS = false;  //!< Joiner:  rigid FF score statistics
   bool ASM_SCOREVALIDATE =

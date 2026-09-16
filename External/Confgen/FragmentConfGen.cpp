@@ -7,7 +7,7 @@
 //  of the RDKit source tree.
 //
 #include "FragmentConfGen.h"
-#include "Embedder/Fraglib.h"
+#include "Embedder/Embedder.h"
 #include "Joiner/FragmentJoiner.h"
 #include "Joiner/JoinerProfiling.h"
 #include "Search/InterFragScore.h"
@@ -82,10 +82,10 @@ boost::shared_ptr<RWMol> largestHeavyComponent(const ROMol &mol) {
 constexpr unsigned int EXIT_LABEL_BASE = 1000;
 
 //! Construct fragment library params from the conformer generator params
-FraglibParams getFraglibParams(const FragmentConfGenParams &p, int seed) {
-  FraglibParams flp = p.embedding;
+EmbedderParams getEmbedderParams(const FragmentConfGenParams &p, int seed) {
+  EmbedderParams flp = p.embedding;
   flp.randomSeed = seed;
-  flp.FRAGLIB_TRACE = p.diagnostics.FRAGLIB_TRACE;
+  flp.EMBEDDER_TRACE = p.diagnostics.EMBEDDER_TRACE;
   flp.ffVariant = p.joiner.ffVariant;
   return flp;
 }
@@ -172,21 +172,21 @@ std::string FragmentConfGenParams::validate() const {
     return "embedding.shrugDisplacement must be >= 0";
   }
 
-  // Valide the fraglib against the current params
-  if (fraglib && !sameEmbeddingType(fraglib->params(),
-                                    getFraglibParams(*this, randomSeed))) {
-    return "fraglib was built with a different embedding than the current "
+  // Valide the embedder against the current params
+  if (embedder && !sameEmbeddingType(embedder->params(),
+                                    getEmbedderParams(*this, randomSeed))) {
+    return "embedder was built with a different embedding than the current "
            "FragmentConfGenParams";
   }
   return {};  // coherent
 }
 
-void FragmentConfGenParams::setFraglib(std::shared_ptr<Fraglib> lib) {
-  auto prev = std::move(fraglib);
-  fraglib = std::move(lib);
+void FragmentConfGenParams::setEmbedder(std::shared_ptr<Embedder> lib) {
+  auto prev = std::move(embedder);
+  embedder = std::move(lib);
   const std::string err = validate();
   if (!err.empty()) {
-    fraglib = std::move(prev);  // leave the params as we found them
+    embedder = std::move(prev);  // leave the params as we found them
     throw std::invalid_argument("FragmentConfGen Parameter error: " + err);
   }
 }
@@ -201,9 +201,9 @@ FragmentConfGen createFragmentConfGen(FragmentConfGenParams params) {
 
 FragmentConfGen::FragmentConfGen(FragmentConfGenParams params)
     : d_params(std::move(params)) {
-  if (!d_params.fraglib) {
-    FraglibParams flp = getFraglibParams(d_params, d_params.randomSeed);
-    d_params.fraglib = std::make_shared<Fraglib>(flp);
+  if (!d_params.embedder) {
+    EmbedderParams flp = getEmbedderParams(d_params, d_params.randomSeed);
+    d_params.embedder = std::make_shared<Embedder>(flp);
   }
   // Set once, here, where the parameters are fixed.  The joiner profiler is a
   // PROCESS-GLOBAL flag, so doing this per-build let concurrent generators
@@ -319,7 +319,7 @@ std::vector<ROMOL_SPTR> FragmentConfGen::fragmentAndEmbed(
 
   std::vector<ROMOL_SPTR> fragments;
   if (links.empty()) {
-    auto whole = d_params.fraglib->get(*heavy);
+    auto whole = d_params.embedder->get(*heavy);
     if (whole) {
       fragments.push_back(whole);
     }
@@ -341,7 +341,7 @@ std::vector<ROMOL_SPTR> FragmentConfGen::fragmentAndEmbed(
   const bool sanitizeFrags = true;
   std::vector<ROMOL_SPTR> pieces = MolOps::getMolFrags(*fragged, sanitizeFrags);
   for (auto &piece : pieces) {
-    auto frag = d_params.fraglib->get(*piece);
+    auto frag = d_params.embedder->get(*piece);
     if (!frag) {
       return {};  // a fragment failed to embed -> no assembly is possible
     }
@@ -396,13 +396,13 @@ void FragmentConfGen::buildEnsemble(
   const int seed = d_params.randomSeed >= 0 ? d_params.randomSeed : 0xf00d;
 
   // Embed frags
-  const FraglibParams want = getFraglibParams(d_params, seed);
-  std::shared_ptr<Fraglib> privateLib;
+  const EmbedderParams want = getEmbedderParams(d_params, seed);
+  std::shared_ptr<Embedder> privateLib;
   // Compatibility with a supplied library is a parameter-level invariant,
-  // established once by FragmentConfGenParams::validate()/setFraglib().
-  const Fraglib *lib = d_params.fraglib.get();
+  // established once by FragmentConfGenParams::validate()/setEmbedder().
+  const Embedder *lib = d_params.embedder.get();
   if (!lib) {
-    privateLib = std::make_shared<Fraglib>(want);
+    privateLib = std::make_shared<Embedder>(want);
     lib = privateLib.get();
   }
 

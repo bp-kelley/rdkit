@@ -378,8 +378,8 @@ int main(int argc, char **argv) {
 
   RDLog::InitLogs();
   EnumerateSynthons3DParams params;
-  params.prefillFraglib = prefill;
-  params.storeFraglib = true;
+  params.prefillEmbedder = prefill;
+  params.storeEmbedder = true;
   params.embedStyle =
       coarse ? SynthonEmbedStyle::Coarse : SynthonEmbedStyle::Full;
   if (productConfs > 0) {
@@ -428,7 +428,7 @@ int main(int argc, char **argv) {
 
   // Report the size of the space we are searching.
   double space = 1.0;
-  const size_t fraglibAtStart = lib.fraglib() ? lib.fraglib()->size() : 0;
+  const size_t fraglibAtStart = lib.embedder() ? lib.embedder()->size() : 0;
   std::printf("[synthonbench] arity=%u  reagents:", lib.arity());
   for (unsigned int p = 0; p < lib.arity(); ++p) {
     std::printf(" %u", lib.numReagents(p));
@@ -483,7 +483,7 @@ int main(int argc, char **argv) {
       << (lib.params3D().embedStyle == SynthonEmbedStyle::Coarse ? "Coarse"
                                                                  : "Full")
       << "\n"
-      << "library.prefill=" << lib.params3D().prefillFraglib << "\n"
+      << "library.prefill=" << lib.params3D().prefillEmbedder << "\n"
       << "trials=" << trials << "\n"
       << "seed=" << seed << "\n"
       << "trialSeed=seed+trialIndex\n"
@@ -507,8 +507,8 @@ int main(int argc, char **argv) {
       << "multipleTrajectories.finalists=rebuilt-and-rescored\n"
       << "timing.wallS=search-only; excludes library load, prefill, and query setup\n"
       << "timing.componentMs=sum across worker threads, not wall time\n"
-      << "library.fraglibEntriesAtStart="
-      << (lib.fraglib() ? lib.fraglib()->size() : 0) << "\n"
+      << "library.embedderEntriesAtStart="
+      << (lib.embedder() ? lib.embedder()->size() : 0) << "\n"
       << "conformer.params.begin\n"
       << fragmentConfGenParamsToString(lib.params3D().confgen)
       << "conformer.params.end\n"
@@ -520,9 +520,9 @@ int main(int argc, char **argv) {
   // whole synthons, which keep their internal rotors -- so if they land in the
   // same class they are frozen to a single internal geometry.
   if (fraglibStats) {
-    const auto &fl = lib.fraglib();
+    const auto &fl = lib.embedder();
     if (!fl) {
-      std::printf("[fraglib] library has no stored fragment library\n");
+      std::printf("[embedder] library has no stored fragment library\n");
       return 1;
     }
     std::map<unsigned int, unsigned int> hist, histRing, histAcyclic;
@@ -572,14 +572,14 @@ int main(int argc, char **argv) {
         tot += kv.second;
         confs += kv.first * kv.second;
       }
-      std::printf("[fraglib] %-9s %4u synthons, mean %.2f confs:", what, tot,
+      std::printf("[embedder] %-9s %4u synthons, mean %.2f confs:", what, tot,
                   tot ? static_cast<double>(confs) / tot : 0.0);
       for (const auto &kv : h) {
         std::printf("  %ux%u", kv.second, kv.first);
       }
       std::printf("\n");
     };
-    std::printf("[fraglib] %u synthons, %u not in cache, %u tombstoned\n",
+    std::printf("[embedder] %u synthons, %u not in cache, %u tombstoned\n",
                 total, missing, dead);
     dump("all", hist);
     dump("ring", histRing);
@@ -901,7 +901,7 @@ int main(int argc, char **argv) {
   };
 
   for (int t = 0; t < trials; ++t) {
-    const size_t cacheAtTrialStart = lib.fraglib() ? lib.fraglib()->size() : 0;
+    const size_t cacheAtTrialStart = lib.embedder() ? lib.embedder()->size() : 0;
     // 1. plant a product at random
     std::vector<unsigned int> planted(lib.arity());
     for (unsigned int p = 0; p < lib.arity(); ++p) {
@@ -915,7 +915,7 @@ int main(int argc, char **argv) {
     //  - one pose, not the ensemble: using all 10 conformers let ANY of ten
     //    geometries match, which made the target far too easy to find;
     //  - from the same generation: a separately-built query (its own cold
-    //    fraglib, fragments embedded in a different order -- ETKDG is
+    //    embedder, fragments embedded in a different order -- ETKDG is
     //    order-sensitive) produces conformers that are in NOBODY's ensemble, so
     //    nothing can match it and the correct answer scored 0.26-0.49 while
     //    unrelated products scored higher.  That measured conformer
@@ -1025,7 +1025,7 @@ int main(int argc, char **argv) {
     }
 
     // 3. search for it
-    const size_t cacheAtSearchStart = lib.fraglib() ? lib.fraglib()->size() : 0;
+    const size_t cacheAtSearchStart = lib.embedder() ? lib.embedder()->size() : 0;
     const double w0 = nowMs();
 
     // ---- the search.  One entry point: k independent greedy+refine
@@ -1047,7 +1047,7 @@ int main(int argc, char **argv) {
     SynthonSearchResult res =
         synthonSearch3D(lib, scorer, mp, &multipleStats);
     const double wallS = (nowMs() - w0) / 1000.0;
-    const size_t cacheAfterSearch = lib.fraglib() ? lib.fraglib()->size() : 0;
+    const size_t cacheAfterSearch = lib.embedder() ? lib.embedder()->size() : 0;
 
     // Recovery is a question about the MOLECULE, not about which synthons
     // were used to build it.  A synthon library is redundant: the same product
@@ -1191,10 +1191,10 @@ int main(int argc, char **argv) {
   // synthon.  Growth here means the prefill is incomplete and production would
   // pay that cost on every cold query.
   std::printf(
-      "[synthonbench] fraglib entries: %zu at start -> %zu at end (%+d "
+      "[synthonbench] embedder entries: %zu at start -> %zu at end (%+d "
       "embedded on demand)\n",
-      fraglibAtStart, lib.fraglib() ? lib.fraglib()->size() : 0,
-      static_cast<int>((lib.fraglib() ? lib.fraglib()->size() : 0) -
+      fraglibAtStart, lib.embedder() ? lib.embedder()->size() : 0,
+      static_cast<int>((lib.embedder() ? lib.embedder()->size() : 0) -
                        fraglibAtStart));
 
   const int scored = trials - static_cast<int>(unbuildable);

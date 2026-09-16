@@ -52,14 +52,14 @@ Conformer Generation
 
 Conformer generation has the following components:
 
-  1. A fraglib that generates initial conformations of fragments.
+  1. A embedder that generates initial conformations of fragments.
   2. A set of torsion angles to sample.
   3. A joiner that forms the initial conformations from the fragments.
   4. A rotor driving core generating a conformation given a set or torsion angles.
   5. A search strategy to find the minimum score (MMFF energy)
 
 
-### 1. Fraglib
+### 1. Embedder
 
 The fragment library uses distance geometry to generate the initial set of fragments.
 The current strategy employs ETKDG + MMFF minimiation.  Each fragment is assigned
@@ -135,7 +135,7 @@ Now that we have rotor driving and scoring, the problem becomes a search problem
 
 ### Benchmark
 
-There are two timings, no fraglib (cold) and precomputed (warm.  Methods shown
+There are two timings, no embedder (cold) and precomputed (warm.  Methods shown
 are tree and thompson sampling.
 
 ### Platinum (2,753)
@@ -172,12 +172,12 @@ This is a brief overview of the organization of the conformer generation:
 
    The FragConfGen uses a thread-safe fragment library that stores the
    ETKDG embedded fragments for the builds.  When threading, always
-   share the fraglib.
+   share the embedder.
 
    Fragment libraries can be pregenerated, we don't currently ship one
    with the RDKit for size issues.  see genFragLib for options.
 
- * Fraglib/Fraglib.h(.cpp)
+ * Embedder/Embedder.h(.cpp)
 
   Fragment library.  This holds the embedded fragments used when
   rigidly rotating.

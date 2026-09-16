@@ -13,7 +13,7 @@
 #include "Joiner/FragmentJoiner.h"  // RigidRotorSearchMode
 
 #include "Sampler/TorsionSampler.h"
-#include "Embedder/Fraglib.h"  // FraglibParams + FragmentEmbedMode/FragmentMinimize enums
+#include "Embedder/Embedder.h"  // EmbedderParams + FragmentEmbedMode/FragmentMinimize enums
 #include <GraphMol/RDKitBase.h>
 #include <memory>
 #include <vector>
@@ -137,7 +137,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FragmentConfGenParams {
   //!  See RotatableBonds
   bool wholeAcyclicFragments = false;
 
-  FraglibParams embedding;
+  EmbedderParams embedding;
   FragmentJoinerParams joiner;
   RigidRotorSearchParams search;
 
@@ -148,22 +148,22 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FragmentConfGenParams {
   //!  XXX FIX ME -> should always be the same as the embedding
   std::string labelFFVariant;
 
-  //! Shared thread-safe Fragment Library.  Prefer setFraglib(), which
+  //! Shared thread-safe Fragment Library.  Prefer setEmbedder(), which
   //! validates compatibility at the point of assignment.
-  std::shared_ptr<Fraglib> fraglib;
+  std::shared_ptr<Embedder> embedder;
 
-  //! Set a shared fraglib
+  //! Set a shared embedder
   /*!
     This can be useful for multi-threaded conf building for speed as
     new fragments are embedded and shared
     
     Throws std::invalid_argument if the fragib params are invalid
   */
-  void setFraglib(std::shared_ptr<Fraglib> lib);
+  void setEmbedder(std::shared_ptr<Embedder> lib);
 
   //! diagnostics toggle
   //!  XXX FIX ME -> probably move into the result object.  The joiner profiler
-  //!  it drives is a process-global flag, so under the shared-fraglib /
+  //!  it drives is a process-global flag, so under the shared-embedder /
   //!  many-generators threading model the last generator constructed wins.
   DiagnosticsParams diagnostics;
 

@@ -6,17 +6,17 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-//  genFragLib -- build a serialized Fraglib (cache of embedded rigid fragments)
+//  genFragLib -- build a serialized Embedder (cache of embedded rigid fragments)
 //  from a SMILES file of molecules.  Each molecule is cut into its rigid
 //  fragments exactly as FragmentConfGen does at run time, and each distinct
 //  fragment is embedded once and cached (keyed by canonical enhanced-stereo
 //  CXSMILES).  Multi-threaded over molecules.
 //
 //  Usage:
-//    genFragLib --input mols.smi --output frags.fraglib [options]
-//    genFragLib --input more.smi --add frags.fraglib --output frags2.fraglib
+//    genFragLib --input mols.smi --output frags.embedder [options]
+//    genFragLib --input more.smi --add frags.embedder --output frags2.embedder
 //
-//  Options (embedding options default to the Fraglib defaults):
+//  Options (embedding options default to the Embedder defaults):
 //    -i, --input FILE      SMILES file, one molecule per line (first token
 //    used) -o, --output FILE     output fragment-library file (required) -a,
 //    --add FILE        existing fragment library to load and extend; its
@@ -37,7 +37,7 @@
 //    -t, --threads N       worker threads (default: hardware concurrency)
 //    -h, --help
 //
-#include <Confgen/Embedder/Fraglib.h>
+#include <Confgen/Embedder/Embedder.h>
 #include <Confgen/FragmentConfGen.h>
 
 #include <GraphMol/ForceFieldHelpers/MMFF/AtomTyper.h>
@@ -61,7 +61,7 @@ namespace {
 void usage(const char *argv0) {
   std::cerr
       << "usage: " << argv0
-      << " --input mols.smi --output frags.fraglib [options]\n\n"
+      << " --input mols.smi --output frags.embedder [options]\n\n"
          "  -i/--input FILE     SMILES file (one molecule per line)\n"
          "  -o/--output FILE    output fragment-library file (required)\n"
          "  -a/--add FILE       existing library to extend (params must match)\n"
@@ -84,7 +84,7 @@ void usage(const char *argv0) {
          "  -h/--help\n";
 }
 
-std::string describe(const FraglibParams &p) {
+std::string describe(const EmbedderParams &p) {
   std::string s;
   s += "ff=" + p.ffVariant;
   s += " numConfs=" + std::to_string(p.numConfsPerFragment);
@@ -104,12 +104,12 @@ std::string describe(const FraglibParams &p) {
 
 int main(int argc, char **argv) {
   std::string inFile, outFile, addFile;
-  FraglibParams params;  // defaults = current Fraglib defaults
+  EmbedderParams params;  // defaults = current Embedder defaults
   bool anyEmbedFlag = false;
   bool sampleTrivial = false;
   bool wholeAcyclic = false;  // --whole-acyclic: keep acyclic groups whole
   bool sdfOut =
-      false;  // --sdf: write a readable SDF instead of the binary fraglib
+      false;  // --sdf: write a readable SDF instead of the binary embedder
   unsigned int nThreads = std::thread::hardware_concurrency();
   if (nThreads == 0) {
     nThreads = 1;
@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
     return 2;
   }
 
-  auto lib = std::make_shared<Fraglib>(params);
+  auto lib = std::make_shared<Embedder>(params);
 
   // Extend an existing library: load it, enforce matching params.
   if (!addFile.empty()) {
@@ -245,7 +245,7 @@ int main(int argc, char **argv) {
             << " thread(s)\n";
 
   FragmentConfGenParams gp;
-  gp.fraglib = lib;
+  gp.embedder = lib;
   gp.sampleTrivialRotors = sampleTrivial;
   gp.wholeAcyclicFragments = wholeAcyclic;
   const FragmentConfGen gen(gp);

@@ -32,7 +32,7 @@
 
 namespace RDKit {
 
-class Fraglib;
+class Embedder;
 
 //! Joins rigid fragments at exit vectors
 /*!
@@ -239,7 +239,7 @@ RDKIT_FRAGMENTCONFGEN_EXPORT FragmentJoinerContext joinFragments(
 RDKIT_FRAGMENTCONFGEN_EXPORT FragmentJoinerInput buildFragmentJoinerInput(
     const ROMol &mol, unsigned int nConfs = 16, int seed = 0xf00d,
     const std::string &ffVariant = "MMFF94", bool fragUseDG = false,
-    bool fragMinimizeFF = true, const Fraglib *lib = nullptr,
+    bool fragMinimizeFF = true, const Embedder *lib = nullptr,
     const FragmentJoinerParams *asmParams = nullptr,
     const std::vector<unsigned int> *linkBondsOverride = nullptr);
 

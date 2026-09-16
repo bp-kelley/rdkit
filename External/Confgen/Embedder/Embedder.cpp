@@ -6,7 +6,7 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-#include "Embedder/Fraglib.h"
+#include "Embedder/Embedder.h"
 
 #include <GraphMol/MolOps.h>
 #include <GraphMol/MolPickler.h>
@@ -131,7 +131,7 @@ const char *fragmentClassName(FragmentClass cls) {
 }
 
 //! Embed a fragment
-bool embedFragment(RWMol &frag, const FraglibParams &params) {
+bool embedFragment(RWMol &frag, const EmbedderParams &params) {
   RDLog::LogStateSetter blocker;
   const long long tEmbed0 = detail::profiling() ? detail::nowNs() : 0;
 
@@ -470,7 +470,7 @@ bool embedFragment(RWMol &frag, const FraglibParams &params) {
 
 }  // namespace
 
-std::string Fraglib::cacheKey(const ROMol &frag) {
+std::string Embedder::cacheKey(const ROMol &frag) {
   // XXX FIX ME -> this is currently unused.  It might or might not be important
   //  at a later date to check enhanced stereo, but a single conf should
   //  not be a mixture so...
@@ -486,7 +486,7 @@ std::string Fraglib::cacheKey(const ROMol &frag) {
   }
 }
 
-std::string Fraglib::generateKey(RWMol &frag, bool remap,
+std::string Embedder::generateKey(RWMol &frag, bool remap,
                                  std::vector<unsigned int> *outOrder) {
   static const char *kExitIsoProp = "_fraglibExitIso";
 
@@ -608,20 +608,20 @@ std::string Fraglib::generateKey(RWMol &frag, bool remap,
   return key;
 }
 
-Fraglib::~Fraglib() {
-  for (auto &kv : d_fraglib) {
+Embedder::~Embedder() {
+  for (auto &kv : d_embedder) {
     delete kv.second;
   }
 }
 
-const RWMol *Fraglib::lookupOrEmbed(const std::string &key,
+const RWMol *Embedder::lookupOrEmbed(const std::string &key,
                                     const std::function<RWMol *()> &make,
                                     bool cache,
                                     std::unique_ptr<RWMol> &owned) const {
   {
     std::lock_guard<std::mutex> lock(d_mutex);
-    auto it = d_fraglib.find(key);
-    if (it != d_fraglib.end()) {
+    auto it = d_embedder.find(key);
+    if (it != d_embedder.end()) {
       return it->second;
     }
   }
@@ -638,28 +638,28 @@ const RWMol *Fraglib::lookupOrEmbed(const std::string &key,
     //  take eons before they fail
     if (cache) {
       std::lock_guard<std::mutex> lock(d_mutex);
-      d_fraglib.emplace(key, nullptr);
+      d_embedder.emplace(key, nullptr);
     }
     return nullptr;
   }
   std::lock_guard<std::mutex> lock(d_mutex);
-  auto it = d_fraglib.find(key);
-  if (it != d_fraglib.end()) {  // another thread won the race
+  auto it = d_embedder.find(key);
+  if (it != d_embedder.end()) {  // another thread won the race
     delete embedded;
     return it->second;
   }
   if (cache) {
-    d_fraglib[key] = embedded;  // the map owns it from here
+    d_embedder[key] = embedded;  // the map owns it from here
     return embedded;
   }
   owned.reset(embedded);  // caller owns it; freed when `owned` leaves scope
   return embedded;
 }
 
-ROMOL_SPTR Fraglib::get(const ROMol &frag, bool cache) const {
+ROMOL_SPTR Embedder::get(const ROMol &frag, bool cache) const {
   // We need to generate a cache key here for lookup.  To do this we always add
   //  hydrogens to generate the cache key.  Then, we look it up
-  //  if it exists, we're golden, otherwise we look at the fraglib
+  //  if it exists, we're golden, otherwise we look at the embedder
   //  params and generate (and store) a new one.
   auto q = boost::make_shared<RWMol>(frag);
   MolOps::addHs(
@@ -698,7 +698,7 @@ ROMOL_SPTR Fraglib::get(const ROMol &frag, bool cache) const {
   return out;
 }
 
-bool Fraglib::getConformerCoords(RWMol &frag, unsigned int nMolAtoms,
+bool Embedder::getConformerCoords(RWMol &frag, unsigned int nMolAtoms,
                                  const std::string &molIdxProp,
                                  std::vector<std::vector<RDGeom::Point3D>> &out,
                                  std::vector<double> *energiesOut,
@@ -727,7 +727,7 @@ bool Fraglib::getConformerCoords(RWMol &frag, unsigned int nMolAtoms,
   }
   const unsigned int nConf = cachedFrag->getNumConformers();
   if (nConf == 0 || cachedFrag->getNumAtoms() != frag.getNumAtoms()) {
-    if (d_params.FRAGLIB_TRACE) {
+    if (d_params.EMBEDDER_TRACE) {
       static std::atomic<int> nAtomMiss{0};
       std::string mkey;
       try {
@@ -749,7 +749,7 @@ bool Fraglib::getConformerCoords(RWMol &frag, unsigned int nMolAtoms,
     }
     return false;
   }
-  if (d_params.FRAGLIB_TRACE) {
+  if (d_params.EMBEDDER_TRACE) {
     static std::atomic<int> nServed{0};
     if ((++nServed % 50) == 1)
       BOOST_LOG(rdWarningLog) << "[fraglibTRACE] served coords from cachedFrag #"
@@ -787,10 +787,10 @@ bool Fraglib::getConformerCoords(RWMol &frag, unsigned int nMolAtoms,
   return true;
 }
 
-size_t Fraglib::size() const {
+size_t Embedder::size() const {
   std::lock_guard<std::mutex> lock(d_mutex);
   size_t n = 0;
-  for (const auto &kv : d_fraglib) {
+  for (const auto &kv : d_embedder) {
     if (kv.second) {  // skip tombstones for fragments that cannot be embedded
       ++n;
     }
@@ -798,10 +798,10 @@ size_t Fraglib::size() const {
   return n;
 }
 
-size_t Fraglib::numUnembeddable() const {
+size_t Embedder::numUnembeddable() const {
   std::lock_guard<std::mutex> lock(d_mutex);
   size_t n = 0;
-  for (const auto &kv : d_fraglib) {
+  for (const auto &kv : d_embedder) {
     if (!kv.second) {
       ++n;
     }
@@ -809,7 +809,7 @@ size_t Fraglib::numUnembeddable() const {
   return n;
 }
 
-bool Fraglib::markUnembeddable(const ROMol &frag) {
+bool Embedder::markUnembeddable(const ROMol &frag) {
   RWMol withHs(frag);
   MolOps::addHs(withHs);
   const std::string key = generateKey(withHs, /*remap=*/true);
@@ -817,10 +817,10 @@ bool Fraglib::markUnembeddable(const ROMol &frag) {
     return false;
   }
   std::lock_guard<std::mutex> lock(d_mutex);
-  return d_fraglib.emplace(key, nullptr).second;
+  return d_embedder.emplace(key, nullptr).second;
 }
 
-std::optional<unsigned int> Fraglib::numFragmentConfs(
+std::optional<unsigned int> Embedder::numFragmentConfs(
     const ROMol &frag) const {
   RWMol withHs(frag);
   MolOps::addHs(withHs);
@@ -829,8 +829,8 @@ std::optional<unsigned int> Fraglib::numFragmentConfs(
     return std::nullopt;
   }
   std::lock_guard<std::mutex> lock(d_mutex);
-  const auto found = d_fraglib.find(key);
-  if (found == d_fraglib.end()) {
+  const auto found = d_embedder.find(key);
+  if (found == d_embedder.end()) {
     return std::nullopt;  // never attempted: the caller must embed it
   }
   if (!found->second) {
@@ -839,12 +839,14 @@ std::optional<unsigned int> Fraglib::numFragmentConfs(
   return found->second->getNumConformers();
 }
 
-// Simple IO class for the fraglib
+// Simple IO class for the embedder
 namespace {
-// Fraglib format version.
+// Embedder format version.
 //  XXX FIX ME Should we use boost serialize?
 
-constexpr char kFraglibMagic[8] = {'F', 'R', 'A', 'G', 'L', 'I', 'B', '1'};
+// ON-DISK BYTES, unchanged by the Fraglib -> Embedder rename: every existing
+// .frag file starts with these, and changing them would orphan the lot.
+constexpr char kEmbedderMagic[8] = {'F', 'R', 'A', 'G', 'L', 'I', 'B', '1'};
 template <typename T>
 void wRaw(std::ostream &os, const T &v) {
   os.write(reinterpret_cast<const char *>(&v), sizeof(T));
@@ -866,9 +868,9 @@ std::string rBlob(std::istream &is) {
 }
 }  // namespace
 
-void Fraglib::serialize(std::ostream &os) const {
+void Embedder::serialize(std::ostream &os) const {
   std::lock_guard<std::mutex> lock(d_mutex);
-  os.write(kFraglibMagic, sizeof(kFraglibMagic));
+  os.write(kEmbedderMagic, sizeof(kEmbedderMagic));
 
   // Serialize the params
   wRaw(os, d_params.numConfsPerFragment);
@@ -883,8 +885,8 @@ void Fraglib::serialize(std::ostream &os) const {
 
   // n.b. we need to pickle failures as well (empty mols/pickles)
   //  as these are sentinels for failed embeddings
-  wRaw(os, static_cast<std::uint64_t>(d_fraglib.size()));
-  for (const auto &kv : d_fraglib) {
+  wRaw(os, static_cast<std::uint64_t>(d_embedder.size()));
+  for (const auto &kv : d_embedder) {
     wBlob(os, kv.first);
     std::string pkl;
     if (kv.second) {
@@ -896,21 +898,21 @@ void Fraglib::serialize(std::ostream &os) const {
   }
 }
 
-void Fraglib::initFromStream(std::istream &is) {
+void Embedder::initFromStream(std::istream &is) {
   std::lock_guard<std::mutex> lock(d_mutex);
-  for (auto &kv : d_fraglib) {
+  for (auto &kv : d_embedder) {
     delete kv.second;
   }
-  d_fraglib.clear();
+  d_embedder.clear();
 
   char magic[8] = {0};
   is.read(magic, sizeof(magic));
-  if (std::memcmp(magic, kFraglibMagic, sizeof(magic)) != 0) {
+  if (std::memcmp(magic, kEmbedderMagic, sizeof(magic)) != 0) {
     // Report the magic we WANT, from the constant -- a hardcoded version in
     // this message goes stale the first time the format is bumped.
     throw std::runtime_error(
-        "Fraglib::initFromStream: bad magic (not a " +
-        std::string(kFraglibMagic, sizeof(kFraglibMagic)) + " file), got \"" +
+        "Embedder::initFromStream: bad magic (not a " +
+        std::string(kEmbedderMagic, sizeof(kEmbedderMagic)) + " file), got \"" +
         std::string(magic, sizeof(magic)) + "\"");
   }
 
@@ -933,18 +935,18 @@ void Fraglib::initFromStream(std::istream &is) {
     std::string key = rBlob(is);
     std::string pkl = rBlob(is);
     if (pkl.empty()) {
-      d_fraglib[key] = nullptr;  // tombstone: known-unembeddable
+      d_embedder[key] = nullptr;  // tombstone: known-unembeddable
       continue;
     }
     auto *m = new RWMol();
     MolPickler::molFromPickle(pkl, m);
-    d_fraglib[key] = m;
+    d_embedder[key] = m;
   }
 }
 
-void Fraglib::writeSDF(std::ostream &os) const {
+void Embedder::writeSDF(std::ostream &os) const {
   std::lock_guard<std::mutex> lock(d_mutex);
-  for (const auto &kv : d_fraglib) {
+  for (const auto &kv : d_embedder) {
     RWMol *m = kv.second;  
     if (!m || m->getNumConformers() == 0) {
       continue;
@@ -1015,17 +1017,17 @@ void Fraglib::writeSDF(std::ostream &os) const {
   }
 }
 
-std::string Fraglib::add(RWMol &frag) const {
+std::string Embedder::add(RWMol &frag) const {
   // XXX FIX ME -> this may eventually be dead code
-  // Take an external frag and place it in the fraglib
+  // Take an external frag and place it in the embedder
   std::vector<unsigned int> order;
   const std::string key = generateKey(frag, /*remap=*/true, &order);
   if (key.empty()) {
     return std::string();
   }
   std::lock_guard<std::mutex> lock(d_mutex);
-  if (d_fraglib.find(key) == d_fraglib.end()) {
-    d_fraglib[key] = new RWMol(frag);
+  if (d_embedder.find(key) == d_embedder.end()) {
+    d_embedder[key] = new RWMol(frag);
   }
   return key;
 }

@@ -7,8 +7,8 @@
 //  of the RDKit source tree.
 //
 #include <RDGeneral/export.h>
-#ifndef RDKIT_FRAGLIB_H
-#define RDKIT_FRAGLIB_H
+#ifndef RDKIT_CONFGEN_EMBEDDER_H
+#define RDKIT_CONFGEN_EMBEDDER_H
 
 #include <GraphMol/RDKitBase.h>
 
@@ -129,7 +129,7 @@ getDefaultFragmentParams();
 
 //! Embedding parameters, controls DG type, post-minimization type
 //!  and how to sample conformers
-struct RDKIT_FRAGMENTCONFGEN_EXPORT FraglibParams {
+struct RDKIT_FRAGMENTCONFGEN_EXPORT EmbedderParams {
   //! number of 3D conformers generated for each fragment
   unsigned int numConfsPerFragment = 10;
   //! DG vs ETKDG for the embedding
@@ -176,7 +176,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FraglibParams {
   double energyWindow = Disabled;
 
   //! XXX Dead Code - slated for removal
-  bool FRAGLIB_TRACE = false;  //!< if true debug fraglib steps to stderr
+  bool EMBEDDER_TRACE = false;  //!< if true debug embedder steps to stderr
   //! DIAGNOSTIC: per embedded fragment conformer, log class / rotor count /
   //! MMFF energy BEFORE and AFTER minimisation (and the delta).  Shows how much
   //! strain the minimiser actually removes per fragment class -- e.g. whether
@@ -185,9 +185,9 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FraglibParams {
   bool logFragmentEnergies = false;
 };
 
-//! Two FraglibParams are equal iff EVERY embedding option matches (seed
+//! Two EmbedderParams are equal iff EVERY embedding option matches (seed
 //! included).
-inline bool operator==(const FraglibParams &a, const FraglibParams &b) {
+inline bool operator==(const EmbedderParams &a, const EmbedderParams &b) {
   return a.numConfsPerFragment == b.numConfsPerFragment &&
          a.fragmentEmbedMode == b.fragmentEmbedMode &&
          a.randomSeed == b.randomSeed && a.minimizeMode == b.minimizeMode &&
@@ -197,12 +197,12 @@ inline bool operator==(const FraglibParams &a, const FraglibParams &b) {
          a.perClassEmbedding == b.perClassEmbedding &&
          a.energyWindow == b.energyWindow && a.classParams == b.classParams;
 }
-inline bool operator!=(const FraglibParams &a, const FraglibParams &b) {
+inline bool operator!=(const EmbedderParams &a, const EmbedderParams &b) {
   return !(a == b);
 }
 
 //! Are two embedding parameters identical
-inline bool sameEmbeddingType(const FraglibParams &a, const FraglibParams &b) {
+inline bool sameEmbeddingType(const EmbedderParams &a, const EmbedderParams &b) {
   return a.ffVariant == b.ffVariant &&
          a.numConfsPerFragment == b.numConfsPerFragment &&
          a.fragmentEmbedMode == b.fragmentEmbedMode &&
@@ -215,18 +215,18 @@ inline bool sameEmbeddingType(const FraglibParams &a, const FraglibParams &b) {
 }
 
 //! The fragment library
-class RDKIT_FRAGMENTCONFGEN_EXPORT Fraglib {
+class RDKIT_FRAGMENTCONFGEN_EXPORT Embedder {
  public:
-  explicit Fraglib(FraglibParams params = FraglibParams())
+  explicit Embedder(EmbedderParams params = EmbedderParams())
       : d_params(std::move(params)) {}
-  ~Fraglib();
+  ~Embedder();
 
-  Fraglib(const Fraglib &) = delete;
-  Fraglib &operator=(const Fraglib &) = delete;
+  Embedder(const Embedder &) = delete;
+  Embedder &operator=(const Embedder &) = delete;
 
-  //! Return a the fraglib with generated conformations
+  //! Return a the embedder with generated conformations
   // \param frag - fragment to embed
-  // \param cache - true to save int the fraglib, false otherwise
+  // \param cache - true to save int the embedder, false otherwise
   ROMOL_SPTR get(const ROMol &frag, bool cache=true) const;
 
  private:
@@ -269,7 +269,7 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT Fraglib {
   //! fragment count - number of conformers for fragment
   //! Record a fragment as permanently unusable.
   /*!
-    This keeps the fragment in the fraglib but notes that we can't
+    This keeps the fragment in the embedder but notes that we can't
     embed it for whatever reason to prevent future potentially costly
     attempts.
 
@@ -289,7 +289,7 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT Fraglib {
   */
   std::optional<unsigned int> numFragmentConfs(const ROMol &frag) const;
 
-  const FraglibParams &params() const { return d_params; }
+  const EmbedderParams &params() const { return d_params; }
 
   //! serialize the fragment library to a stream
   void serialize(std::ostream &os) const;
@@ -304,9 +304,9 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT Fraglib {
   std::string add(RWMol &frag) const;
 
  private:
-  mutable std::map<std::string, RWMol *> d_fraglib;
+  mutable std::map<std::string, RWMol *> d_embedder;
   mutable std::mutex d_mutex;
-  FraglibParams d_params;
+  EmbedderParams d_params;
 };
 
 }  // namespace RDKit

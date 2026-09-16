@@ -246,30 +246,30 @@ SynthonSearchResult SearchHelper(const EnumerateSynthons3DWrap &lib,
   return synthonSearch3D(lib, scorer, params);
 }
 
-//! Load the fraglib file
-std::shared_ptr<Fraglib> LoadFraglibFile(const std::string &path) {
+//! Load the embedder file
+std::shared_ptr<Embedder> LoadEmbedderFile(const std::string &path) {
   std::ifstream in(path, std::ios_base::binary);
   if (!in) {
     throw_value_error("could not open " + path);
   }
-  FraglibParams flp;
-  auto lib = std::make_shared<Fraglib>(flp);
+  EmbedderParams flp;
+  auto lib = std::make_shared<Embedder>(flp);
   lib->initFromStream(in);
   return lib;
 }
 
 EnumerateSynthons3DWrap *LoadSynthonLibrary(const std::string &path,
-                                            python::object fraglib) {
+                                            python::object embedder) {
   std::ifstream in(path, std::ios_base::binary);
   if (!in) {
     throw_value_error("could not open " + path);
   }
   auto *lib = new EnumerateSynthons3DWrap();
   try {
-    if (fraglib != python::object()) {
-      python::extract<std::shared_ptr<Fraglib>> ex(fraglib);
+    if (embedder != python::object()) {
+      python::extract<std::shared_ptr<Embedder>> ex(embedder);
       if (ex.check()) {
-        lib->setFraglib(ex());
+        lib->setEmbedder(ex());
       }
     }
     lib->initFromStream(in);
@@ -303,9 +303,9 @@ struct confgen_wrapper {
         "EnumerateSynthons3DParams\n\
 Controls 3D enumeration of a labelled-synthon library.\n\
 Options:\n\
-  prefillFraglib [default True]\n\
+  prefillEmbedder [default True]\n\
     Embed this library's synthon fragments up front rather than on first use.\n\
-  storeFraglib [default True]\n\
+  storeEmbedder [default True]\n\
     Persist the fragment cache inside the serialized library.\n\
 ";
 
@@ -314,10 +314,10 @@ Options:\n\
                    RDKit::EnumerateSynthons3DParams &>(
         "EnumerateSynthons3DParams", docString.c_str(),
         python::init<>(python::args("self")))
-        .def_readwrite("prefillFraglib",
-                       &RDKit::EnumerateSynthons3DParams::prefillFraglib)
-        .def_readwrite("storeFraglib",
-                       &RDKit::EnumerateSynthons3DParams::storeFraglib)
+        .def_readwrite("prefillEmbedder",
+                       &RDKit::EnumerateSynthons3DParams::prefillEmbedder)
+        .def_readwrite("storeEmbedder",
+                       &RDKit::EnumerateSynthons3DParams::storeEmbedder)
         .def_readwrite("embedStyle",
                        &RDKit::EnumerateSynthons3DParams::embedStyle,
                        "Coarse (embed full synthons) or Full (standard conformer generation)")
@@ -491,20 +491,20 @@ Options:\n\
              "Write this library, fragment cache included, to a file.",
              python::args("self", "path"));
 
-    python::class_<RDKit::Fraglib, std::shared_ptr<RDKit::Fraglib>,
-                   boost::noncopyable>("Fraglib", python::no_init)
-        .def("Size", &RDKit::Fraglib::size, python::args("self"))
-        .def("NumUnembeddable", &RDKit::Fraglib::numUnembeddable,
+    python::class_<RDKit::Embedder, std::shared_ptr<RDKit::Embedder>,
+                   boost::noncopyable>("Embedder", python::no_init)
+        .def("Size", &RDKit::Embedder::size, python::args("self"))
+        .def("NumUnembeddable", &RDKit::Embedder::numUnembeddable,
              python::args("self"));
 
-    python::def("LoadFraglib", &RDKit::LoadFraglibFile,
-                "Load a precompiled fraglib into the enumeration",
+    python::def("LoadEmbedder", &RDKit::LoadEmbedderFile,
+                "Load a precompiled embedder into the enumeration",
                 python::arg("path"));
 
     python::def("LoadSynthonLibrary", &RDKit::LoadSynthonLibrary,
                 python::return_value_policy<python::manage_new_object>(),
                 "Load a synthon library written by Save()",
-                (python::arg("path"), python::arg("fraglib") = python::object()));
+                (python::arg("path"), python::arg("embedder") = python::object()));
   }
 };
 

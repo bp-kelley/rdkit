@@ -309,7 +309,7 @@ int main(int argc, char *argv[]) {
     // product, and the library already knows it: prefill attempted the embed
     // at build time and recorded the failure.  Nothing new is stored here, we
     // are only reading back a fact that was computed once and then ignored.
-    const auto &fl = lib.fraglib();
+    const auto &fl = lib.embedder();
     if (!fl) {
       std::printf("\n  DEAD SYNTHONS: this library carries no fragment "
                   "cache, so there is nothing to read back\n");

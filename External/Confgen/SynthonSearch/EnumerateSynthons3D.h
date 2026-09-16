@@ -29,7 +29,7 @@
 #include <string>
 #include <vector>
 
-#include "Embedder/Fraglib.h"
+#include "Embedder/Embedder.h"
 #include "FragmentConfGen.h"
 
 namespace RDKit {
@@ -73,8 +73,8 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT EnumerateSynthons3DParams {
 
   SynthonEmbedStyle embedStyle = SynthonEmbedStyle::Full;
 
-  bool prefillFraglib = true; // pregen the synthon confs
-  bool storeFraglib = true;   // store the synthons
+  bool prefillEmbedder = true; // pregen the synthon confs
+  bool storeEmbedder = true;   // store the synthons
 
   EnumerateSynthons3DParams() {
     confgen.numOutputConfs = kDefaultSynthonProductConfs;
@@ -84,7 +84,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT EnumerateSynthons3DParams {
 //! A one-reaction combinatorial 3D synthon library.
 /*!
   EnumerateSynthons3D thread safety:
-    XXX FIX ME -> need to be able to pass in a fraglib or clone an enumerate library
+    XXX FIX ME -> need to be able to pass in a embedder or clone an enumerate library
 
 */
 class RDKIT_FRAGMENTCONFGEN_EXPORT EnumerateSynthons3D
@@ -152,7 +152,7 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT EnumerateSynthons3D
     empty       set         not cut        —               cut
     set         set         not cut        cut             cut
 
-    This functionality is required for ring-forming synthons.  The fraglib
+    This functionality is required for ring-forming synthons.  The embedder
     cannot embed a partial ring, however it can embed the spinach.  This
     allows the ring to be formed and have a good chunk of the synthon
     pre-embedded.
@@ -176,13 +176,13 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT EnumerateSynthons3D
   */
   unsigned int prefill(unsigned int numThreads = 1);
 
-  const std::shared_ptr<Fraglib> &fraglib() const { return d_fraglib; }
+  const std::shared_ptr<Embedder> &embedder() const { return d_embedder; }
 
-  //! Replace a new fraglib
-  void setFraglib(std::shared_ptr<Fraglib> lib) {
+  //! Replace a new embedder
+  void setEmbedder(std::shared_ptr<Embedder> lib) {
     d_unusable.reset();  // memoised from the OLD cache; no longer valid
-    d_fraglib = lib;
-    d_params.confgen.fraglib = lib;
+    d_embedder = lib;
+    d_params.confgen.embedder = lib;
   }
   const EnumerateSynthons3DParams &params3D() const { return d_params; }
 
@@ -216,7 +216,7 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT EnumerateSynthons3D
   EnumerateSynthons3DParams d_params;
   MolzipParams d_molzipParams;
   bool d_valid = false;
-  std::shared_ptr<Fraglib> d_fraglib;
+  std::shared_ptr<Embedder> d_embedder;
   //! Records usable synthons for fast acceess
   struct UnusableCache {
     std::mutex mutex;

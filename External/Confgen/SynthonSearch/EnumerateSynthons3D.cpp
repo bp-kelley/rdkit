@@ -80,23 +80,23 @@ EnumerateSynthons3D::EnumerateSynthons3D(
     return;
   }
   // This library's own cache, shared by every generator working on it.
-  FraglibParams flp = d_params.confgen.embedding;
+  EmbedderParams flp = d_params.confgen.embedding;
   // FragmentConfGenParams::randomSeed is the public seed for the whole
-  // pipeline; the nested FraglibParams seed is an implementation detail.
+  // pipeline; the nested EmbedderParams seed is an implementation detail.
   flp.randomSeed = d_params.confgen.randomSeed;
   flp.ffVariant = d_params.confgen.joiner.ffVariant;
-  // n.b. share the fraglib across searches for better
+  // n.b. share the embedder across searches for better
   //  optimization
-  if (d_params.confgen.fraglib) {
-    d_fraglib = d_params.confgen.fraglib;
+  if (d_params.confgen.embedder) {
+    d_embedder = d_params.confgen.embedder;
   } else {
-    d_fraglib = std::make_shared<Fraglib>(flp);
-    d_params.confgen.fraglib = d_fraglib;
+    d_embedder = std::make_shared<Embedder>(flp);
+    d_params.confgen.embedder = d_embedder;
   }
 
   cacheSynthonSizes();
 
-  if (d_params.prefillFraglib) {
+  if (d_params.prefillEmbedder) {
     prefill();
   }
 }
@@ -230,10 +230,10 @@ bool ffCanType(const ROMol &mol, const std::string &variant) {
 }  // namespace
 
 unsigned int EnumerateSynthons3D::prefill(unsigned int numThreads) {
-  if (!d_fraglib) {
+  if (!d_embedder) {
     return 0;
   }
-  const size_t before = d_fraglib->size();
+  const size_t before = d_embedder->size();
   // Embed the final fragments of the synthon. A synthon is not
   // itself a fragment: FragmentConfGen cuts at rotatable bonds, so a synthon
   // with internal rotors may become several during embedding.
@@ -287,7 +287,7 @@ unsigned int EnumerateSynthons3D::prefill(unsigned int numThreads) {
         if (coarse) {
           // See if we can actually embed.
           if (!ffCanType(*id, d_params.confgen.joiner.ffVariant)) {
-            d_fraglib->markUnembeddable(*id);
+            d_embedder->markUnembeddable(*id);
             continue;
           }
           gen.fragmentAndEmbed(*id, nullptr, &noCuts);
@@ -296,7 +296,7 @@ unsigned int EnumerateSynthons3D::prefill(unsigned int numThreads) {
         }
       } catch (...) {
         // We can't embed this one so mark it dead
-        d_fraglib->markUnembeddable(*id);
+        d_embedder->markUnembeddable(*id);
       }
     }
   };
@@ -313,7 +313,7 @@ unsigned int EnumerateSynthons3D::prefill(unsigned int numThreads) {
       thread.join();
     }
   }
-  return static_cast<unsigned int>(d_fraglib->size() - before);
+  return static_cast<unsigned int>(d_embedder->size() - before);
 }
 
 std::unique_ptr<RWMol> EnumerateSynthons3D::cacheFragment(
@@ -342,7 +342,7 @@ std::unique_ptr<RWMol> EnumerateSynthons3D::cacheFragment(
 
 bool EnumerateSynthons3D::synthonUnusable(unsigned int pos,
                                           unsigned int idx) const {
-  if (!d_fraglib) {
+  if (!d_embedder) {
     return false;  // nothing recorded: let the product build find out
   }
   const auto &bbs = getReagents();
@@ -372,7 +372,7 @@ bool EnumerateSynthons3D::synthonUnusable(unsigned int pos,
 
   bool dead = true;
   if (const auto frag = cacheFragment(*bbs[pos][idx])) {
-    const auto n = d_fraglib->numFragmentConfs(*frag);
+    const auto n = d_embedder->numFragmentConfs(*frag);
     dead = n.has_value() && *n == 0;
   }
   std::lock_guard<std::mutex> lock(cache->mutex);
@@ -589,7 +589,7 @@ void EnumerateSynthons3D::toStream(std::ostream &ss) const {
     ss.write(cfg.data(), static_cast<std::streamsize>(n));
     const auto style = static_cast<std::uint8_t>(d_params.embedStyle);
     ss.write(reinterpret_cast<const char *>(&style), sizeof(style));
-    const bool prefilled = d_params.prefillFraglib;
+    const bool prefilled = d_params.prefillEmbedder;
     ss.write(reinterpret_cast<const char *>(&prefilled), sizeof(prefilled));
   }
   // serialize the extra cut bonds
@@ -613,10 +613,10 @@ void EnumerateSynthons3D::toStream(std::ostream &ss) const {
       }
     }
   }
-  const bool haveLib = d_params.storeFraglib && d_fraglib;
+  const bool haveLib = d_params.storeEmbedder && d_embedder;
   ss.write(reinterpret_cast<const char *>(&haveLib), sizeof(haveLib));
   if (haveLib) {
-    d_fraglib->serialize(ss);
+    d_embedder->serialize(ss);
   }
 }
 
@@ -644,16 +644,16 @@ void EnumerateSynthons3D::initFromStream(std::istream &ss) {
     d_params.embedStyle = static_cast<SynthonEmbedStyle>(style);
     bool prefilled = false;
     ss.read(reinterpret_cast<char *>(&prefilled), sizeof(prefilled));
-    d_params.prefillFraglib = prefilled;
+    d_params.prefillEmbedder = prefilled;
   }
-  // Make the fraglib now that we have the settings
-  FraglibParams flp = d_params.confgen.embedding;
+  // Make the embedder now that we have the settings
+  EmbedderParams flp = d_params.confgen.embedding;
   flp.randomSeed = d_params.confgen.randomSeed;
   flp.ffVariant = d_params.confgen.joiner.ffVariant;
-  if (d_params.confgen.fraglib) {
-    d_fraglib = d_params.confgen.fraglib;
+  if (d_params.confgen.embedder) {
+    d_embedder = d_params.confgen.embedder;
   } else {
-    d_fraglib = std::make_shared<Fraglib>(flp);
+    d_embedder = std::make_shared<Embedder>(flp);
   }
   d_synthonCutBonds.clear();
   d_haveCutBonds = false;
@@ -684,9 +684,9 @@ void EnumerateSynthons3D::initFromStream(std::istream &ss) {
   bool haveLib = false;
   ss.read(reinterpret_cast<char *>(&haveLib), sizeof(haveLib));
   if (haveLib && ss.good()) {
-    d_fraglib->initFromStream(ss);
+    d_embedder->initFromStream(ss);
   }
-  d_params.confgen.fraglib = d_fraglib;
+  d_params.confgen.embedder = d_embedder;
   cacheSynthonSizes();
 }
 

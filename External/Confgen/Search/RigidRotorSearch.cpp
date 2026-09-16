@@ -6,7 +6,7 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-#include "Embedder/Fraglib.h"
+#include "Embedder/Embedder.h"
 #include "Search/RigidRotorSearch.h"
 
 #include <GraphMol/ForceFieldHelpers/MMFF/AtomTyper.h>

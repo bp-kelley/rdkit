@@ -548,7 +548,7 @@ TEST_CASE("EnumerateSynthons3D assembles labelled synthons", "[synthon3d]") {
   }
 
   EnumerateSynthons3DParams params;
-  params.prefillFraglib = false;  // exercise the on-demand path
+  params.prefillEmbedder = false;  // exercise the on-demand path
   params.confgen.numOutputConfs = 4;
   EnumerateSynthons3D lib(bbs, params);
   REQUIRE(lib.isValid());  // [U] labels are a consistent scheme
@@ -585,12 +585,12 @@ TEST_CASE("EnumerateSynthons3D assembles labelled synthons", "[synthon3d]") {
     // The base class writes a boost TEXT archive and everything this class
     // appends is raw binary.  A text archive's reader leaves its trailing
     // separator in the stream, so without an explicit boundary the appended
-    // payload is read one byte late -- which showed up only as a fraglib
+    // payload is read one byte late -- which showed up only as a embedder
     // magic-number failure, and only through the Python wrapper.
     for (const bool storeLib : {false, true}) {
-      INFO("storeFraglib=" << storeLib);
+      INFO("storeEmbedder=" << storeLib);
       EnumerateSynthons3DParams sp = params;
-      sp.storeFraglib = storeLib;
+      sp.storeEmbedder = storeLib;
       sp.embedStyle = SynthonEmbedStyle::Coarse;
       sp.confgen.embedding.numConfsPerFragment = 3;
       sp.confgen.randomSeed = 2468;
@@ -608,8 +608,8 @@ TEST_CASE("EnumerateSynthons3D assembles labelled synthons", "[synthon3d]") {
       CHECK(dst.params3D().embedStyle == sp.embedStyle);
       CHECK(dst.params3D().confgen.embedding.numConfsPerFragment == 3);
       CHECK(dst.params3D().confgen.randomSeed == 2468);
-      CHECK(dst.fraglib()->params().numConfsPerFragment == 3);
-      CHECK(dst.fraglib()->params().randomSeed == 2468);
+      CHECK(dst.embedder()->params().numConfsPerFragment == 3);
+      CHECK(dst.embedder()->params().randomSeed == 2468);
 
       const auto p = dst.getProduct({0, 0, 0});
       INFO("status: " << synthonBuildStatusMessage(p.status));
@@ -634,7 +634,7 @@ TEST_CASE("EnumerateSynthons3D mixed cut-bond instructions", "[synthon3d]") {
   REQUIRE(bbs.size() == 3);
 
   EnumerateSynthons3DParams params;
-  params.prefillFraglib = false;
+  params.prefillEmbedder = false;
   params.embedStyle = SynthonEmbedStyle::Coarse;  // cut bonds only apply here
   params.confgen.numOutputConfs = 4;
 
@@ -777,7 +777,7 @@ TEST_CASE("EnumerateSynthons3D fragment cache warms", "[synthon3d]") {
   const size_t nSynthons = bbs[0].size() + bbs[1].size() + bbs[2].size();
 
   EnumerateSynthons3DParams params;
-  params.prefillFraglib = false;  // start cold so the first pass pays for it
+  params.prefillEmbedder = false;  // start cold so the first pass pays for it
   params.confgen.numOutputConfs = 4;
   EnumerateSynthons3D lib(bbs, params);
   REQUIRE(lib.isValid());
@@ -809,7 +809,7 @@ TEST_CASE("EnumerateSynthons3D fragment cache warms", "[synthon3d]") {
 
   unsigned int builtCold = 0, builtWarm = 0;
   const double coldMs = timePass(builtCold);
-  const size_t fragsAfterCold = lib.fraglib()->size();
+  const size_t fragsAfterCold = lib.embedder()->size();
   const double warmMs = timePass(builtWarm);
 
   // The pass above is only cold at its START -- by its fifth product most
