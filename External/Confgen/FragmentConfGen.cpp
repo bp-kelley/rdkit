@@ -491,12 +491,11 @@ void FragmentConfGen::buildEnsemble(
       const size_t nRot = in.junctions.size();
       RigidRotorSearchMode eff = sp.searchMode;
       if (eff == RigidRotorSearchMode::Auto) {
-        eff = (sp.autoSystematicMinRotors > 0 &&
-               nRot >= sp.autoSystematicMinRotors)
-                  ? RigidRotorSearchMode::Systematic
-                  : ((sp.thompsonBudget > 0 || sp.thompson.autoBudget)
-                         ? RigidRotorSearchMode::Thompson
-                         : RigidRotorSearchMode::Tree);
+        eff = RigidRotorSearchParams::autoModeForRotors(nRot);
+        if (eff == RigidRotorSearchMode::Thompson &&
+            !(sp.thompsonBudget > 0 || sp.thompson.autoBudget)) {
+          eff = RigidRotorSearchMode::Tree;
+        }
       }
 
       {

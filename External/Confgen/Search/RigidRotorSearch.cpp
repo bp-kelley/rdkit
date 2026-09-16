@@ -50,8 +50,17 @@ std::vector<RigidRotorSearchMode> reachableSearchModes(
   }
   // Auto's pick depends on the molecule's rotor count, which we do not have --
   //  so add Systematic as a baseline
+  // The table decides Systematic vs the Thompson/Tree arm by rotor count, which
+  // we do not have here -- so offer every mode the table can produce.
   std::vector<RigidRotorSearchMode> modes;
-  if (sp.autoSystematicMinRotors > 0) {
+  bool tableHasSystematic = false;
+  for (const auto m : RigidRotorSearchParams::AutoModeAtRotor) {
+    if (m == RigidRotorSearchMode::Systematic) {
+      tableHasSystematic = true;
+      break;
+    }
+  }
+  if (tableHasSystematic) {
     modes.push_back(RigidRotorSearchMode::Systematic);
   }
   // If we have a thompson budget or are auto selecting the budget
@@ -104,12 +113,10 @@ RigidRotorSearchResult runRigidRotorSearch(const FragmentJoinerContext &ctx,
   RigidRotorSearchMode mode = resolved.searchMode;
   if (mode == RigidRotorSearchMode::Auto) {
     const size_t nRot = ctx.rotorBonds.size();
-    if (resolved.autoSystematicMinRotors > 0 && nRot >= resolved.autoSystematicMinRotors) {
-      mode = RigidRotorSearchMode::Systematic;
-    } else {
-      mode = (resolved.thompsonBudget > 0 || resolved.thompson.autoBudget)
-                 ? RigidRotorSearchMode::Thompson
-                 : RigidRotorSearchMode::Tree;
+    mode = RigidRotorSearchParams::autoModeForRotors(nRot);
+    if (mode == RigidRotorSearchMode::Thompson &&
+        !(resolved.thompsonBudget > 0 || resolved.thompson.autoBudget)) {
+      mode = RigidRotorSearchMode::Tree;  // Thompson is switched off
     }
   }
 
