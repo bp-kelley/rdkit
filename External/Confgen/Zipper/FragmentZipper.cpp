@@ -358,7 +358,7 @@ FragmentZipperInput buildFragmentJoinerInput(
 
   const double shrugDispl = asmParams ? asmParams->fragShrugDisplacement : 0.0;
   const double shrugK = asmParams ? asmParams->fragShrugForceConst : 100.0;
-  const bool exactGeom = asmParams && asmParams->diagnostics.ASM_EXACT_GEOM;
+  const bool exactGeom = asmParams && asmParams->diagnostics.ZIP_EXACT_GEOM;
 
   // largest component, with explicit Hs.
   RWMOL_SPTR_VECT comps = getRWMolFrags(input, /*sanitizeFrags=*/true);

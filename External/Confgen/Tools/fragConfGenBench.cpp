@@ -1849,7 +1849,7 @@ void runAsmSampler() {
     for (unsigned int t = 0; t < threads; ++t) pool.emplace_back(worker);
     for (auto &t : pool) t.join();
     const double denom = acc.scored ? acc.scored : 1;
-    if (std::getenv("ASM_PROFILE"))
+    if (std::getenv("ZIP_PROFILE"))
       printJoinerProfile(cfg.first.c_str(), jobs.size());  // prints + resets
     const double warmMs = takeJoinerWarmMsPerMol(jobs.size());
     std::printf(
@@ -3304,7 +3304,7 @@ void runFragRms() {
       MolOps::addHs(*m, false, true);
 
       // normal embedded pool
-      unsetenv("ASM_EXACT_GEOM");
+      unsetenv("ZIP_EXACT_GEOM");
       FragmentZipperInput emb = buildFragmentJoinerInput(
           *m, nConfs, 0xf00d, var, false, true, nullptr);
       if (!emb.mol || emb.fragments.empty()) continue;
@@ -3485,7 +3485,7 @@ void runTorCheck() {
       // exact crystal geometry, 1 conf/frag -- we only need the TOPOLOGY
       // (junctions + torsion quartets); the crystal's own coordinates supply
       // every dihedral.
-      setenv("ASM_EXACT_GEOM", "1", 1);
+      setenv("ZIP_EXACT_GEOM", "1", 1);
       FragmentZipperInput in =
           buildFragmentJoinerInput(*m, 1, 0xf00d, var, false, false, nullptr);
       if (!in.mol || in.fragments.size() < 2 || in.junctions.empty()) continue;
@@ -3584,7 +3584,7 @@ void runTorCheck() {
 }
 
 //! XTAL RECONSTRUCTION: feed each crystal ligand's EXACT fragment geometry (no
-//! embed, no minimise -- ASM_EXACT_GEOM) through our real assembly pathway, and
+//! embed, no minimise -- ZIP_EXACT_GEOM) through our real assembly pathway, and
 //! ask two things:
 //!  (1) REPRODUCTION -- can the search rebuild the crystal pose? (best-of-N
 //!  heavy RMSD) (2) RANKING -- where does the TRUE crystal pose land in our
@@ -3622,7 +3622,7 @@ void runXtalRecon() {
   // ~81% vs exact ~89%).
   const bool embed = std::getenv("XTAL_EMBED") != nullptr;
   if (!embed)
-    setenv("ASM_EXACT_GEOM", "1", 1);  // else buildFragmentJoinerInput embeds
+    setenv("ZIP_EXACT_GEOM", "1", 1);  // else buildFragmentJoinerInput embeds
 
   // XTAL_OVERSAMPLE: run the warm-path embedder with an oversampled pool +
   // RMSD-diverse selection.  ETKDG -> keep ETKDG coords, RANK by shrugged-MMFF
@@ -4687,7 +4687,7 @@ void runBank() {
          "rank_lt1\trank_lt2\thit_lt1\thit_lt2\n";
     for (const auto &r : statRows) f << r << "\n";
   }
-  // Speed breakdown (diagnostics.ASM_PROFILE): per-class embed cost, interFrag
+  // Speed breakdown (diagnostics.ZIP_PROFILE): per-class embed cost, interFrag
     // vs full-MMFF score counts, combine pool pressure, prune/dedup time.
   if (!paramsOverride.empty() || std::getenv("BANK_PROFILE")) {
     printJoinerProfile("bank", jobs.size());

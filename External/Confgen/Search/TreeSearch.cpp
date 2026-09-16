@@ -148,9 +148,9 @@ std::vector<SearchResult> RotorTree::search() {
   // INCREMENTAL junction-local rescoring.
   // fragments are already scored so energy is InterFrag Energy + Fragments Energy
   const bool usePacked = d_incremental.isValid();
-  const bool validate = usePacked && d_diag.ASM_SCOREVALIDATE;
+  const bool validate = usePacked && d_diag.ZIP_SCOREVALIDATE;
   size_t mismatches = 0;
-  if (usePacked && d_diag.ASM_INCRSTATS) {
+  if (usePacked && d_diag.ZIP_INCRSTATS) {
     size_t nPairs = d_incremental.numPairs();
     size_t sumCp = 0, maxCp = 0;
     for (unsigned int r : d_driver.numRotorAtoms()) {
@@ -193,7 +193,7 @@ std::vector<SearchResult> RotorTree::search() {
               ++mismatches;
               // Validate the incremental versus full score
               BOOST_LOG(rdErrorLog)
-                  << "[ASM_SCOREVALIDATE] MISMATCH rotor=" << r
+                  << "[ZIP_SCOREVALIDATE] MISMATCH rotor=" << r
                   << " angle=" << a << " incr=" << sc << " full=" << full
                   << " diff=" << (sc - full)
                   << " (dVdw=" << (newVdw - oldVdw)
@@ -218,7 +218,7 @@ std::vector<SearchResult> RotorTree::search() {
   }
   if (validate) {
     auto &log = mismatches ? rdErrorLog : rdWarningLog;
-    BOOST_LOG(log) << "[ASM_SCOREVALIDATE] " << mismatches << " mismatch(es)\n";
+    BOOST_LOG(log) << "[ZIP_SCOREVALIDATE] " << mismatches << " mismatch(es)\n";
   }
 
   std::vector<SearchResult> out;

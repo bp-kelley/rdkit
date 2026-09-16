@@ -315,10 +315,10 @@ void visitFields(P &p, V &v) {
 
 
   v("diagnostics.EMBEDDER_TRACE", p.diagnostics.EMBEDDER_TRACE);
-  v("diagnostics.ASM_PROFILE", p.diagnostics.ASM_PROFILE);
-  v("diagnostics.ASM_INCRSTATS", p.diagnostics.ASM_INCRSTATS);
-  v("diagnostics.ASM_SCOREVALIDATE", p.diagnostics.ASM_SCOREVALIDATE);
-  v("diagnostics.ASM_EXACT_GEOM", p.diagnostics.ASM_EXACT_GEOM);
+  v("diagnostics.ZIP_PROFILE", p.diagnostics.ZIP_PROFILE);
+  v("diagnostics.ZIP_INCRSTATS", p.diagnostics.ZIP_INCRSTATS);
+  v("diagnostics.ZIP_SCOREVALIDATE", p.diagnostics.ZIP_SCOREVALIDATE);
+  v("diagnostics.ZIP_EXACT_GEOM", p.diagnostics.ZIP_EXACT_GEOM);
   v("diagnostics.SYS_VALIDATE", p.diagnostics.SYS_VALIDATE);
   v("diagnostics.FRAGCG_DUMP_PARAMS", p.diagnostics.FRAGCG_DUMP_PARAMS);
   v("diagnostics.TS_ARMSTATS", p.diagnostics.TS_ARMSTATS);
@@ -527,7 +527,13 @@ std::string readFragmentConfGenParams(std::istream &is,
   // settings it was actually built with.  Genuine typos still fail.
   static const std::set<std::string> retired = {
       "search.thompson.flatContext",
-      "diagnostics.FRAGLIB_TRACE",  // renamed to EMBEDDER_TRACE
+      "diagnostics.FRAGLIB_TRACE",      // renamed to EMBEDDER_TRACE
+      // renamed ASM_* -> ZIP_*: developer diagnostics, all default false, so
+      // a stale stored value is not worth aliasing across.
+      "diagnostics.ASM_PROFILE",
+      "diagnostics.ASM_INCRSTATS",
+      "diagnostics.ASM_SCOREVALIDATE",
+      "diagnostics.ASM_EXACT_GEOM",
       "search.autoSystematicMinRotors",
       "search.autoSystematicMaxRotors",
   };

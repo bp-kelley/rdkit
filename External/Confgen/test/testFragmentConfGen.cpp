@@ -2084,7 +2084,7 @@ TEST_CASE("FragmentConfGenParams text round-trips through the serializer",
     p.search.systematic.eWindow = 18.0;
     p.search.systematic.maxPoolConfs = 9000;
     p.search.systematic.maxFragmentConfs = 24;
-    p.diagnostics.ASM_PROFILE = true;
+    p.diagnostics.ZIP_PROFILE = true;
     p.diagnostics.SYS_VALIDATE = true;
 
     const std::string text = fragmentConfGenParamsToString(p);
@@ -2112,7 +2112,7 @@ TEST_CASE("FragmentConfGenParams text round-trips through the serializer",
     CHECK(q.search.systematic.eWindow == Catch::Approx(18.0));
     CHECK(q.search.systematic.maxPoolConfs == 9000);
     CHECK(q.search.systematic.maxFragmentConfs == 24);
-    CHECK(q.diagnostics.ASM_PROFILE == true);
+    CHECK(q.diagnostics.ZIP_PROFILE == true);
     CHECK(q.diagnostics.SYS_VALIDATE == true);
   }
   SECTION("a partial file overrides only the keys it names") {

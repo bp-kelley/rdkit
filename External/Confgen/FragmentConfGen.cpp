@@ -208,7 +208,7 @@ FragmentConfGen::FragmentConfGen(FragmentConfGenParams params)
   // Set once, here, where the parameters are fixed.  The zipper profiler is a
   // PROCESS-GLOBAL flag, so doing this per-build let concurrent generators
   // flip each other's setting mid-run.
-  detail::setJoinerProfiling(d_params.diagnostics.ASM_PROFILE);
+  detail::setJoinerProfiling(d_params.diagnostics.ZIP_PROFILE);
 }
 
 RotatableBonds FragmentConfGen::findRotatableBonds(const ROMol &mol,
