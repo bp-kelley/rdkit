@@ -6,7 +6,7 @@ rdkit_library(FragmentConfGen
 		    Search/InterFragScore.cpp
 		    Search/TreeSearch.cpp
 		    Search/RigidRotorSearch.cpp
-		    Joiner/FragmentJoiner.cpp
+		    Zipper/FragmentZipper.cpp
 		    Search/ThompsonSamplingSearch.cpp
 		    SynthonSearch/EnumerateSynthons3D.cpp
 		    SynthonSearch/SynthonSearch3D.cpp

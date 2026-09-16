@@ -15,7 +15,7 @@
 
 #include <set>
 
-#include "Joiner/JoinerProfiling.h"
+#include "Zipper/ZipperProfiling.h"
 #include "Search/InterFragScore.h"
 #include "Search/RotorDriver.h"
 #include "Utils/SymmetricRmsd.h"
@@ -61,7 +61,7 @@ std::string ThompsonSamplingSearch::validateParams(
 }
 
 std::vector<SearchResult> ThompsonSamplingSearch::search(
-    const FragmentJoinerContext &ctx, const RigidRotorSearchParams &sp) {
+    const FragmentZipperContext &ctx, const RigidRotorSearchParams &sp) {
   const auto &params = sp;
   std::vector<SearchResult> out;
   unsigned int nNaN = 0;  //!< failed evaluations; see the NaN handling below

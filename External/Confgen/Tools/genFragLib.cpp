@@ -28,7 +28,7 @@
 //        --embed dg|etkdg  fragment embedding method
 //        --seed N          embedder random seed
 //        --ff VARIANT      force field (default MMFF94).  MUST match the
-//                          consumer's joiner.ffVariant: it sets the
+//                          consumer's zipper.ffVariant: it sets the
 //                          minimised geometry AND the stored energies,
 //                          and sameEmbeddingType() now enforces it.
 //        --minimize        MMFF-minimize each fragment (electrostatics off)
@@ -70,7 +70,7 @@ void usage(const char *argv0) {
          "      --seed N         embedder random seed\n"
          "      --ff VARIANT     force field: MMFF94, MMFF94s, MMFF94_TOR,\n"
          "                       MMFF94s_TOR (default MMFF94).  MUST match the\n"
-         "                       consumer's joiner.ffVariant -- it sets the\n"
+         "                       consumer's zipper.ffVariant -- it sets the\n"
          "                       minimised geometry and the stored energies\n"
          "      --minimize       MMFF-minimize fragments (electrostatics off)\n"
          "      --min-iters N    max iters for --minimize\n"

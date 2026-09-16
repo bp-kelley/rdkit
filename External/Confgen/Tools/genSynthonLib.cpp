@@ -309,7 +309,7 @@ int main(int argc, char **argv) {
   if (!embedderPath.empty()) {
     EmbedderParams flp = params.confgen.embedding;
     flp.randomSeed = params.confgen.randomSeed;
-    flp.ffVariant = params.confgen.joiner.ffVariant;
+    flp.ffVariant = params.confgen.zipper.ffVariant;
     shared = std::make_shared<Embedder>(flp);
     std::ifstream in(embedderPath, std::ios_base::binary);
     if (in) {

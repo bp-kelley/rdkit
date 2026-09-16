@@ -7,7 +7,7 @@
 //  of the RDKit source tree.
 //
 // The EnumerateSynthons3D / Molzip3D cases that used to live here tested a
-// joiner that no longer exists: Molzip3D was a stub returning no products, and
+// zipper that no longer exists: Molzip3D was a stub returning no products, and
 // the class has been rebuilt on FragmentConfGen in SynthonSearch/.  They were
 // already disabled ("[.]") and are removed rather than left to rot; the new
 // library needs its own tests.  What remains is the Molzip3D-independent unit

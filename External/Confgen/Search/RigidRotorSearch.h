@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include "Joiner/FragmentJoiner.h"
+#include "Zipper/FragmentZipper.h"
 #include "Search/SearchParams.h"
 
 #include <chrono>
@@ -30,7 +30,7 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearch {
  public:
   virtual ~RigidRotorSearch() = default;
   virtual std::vector<SearchResult> search(
-      const FragmentJoinerContext &ctx, const RigidRotorSearchParams &sp) = 0;
+      const FragmentZipperContext &ctx, const RigidRotorSearchParams &sp) = 0;
   //! If we have a sample budget, return it
   virtual unsigned int lastBudget() const { return 0; }
 
@@ -42,8 +42,8 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearch {
     Returns an empty string when valid, otherwise a human readable error message
 
     \param sp         the search parameters
-    \param ffVariant  the force field the joiner will score with -- separate
-                      because it lives in FragmentJoinerParams, not here
+    \param ffVariant  the force field the zipper will score with -- separate
+                      because it lives in FragmentZipperParams, not here
   */
   virtual std::string validateParams(const RigidRotorSearchParams &sp,
                                      const std::string &ffVariant) const;
@@ -108,7 +108,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearchResult {
 
 //! Run a search on a joined context
 RDKIT_FRAGMENTCONFGEN_EXPORT RigidRotorSearchResult runRigidRotorSearch(
-    const FragmentJoinerContext &ctx, const RigidRotorSearchParams &sp);
+    const FragmentZipperContext &ctx, const RigidRotorSearchParams &sp);
 
 }  // namespace RDKit
 

@@ -256,15 +256,15 @@ This is a brief overview of the organization of the conformer generation:
   Fragment library.  This holds the embedded fragments used when
   rigidly rotating.
 
- * Joiner/FragmentJoiner.h(.cpp)
+ * Zipper/FragmentZipper.h(.cpp)
 
   This generates the initial rigid fragments with appropriate bond lengths
-  and returns the FragmentJoinerContext that the searches will use
+  and returns the FragmentZipperContext that the searches will use
   when rotor driving.
 
  * Search/RigidRotorSearch.h(.cpp)
 
-  This is the base class for rotor driving.  It takes a FragmentJoinerContext
+  This is the base class for rotor driving.  It takes a FragmentZipperContext
    and searches it.
 
 Note:

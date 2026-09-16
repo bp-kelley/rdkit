@@ -8,8 +8,8 @@
 //
 //  Profiling tools to find hotspots in confgen
 //
-#ifndef RDKIT_JOINERPROFILING_H
-#define RDKIT_JOINERPROFILING_H
+#ifndef RDKIT_ZIPPERPROFILING_H
+#define RDKIT_ZIPPERPROFILING_H
 
 #include <atomic>
 #include <chrono>

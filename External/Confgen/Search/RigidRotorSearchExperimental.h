@@ -8,7 +8,7 @@
 //
 //  Experimental junction-angle search strategies, filled in one at a time (see
 //  the checklist in the design plan).  Each is a drop-in RigidRotorSearch
-//  selectable via FragmentJoinerParams::searchMode.  Until implemented, each
+//  selectable via FragmentZipperParams::searchMode.  Until implemented, each
 //  delegates to TreeSearch so the pipeline + bench selector work end-to-end.
 //
 #ifndef RDKIT_RIGIDROTORSEARCHEXPERIMENTAL_H
@@ -17,7 +17,7 @@
 #include <RDGeneral/export.h>
 #include <vector>
 
-#include "Search/RigidRotorSearch.h"  // RigidRotorSearch base (pulls FragmentJoinerContext + RigidRotorSearchParams)
+#include "Search/RigidRotorSearch.h"  // RigidRotorSearch base (pulls FragmentZipperContext + RigidRotorSearchParams)
 
 namespace RDKit {
 
@@ -29,7 +29,7 @@ namespace RDKit {
 class RDKIT_FRAGMENTCONFGEN_EXPORT MergedSearch : public RigidRotorSearch {
  public:
   std::vector<SearchResult> search(
-      const FragmentJoinerContext &ctx,
+      const FragmentZipperContext &ctx,
       const RigidRotorSearchParams &sp) override;
   unsigned int lastBudget() const override { return d_lastBudget; }
 

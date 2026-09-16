@@ -10,7 +10,7 @@
 #define RDKIT_FRAGMENT_CONFGEN_H
 
 #include <RDGeneral/export.h>
-#include "Joiner/FragmentJoiner.h" 
+#include "Zipper/FragmentZipper.h" 
 
 #include "Sampler/TorsionSampler.h"
 #include "Embedder/Embedder.h" 
@@ -143,7 +143,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FragmentConfGenParams {
   bool wholeAcyclicFragments = false;
 
   EmbedderParams embedding;
-  FragmentJoinerParams joiner;
+  FragmentZipperParams zipper;
   RigidRotorSearchParams search;
 
   OutputRanking outputRanking = OutputRanking::FFEnergy;
@@ -167,7 +167,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FragmentConfGenParams {
   void setEmbedder(std::shared_ptr<Embedder> lib);
 
   //! diagnostics toggle
-  //!  XXX FIX ME -> probably move into the result object.  The joiner profiler
+  //!  XXX FIX ME -> probably move into the result object.  The zipper profiler
   //!  it drives is a process-global flag, so under the shared-embedder /
   //!  many-generators threading model the last generator constructed wins.
   DiagnosticsParams diagnostics;
@@ -227,9 +227,9 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT FragmentConfGenResult {
   unsigned int numFragments = 0;
   //! lowest MMFF energy in the output ensemble (NaN if empty)
   double bestEnergy = std::numeric_limits<double>::quiet_NaN();
-  //! number of Thompson angle draws the joiner spent
+  //! number of Thompson angle draws the zipper spent
   //! 0 for the exhaustive-beam path or non-assembled)
-  unsigned int joinerBudget = 0;
+  unsigned int zipperBudget = 0;
   //! wall time (ns) the rigid-rotor search spent (assembly/search only; embed
   //! excluded)
   long long joinerAssemblyNs = 0;

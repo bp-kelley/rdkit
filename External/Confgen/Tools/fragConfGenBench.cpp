@@ -47,7 +47,7 @@
 #include <Confgen/Search/InterFragScore.h>
 #include <Confgen/Sampler/TorsionSampler.h>
 #include <Confgen/Embedder/Embedder.h>
-#include <Confgen/Joiner/FragmentJoiner.h>
+#include <Confgen/Zipper/FragmentZipper.h>
 #include <Confgen/Search/RigidRotorSearch.h>
 #include <Confgen/Utils/ParamsIO.h>
 #include <GraphMol/ChemTransforms/MolFragmenter.h>
@@ -143,7 +143,7 @@ FragmentConfGenParams bestDefaultParams(int seed = 42) {
   p.energyWindow = 10.0;
   p.randomSeed = seed;
   // Match the PRODUCTION library default: bare ETKDG preferred angles (the
-  // joiner adds its own low-weight 60-deg backstop).  The old defaultSampler()
+  // zipper adds its own low-weight 60-deg backstop).  The old defaultSampler()
   // here was the Composite(ETKDG+Uniform60) union, which flattens the informed
   // prior and measurably hurts Thompson sampling -- so this benchmark was not
   // measuring the shipped default.
@@ -548,7 +548,7 @@ void runPlatinum() {
       bestDefaultParams(seed);  // shipped default config
   pCold.numOutputConfs = maxConfs;
   if (std::getenv("PLATINUM_COORDSONLY")) {
-    // route "ours" through the new coordinate-only FragmentJoiner backend
+    // route "ours" through the new coordinate-only FragmentZipper backend
     if (const char *e = std::getenv("PLATINUM_ENERGYWINDOW"))
       pCold.energyWindow = std::atof(e);
   }
@@ -814,12 +814,12 @@ void runPlatinum() {
     pc.numOutputConfs = maxConfs;
     // Reproduction benchmark scores with MMFF94s: the crystal pose is
     // time-averaged, which MMFF94s reproduces best (NB not necessarily the best
-    // variant for a single BIOACTIVE conformer -- the library/joiner default
+    // variant for a single BIOACTIVE conformer -- the library/zipper default
     // stays MMFF94).  ASM_MMFF94 reverts.
-    pc.joiner.ffVariant = std::getenv("ASM_MMFF94") ? "MMFF94" : "MMFF94s";
+    pc.zipper.ffVariant = std::getenv("ASM_MMFF94") ? "MMFF94" : "MMFF94s";
     if (std::getenv("PLATINUM_COORDSONLY")) {
       if (const char *e = std::getenv("ASM_VDWCUTOFF"))
-        pc.joiner.interFragVdwCutoff = std::atof(e);
+        pc.zipper.interFragVdwCutoff = std::atof(e);
       if (const char *e = std::getenv("PLATINUM_ENERGYWINDOW"))
         pc.energyWindow = std::atof(e);
     }
@@ -1604,7 +1604,7 @@ void runWorst() {
 }
 
 //! Sweep junction-angle samplers (ETKDG / TorsionLib / Uniform, with/without a
-//! uniform-grid backstop) through the CoordsOnly joiner on the Platinum set (50
+//! uniform-grid backstop) through the CoordsOnly zipper on the Platinum set (50
 //! by default).  Env: PLATINUM_MAXMOLS, PLATINUM_THREADS, ASM_NCONF.
 void runAsmSampler() {
   std::string sdf = testDataPath(
@@ -1729,7 +1729,7 @@ void runAsmSampler() {
   }
 
   std::printf(
-      "[asmsampler] junction-angle samplers through CoordsOnly joiner, %zu "
+      "[asmsampler] junction-angle samplers through CoordsOnly zipper, %zu "
       "mols, nConf=%u, frag=%s%s%s\n\n  %-14s %-7s %-7s %-6s %-6s %-7s %-8s\n",
       jobs.size(), nConf, fragEmbed.c_str(), exhaustive ? ", EXHAUSTIVE" : "",
       thompson ? (", THOMPSON=" + std::to_string(thompson)).c_str() : "",
@@ -1787,10 +1787,10 @@ void runAsmSampler() {
           if (tsMin >= 0) pp.search.thompson.minBudget = tsMin;
           if (tsMax >= 0) pp.search.thompson.maxBudget = tsMax;
           // crystal-structure reproduction -> MMFF94s; override w/ env
-          pp.joiner.ffVariant =
+          pp.zipper.ffVariant =
               std::getenv("ASM_MMFF94") ? "MMFF94" : "MMFF94s";
           if (const char *e = std::getenv("ASM_VDWCUTOFF"))
-            pp.joiner.interFragVdwCutoff = std::atof(e);
+            pp.zipper.interFragVdwCutoff = std::atof(e);
           if (const char *e = std::getenv("ASM_PRIOR"))
             pp.search.thompson.priorStrength = std::atof(e);
           if (const char *e = std::getenv("ASM_BACKSTOP"))
@@ -1814,7 +1814,7 @@ void runAsmSampler() {
           requireValidParams(pp, "runAsmSampler");
           auto rr = FragmentConfGen(pp).build(*jobs[i]);
           nc = rr.conformers.size();
-          bud = rr.joinerBudget;
+          bud = rr.zipperBudget;
           rms = minHeavyRms(rr.conformers, *jobs[i]);
           if (std::getenv("ASM_RANKDIAG")) {
             auto wr = winnerEnergyRank(rr.conformers, *jobs[i]);
@@ -2090,7 +2090,7 @@ void runMatrix() {
         base.numOutputConfs = 50;
         base.energyWindow = 10.0;
         base.randomSeed = seed;
-        base.joiner.ffVariant = "MMFF94s";
+        base.zipper.ffVariant = "MMFF94s";
         base.embedding.fragmentEmbedMode = em.mode;
         base.embedding.minimizeMode =
             em.minimize ? FragmentMinimize::Full : FragmentMinimize::None;
@@ -3202,7 +3202,7 @@ void runTermTable() {
     emitEnsemble("OURS", oursConfs, *heavy);
 
     
-    // Link/rotor bonds the joiner drives (findLinkBonds), reported on the HEAVY
+    // Link/rotor bonds the zipper drives (findLinkBonds), reported on the HEAVY
     // molecule -- NO explicit Hs are added here.  Every link bond joins two
     // heavy atoms, and addHs appends Hs AFTER all heavy atoms, so these
     // heavy-atom indices (and hence these bonds) are stable across a subsequent
@@ -3305,7 +3305,7 @@ void runFragRms() {
 
       // normal embedded pool
       unsetenv("ASM_EXACT_GEOM");
-      FragmentJoinerInput emb = buildFragmentJoinerInput(
+      FragmentZipperInput emb = buildFragmentJoinerInput(
           *m, nConfs, 0xf00d, var, false, true, nullptr);
       if (!emb.mol || emb.fragments.empty()) continue;
       const Conformer &xc = m->getConformer();
@@ -3486,16 +3486,16 @@ void runTorCheck() {
       // (junctions + torsion quartets); the crystal's own coordinates supply
       // every dihedral.
       setenv("ASM_EXACT_GEOM", "1", 1);
-      FragmentJoinerInput in =
+      FragmentZipperInput in =
           buildFragmentJoinerInput(*m, 1, 0xf00d, var, false, false, nullptr);
       if (!in.mol || in.fragments.size() < 2 || in.junctions.empty()) continue;
 
-      FragmentJoinerParams gp;
+      FragmentZipperParams gp;
       gp.ffVariant = var;
       // This diagnostic reads only the rotor topology and the crystal coords,
       // so it does not need a searchable context -- an empty rotor set is the
       // only thing that stops it.
-      const auto ctx = joinFragments(in, gp);
+      const auto ctx = zipFragments(in, gp);
       if (ctx.rotorBonds.empty()) continue;
       RotorDriver drv(*in.mol, ctx.rotorBonds, -1, nullptr);
       const Conformer &xc =
@@ -3589,7 +3589,7 @@ void runTorCheck() {
 //!  (1) REPRODUCTION -- can the search rebuild the crystal pose? (best-of-N
 //!  heavy RMSD) (2) RANKING -- where does the TRUE crystal pose land in our
 //!  scorers?  We score the
-//!      crystal pose itself with the joiner's inter-fragment scorer AND full
+//!      crystal pose itself with the zipper's inter-fragment scorer AND full
 //!      MMFF, and report what fraction of the generated ensemble our scorer
 //!      prefers over it.  Since every fragment is EXACT crystal geometry, a
 //!      poor crystal rank here is INTRINSIC (unrelaxed-bioactive strain), not a
@@ -3757,18 +3757,18 @@ void runXtalRecon() {
       const bool fragMin = embed && (useDG || !std::getenv("XTAL_EMBED_RAW"));
       // warm path (oversample lib) ignores the useDG/minMMFF args -- its
       // EmbedderParams govern.
-      FragmentJoinerInput in = buildFragmentJoinerInput(
+      FragmentZipperInput in = buildFragmentJoinerInput(
           *m, embed ? 16 : 1, seed, var, useDG, /*minMMFF=*/fragMin, lib.get());
       if (!in.mol || in.fragments.size() < 2 || in.junctions.empty()) continue;
 
-      // crystal pose's inter-fragment score (the joiner's ranking criterion)
+      // crystal pose's inter-fragment score (the zipper's ranking criterion)
       std::vector<std::pair<unsigned int, unsigned int>> jb;
       for (const auto &J : in.junctions) jb.emplace_back(J.atomA, J.atomB);
       auto iff = makeInterFragmentScoreFn(*in.mol, in.atomFragment, jb, false, var);
       const double Sxtal = iff ? iff(xtalBuf.data(), n)
                                : std::numeric_limits<double>::quiet_NaN();
 
-      FragmentJoinerParams gp;
+      FragmentZipperParams gp;
       gp.ffVariant = var;
       RigidRotorSearchParams sp;
       sp.fragConfBranch =
@@ -3780,7 +3780,7 @@ void runXtalRecon() {
                                0,    30,   60,   90,  120, 150};  // 30deg
       sp.thompson.autoBudget = true;
       sp.thompson.maxBudget = 6000;
-      auto res = runRigidRotorSearch(joinFragments(in, gp), sp).results;
+      auto res = runRigidRotorSearch(zipFragments(in, gp), sp).results;
       if (res.empty()) continue;
 
       ROMOL_SPTR xHeavy(MolOps::removeHs(static_cast<const ROMol &>(*m)));
@@ -3960,7 +3960,7 @@ void runXtalRecon() {
 
 //! Per-rotor-count timing crossover: run ETKDG and TorLib samplers, each with
 //! BOTH the deterministic tree/beam search AND Thompson sampling, over the full
-//! Platinum set, and bucket JOINER-ONLY wall time (embed excluded,
+//! Platinum set, and bucket ZIPPER-ONLY wall time (embed excluded,
 //! per-molecule) by the FRAGCG_PARAMS=<file>: load a serialized
 //! FragmentConfGenParams text file (key = value; see Utils/ParamsIO) and layer
 //! it over each run's params, so any parameter can be driven from a config file
@@ -4131,7 +4131,7 @@ void runRotorCross() {
           pp.search.thompsonBudget = 0;
           pp.search.thompson.autoBudget = !cfg.exhaustive;
           pp.search.searchMode = searchModeFromEnv();  // ASM_SEARCH override
-          pp.joiner.ffVariant = mmff;
+          pp.zipper.ffVariant = mmff;
           // fragment-conformer coverage sweep (fragment-state-starvation test)
           if (const char *e = std::getenv("ASM_BRANCH"))
             pp.search.fragConfBranch = std::atoi(e);
@@ -4151,7 +4151,7 @@ void runRotorCross() {
           requireValidParams(pp, "runRotorCross");
           auto rr = FragmentConfGen(pp).build(*jobs[i]);
           nc = rr.conformers.size();
-          bud = rr.joinerBudget;
+          bud = rr.zipperBudget;
           asmNs = rr.joinerAssemblyNs;
           rms = minHeavyRms(rr.conformers, *jobs[i]);
         } catch (...) {
@@ -4374,15 +4374,15 @@ void runBank() {
   // taking its .embedding.
   FragmentConfGenParams sharedTmpl;
   sharedTmpl.randomSeed = seed;
-  sharedTmpl.joiner.ffVariant = mmff;  // as the per-molecule pp below sets it
+  sharedTmpl.zipper.ffVariant = mmff;  // as the per-molecule pp below sets it
   if (!paramsOverride.empty())
     RDKit::fragmentConfGenParamsFromString(paramsOverride, sharedTmpl);
   EmbedderParams sharedFlp = sharedTmpl.embedding;
-  // getEmbedderParams() drives the embedder's variant from the joiner's (one
+  // getEmbedderParams() drives the embedder's variant from the zipper's (one
   // force field for the whole pipeline).  This path builds the Embedder
   // directly, so apply the same rule -- otherwise the shared cache embeds under
   // a different force field than every per-molecule run assumes.
-  sharedFlp.ffVariant = sharedTmpl.joiner.ffVariant;
+  sharedFlp.ffVariant = sharedTmpl.zipper.ffVariant;
   sharedFlp.randomSeed = seed;
   auto sharedLib = std::make_shared<Embedder>(sharedFlp);
   // BANK_FRAGLIB: preload a CANNED library built offline by genFragLib -- the
@@ -4567,7 +4567,7 @@ void runBank() {
           pp.search.thompsonBudget = 0;
           pp.search.thompson.autoBudget = ts;          // false = tree/beam
           pp.search.searchMode = searchModeFromEnv();  // ASM_SEARCH override
-          pp.joiner.ffVariant = mmff;
+          pp.zipper.ffVariant = mmff;
           if (!paramsOverride.empty())
             RDKit::fragmentConfGenParamsFromString(paramsOverride,
                                                    pp);  // FRAGCG_PARAMS
@@ -4816,7 +4816,7 @@ const std::vector<Profile> &profiles() {
        "across ETKDG/DG/+MMFF; SDF dump (PLATINUM_SDFOUT)"},
       {"asmsampler", runAsmSampler,
        "sweep junction-angle samplers (ETKDG/TorLib/Uniform +/- backstop) through "
-       "the CoordsOnly joiner (PLATINUM_MAXMOLS default 50)"},
+       "the CoordsOnly zipper (PLATINUM_MAXMOLS default 50)"},
       {"rotorcross", runRotorCross,
        "ETKDG & TorLib x tree-search & Thompson: assembly-only time bucketed by "
        "rotor count to find the TS-vs-tree speed crossover (PLATINUM_MAXMOLS, "

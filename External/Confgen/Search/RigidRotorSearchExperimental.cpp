@@ -35,7 +35,7 @@ inline double circDiff(double a, double b) {
 
 
 
-std::vector<SearchResult> MergedSearch::search(const FragmentJoinerContext &ctx,
+std::vector<SearchResult> MergedSearch::search(const FragmentZipperContext &ctx,
                                                const RigidRotorSearchParams &sp) {
   SystematicSearch sys;
   ThompsonSamplingSearch ts;

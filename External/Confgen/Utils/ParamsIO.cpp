@@ -257,12 +257,12 @@ void visitFields(P &p, V &v) {
   v("rankByBasinEnergy", p.rankByBasinEnergy);
   v("labelFFVariant", p.labelFFVariant);
 
-  // --- joiner (build) ---
-  v("joiner.ffVariant", p.joiner.ffVariant);
-  v("joiner.interFragVdwCutoff", p.joiner.interFragVdwCutoff);
-  v("joiner.fragShrugDisplacement", p.joiner.fragShrugDisplacement);
-  v("joiner.fragShrugForceConst", p.joiner.fragShrugForceConst);
-  v("joiner.useFullFFScorer", p.joiner.useFullFFScorer);
+  // --- zipper (build) ---
+  v("zipper.ffVariant", p.zipper.ffVariant);
+  v("zipper.interFragVdwCutoff", p.zipper.interFragVdwCutoff);
+  v("zipper.fragShrugDisplacement", p.zipper.fragShrugDisplacement);
+  v("zipper.fragShrugForceConst", p.zipper.fragShrugForceConst);
+  v("zipper.useFullFFScorer", p.zipper.useFullFFScorer);
 
   // --- search: common ---
   v("search.searchMode", p.search.searchMode);
@@ -496,6 +496,27 @@ std::string readFragmentConfGenParams(std::istream &is,
              ")";
     }
   }
+  // Keys that were RENAMED.  Unlike a retired key, these carry a value we must
+  // not lose -- a stored library's zipper.ffVariant is a real setting -- so the
+  // old name is mapped onto the new one rather than ignored.
+  static const std::map<std::string, std::string> renamed = {
+      {"joiner.ffVariant", "zipper.ffVariant"},
+      {"joiner.interFragVdwCutoff", "zipper.interFragVdwCutoff"},
+      {"joiner.fragShrugDisplacement", "zipper.fragShrugDisplacement"},
+      {"joiner.fragShrugForceConst", "zipper.fragShrugForceConst"},
+      {"joiner.useFullFFScorer", "zipper.useFullFFScorer"},
+  };
+  for (const auto &ren : renamed) {
+    const auto at = kv.find(ren.first);
+    if (at == kv.end()) {
+      continue;
+    }
+    if (!kv.count(ren.second)) {
+      kv[ren.second] = at->second;
+    }
+    kv.erase(at);
+  }
+
   std::string err;
   Reader r{kv, err};
   visitFields(p, r);
@@ -531,10 +552,10 @@ FragmentConfGenParams resolvedFragmentConfGenParams(
 
   // --- derivations that FragmentConfGen::build applies before running anything
   // ------------- one force field for the whole pipeline (see getEmbedderParams)
-  r.embedding.ffVariant = r.joiner.ffVariant;
+  r.embedding.ffVariant = r.zipper.ffVariant;
   // the search beam runs on a WIDER window than the output keep-window
   r.search.energyWindow = r.energyWindow > 0 ? r.energyWindow * 2.5 : 25.0;
-  if (r.labelFFVariant.empty()) r.labelFFVariant = r.joiner.ffVariant;
+  if (r.labelFFVariant.empty()) r.labelFFVariant = r.zipper.ffVariant;
 
   // --- AUTO sentinels, resolved exactly as each search resolves them
   // ------------------------

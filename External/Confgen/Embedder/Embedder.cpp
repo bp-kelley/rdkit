@@ -21,7 +21,7 @@
 #include <ForceField/PositionConstraint.h>
 #include <GraphMol/MolAlign/AlignMolecules.h>
 #include "Utils/SymmetricRmsd.h"
-#include "Joiner/JoinerProfiling.h"
+#include "Zipper/ZipperProfiling.h"
 #include <Geometry/Transform3D.h>
 #include <RDGeneral/RDLog.h>
 #include <RDGeneral/types.h>
@@ -188,7 +188,7 @@ bool embedFragment(RWMol &frag, const EmbedderParams &params) {
   FragmentEmbedMode embedMode = fp.embedMode.value_or(params.fragmentEmbedMode);
 
   // Junction bonds are capped with dummies, so for embedding we replace them
-  //  with carbon to get decent output geometries.  It is up to the Joiner
+  //  with carbon to get decent output geometries.  It is up to the Zipper
   //  to convert them to ideal bond lengths when the full atom types are known
   const int CARBON = 6;
   std::vector<unsigned int> dummies;
@@ -395,7 +395,7 @@ bool embedFragment(RWMol &frag, const EmbedderParams &params) {
   }
 
   // (The reduce-to-keepN block above already emitted the survivors
-  // lowest-energy first, which is what the joiner consumes.)
+  // lowest-energy first, which is what the zipper consumes.)
 
   //  XXX FIX ME -> Is this actually ever used?
   // Tag each surviving conformer with a COARSE geometric state id (cluster by

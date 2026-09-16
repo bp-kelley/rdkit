@@ -8,8 +8,8 @@
 //
 #include "FragmentConfGen.h"
 #include "Embedder/Embedder.h"
-#include "Joiner/FragmentJoiner.h"
-#include "Joiner/JoinerProfiling.h"
+#include "Zipper/FragmentZipper.h"
+#include "Zipper/ZipperProfiling.h"
 #include "Search/InterFragScore.h"
 #include "Search/RigidRotorSearch.h"
 #include "Utils/ParamsIO.h"
@@ -86,7 +86,7 @@ EmbedderParams getEmbedderParams(const FragmentConfGenParams &p, int seed) {
   EmbedderParams flp = p.embedding;
   flp.randomSeed = seed;
   flp.EMBEDDER_TRACE = p.diagnostics.EMBEDDER_TRACE;
-  flp.ffVariant = p.joiner.ffVariant;
+  flp.ffVariant = p.zipper.ffVariant;
   return flp;
 }
 
@@ -135,12 +135,12 @@ int autoOutputConfs(unsigned int nRotors) {
 }  // namespace
 
 std::string FragmentConfGenParams::validate() const {
-  // The joiner and the search own the rules for their own parameters -- ask
+  // The zipper and the search own the rules for their own parameters -- ask
   // them rather than restating the checks here and letting the two drift.
-  if (const std::string err = joiner.validate(); !err.empty()) {
+  if (const std::string err = zipper.validate(); !err.empty()) {
     return err;
   }
-  if (const std::string err = validateSearchParams(search, joiner.ffVariant);
+  if (const std::string err = validateSearchParams(search, zipper.ffVariant);
       !err.empty()) {
     return err;
   }
@@ -205,7 +205,7 @@ FragmentConfGen::FragmentConfGen(FragmentConfGenParams params)
     EmbedderParams flp = getEmbedderParams(d_params, d_params.randomSeed);
     d_params.embedder = std::make_shared<Embedder>(flp);
   }
-  // Set once, here, where the parameters are fixed.  The joiner profiler is a
+  // Set once, here, where the parameters are fixed.  The zipper profiler is a
   // PROCESS-GLOBAL flag, so doing this per-build let concurrent generators
   // flip each other's setting mid-run.
   detail::setJoinerProfiling(d_params.diagnostics.ASM_PROFILE);
@@ -413,7 +413,7 @@ void FragmentConfGen::buildEnsemble(
     lib = privateLib.get();
   }
 
-  FragmentJoinerParams gp = d_params.joiner;
+  FragmentZipperParams gp = d_params.zipper;
   gp.diagnostics = d_params.diagnostics;
   gp.sampleTrivialRotors = d_params.sampleTrivialRotors;
   gp.wholeAcyclicFragments = d_params.wholeAcyclicFragments;
@@ -425,9 +425,9 @@ void FragmentConfGen::buildEnsemble(
       d_params.energyWindow > 0 ? d_params.energyWindow * 2.5 : 25.0;
   sp.timeBudgetMs = d_params.timeBudgetMs;
 
-  FragmentJoinerInput in = buildFragmentJoinerInput(
+  FragmentZipperInput in = buildFragmentJoinerInput(
       mol, d_params.embedding.numConfsPerFragment, seed,
-      d_params.joiner.ffVariant,
+      d_params.zipper.ffVariant,
       d_params.embedding.fragmentEmbedMode == FragmentEmbedMode::DG,
       d_params.embedding.minimizeMode != FragmentMinimize::None, lib, &gp,
       linkBonds);
@@ -442,7 +442,7 @@ void FragmentConfGen::buildEnsemble(
   const size_t nIntraRotors = in.intraRotorBonds.size();
 
   const std::string labelVariant = d_params.labelFFVariant.empty()
-                                       ? d_params.joiner.ffVariant
+                                       ? d_params.zipper.ffVariant
                                        : d_params.labelFFVariant;
   auto fullE = makeFullFFScoreFn(*in.mol, /*electrostatics=*/false, labelVariant);
   if (!fullE) {
@@ -536,9 +536,9 @@ void FragmentConfGen::buildEnsemble(
     //  3. optionally minimize ensemble (this shouldn't be necessary if 1+2 did
     //  a good job)
     //  4. sort by energy, prune by desired # confs and return
-    const auto ctx = joinFragments(in, gp);
+    const auto ctx = zipFragments(in, gp);
     if (!ctx.isValid()) {
-      // An empty ensemble already surfaces as FF_FAIL; the joiner's status is
+      // An empty ensemble already surfaces as FF_FAIL; the zipper's status is
       // the reason WHY, which FragConfGenResultType cannot yet carry.
       BOOST_LOG(rdWarningLog) << "[fragcg] join failed: "
                               << fragmentJoinerStatusMessage(ctx.status)
@@ -551,7 +551,7 @@ void FragmentConfGen::buildEnsemble(
           std::chrono::duration_cast<std::chrono::nanoseconds>(
               std::chrono::steady_clock::now() - _searchStart)
               .count();
-      result.joinerBudget = search.budget;
+      result.zipperBudget = search.budget;
       result.conformers.reserve(result.conformers.size() +
                                 search.results.size());
       for (const auto &r : search.results) {

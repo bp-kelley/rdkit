@@ -27,7 +27,7 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT SystematicSearch : public RigidRotorSearch {
                              const std::string &ffVariant) const override;
 
   std::vector<SearchResult> search(
-      const FragmentJoinerContext &ctx,
+      const FragmentZipperContext &ctx,
       const RigidRotorSearchParams &sp) override;
 };
 

@@ -17,7 +17,7 @@
 #include <ForceField/MMFF/Params.h>
 #include "Utils/NonbondedLookup.h"
 #include "Search/TreeSearch.h"
-#include "Joiner/JoinerProfiling.h"
+#include "Zipper/ZipperProfiling.h"
 
 #include <RDGeneral/RDLog.h>
 
@@ -255,7 +255,7 @@ std::string TreeSearch::validateParams(const RigidRotorSearchParams &sp,
   return {};
 }
 
-std::vector<SearchResult> TreeSearch::search(const FragmentJoinerContext &ctx,
+std::vector<SearchResult> TreeSearch::search(const FragmentZipperContext &ctx,
                                              const RigidRotorSearchParams &sp) {
   const auto &params = sp;
   std::vector<SearchResult> all;

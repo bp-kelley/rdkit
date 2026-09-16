@@ -17,7 +17,7 @@
 #include "Search/RotorRefine.h"
 #include "Utils/NonbondedLookup.h"
 #include "Utils/SymmetricRmsd.h"
-#include "Joiner/JoinerProfiling.h"
+#include "Zipper/ZipperProfiling.h"
 #include "Sampler/TorsionSampler.h"
 
 #include <GraphMol/MolOps.h>
@@ -48,7 +48,7 @@ namespace {
 
 using Vdw = ForceFields::MMFF::InterFragVdWContrib;
 
-inline double confE(const JoinFragment &f, unsigned int c) {
+inline double confE(const ZipFragment &f, unsigned int c) {
   const double e = f.confs[c].energy;
   return std::isfinite(e) ? e : 0.0;
 }
@@ -107,7 +107,7 @@ std::string SystematicSearch::validateParams(
 }
 
 std::vector<SearchResult> SystematicSearch::search(
-    const FragmentJoinerContext &ctx, const RigidRotorSearchParams &sp) {
+    const FragmentZipperContext &ctx, const RigidRotorSearchParams &sp) {
   const auto &params = sp;
   const size_t nf = ctx.frags.size();
   const unsigned int nAtoms = ctx.mol.getNumAtoms();
@@ -132,7 +132,7 @@ std::vector<SearchResult> SystematicSearch::search(
                                     : 0.5);
   const bool validate = params.diagnostics.SYS_VALIDATE;
 
-  // extract the subtree from the joiner context
+  // extract the subtree from the zipper context
   std::vector<std::vector<size_t>> childEdges(nf);
   for (size_t e = 0; e < ctx.edges.size(); ++e)
     childEdges[ctx.edges[e].parentFrag].push_back(e);

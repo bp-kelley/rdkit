@@ -17,12 +17,12 @@ namespace RDKit {
 
 struct RDKIT_FRAGMENTCONFGEN_EXPORT DiagnosticsParams {
   bool EMBEDDER_TRACE = false;  //!< Embedder
-  bool ASM_PROFILE = false;    //!< Joiner:  whole-process timing
-  bool ASM_INCRSTATS = false;  //!< Joiner:  rigid FF score statistics
+  bool ASM_PROFILE = false;    //!< Zipper:  whole-process timing
+  bool ASM_INCRSTATS = false;  //!< Zipper:  rigid FF score statistics
   bool ASM_SCOREVALIDATE =
-      false;  //!< Joiner:  rigid vs full FF checking
+      false;  //!< Zipper:  rigid vs full FF checking
   bool ASM_EXACT_GEOM =
-      false;  //!< Joiner:  Allows seeding from exact input geometry (i.e. xtal)
+      false;  //!< Zipper:  Allows seeding from exact input geometry (i.e. xtal)
               //!< sampler; slated for removal)
   bool SYS_VALIDATE =
       false;  //!< Search/sys: subtree-energy self-check vs full score

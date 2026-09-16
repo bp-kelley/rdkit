@@ -30,7 +30,7 @@
 #include <Confgen/Utils/ParamsIO.h>
 #include <Confgen/Search/RotorDriver.h>
 #include <Confgen/Search/TreeSearch.h>
-#include <Confgen/Joiner/FragmentJoiner.h>
+#include <Confgen/Zipper/FragmentZipper.h>
 #include <Confgen/Search/RigidRotorSearch.h>
 #include <Confgen/Utils/ParamsIO.h>
 #include <Confgen/Utils/TheobaldRmsd.h>
@@ -888,7 +888,7 @@ TEST_CASE("Embedder embed cache", "[embedder]") {
 
   SECTION(
       "exit-vector fragments are label-agnostic; copy keeps the caller's id") {
-    // isotope-labelled exit vectors, as produced by the joiner's cuts
+    // isotope-labelled exit vectors, as produced by the zipper's cuts
     Embedder lib(params);
     auto frag = mol("[1000*]c1ccccc1");
     REQUIRE(frag);
@@ -1389,7 +1389,7 @@ TEST_CASE(
 }
 
 TEST_CASE("coordinate-only fragment placement reassembles a cut molecule",
-          "[joiner][placement]") {
+          "[zipper][placement]") {
   // Cut a molecule at one rotatable bond, rigidly DISPLACE the child fragment
   // (as if it were embedded in its own frame), then place it back
   // coordinate-only and drive the junction torsion to the original dihedral.
@@ -1524,10 +1524,10 @@ TEST_CASE("RotorTree diversity-preserving retention keeps a spread ensemble",
   }
 }
 
-TEST_CASE("FragmentJoiner greedily reassembles a molecule coordinate-only",
-          "[joiner][greedy]") {
+TEST_CASE("FragmentZipper greedily reassembles a molecule coordinate-only",
+          "[zipper][greedy]") {
   // Cut a real molecule into fragments (one conformer each = its crystal-frame
-  // coords), then let the joiner place them and search the junctions.  The
+  // coords), then let the zipper place them and search the junctions.  The
   // assembled ensemble must reach the original geometry -- end-to-end proof of
   // place + drive + diversity search with the decomposed scorer.
   auto run = [](const std::string &smi, double thresh) {
@@ -1571,16 +1571,16 @@ TEST_CASE("FragmentJoiner greedily reassembles a molecule coordinate-only",
     std::vector<RDGeom::Point3D> pos(n);
     for (unsigned int a = 0; a < n; ++a) pos[a] = oc.getAtomPos(a);
 
-    std::vector<JoinFragment> frags(nFrag);
+    std::vector<ZipFragment> frags(nFrag);
     for (unsigned int a = 0; a < n; ++a) frags[fragOf[a]].atoms.push_back(a);
     for (auto &f : frags)
       f.confs.push_back({pos, 0.0});  // single conf = crystal frame
 
-    std::vector<JoinJunction> junctions;
+    std::vector<ZipJunction> junctions;
     for (auto bi : links) {
       const Bond *b = m->getBondWithIdx(bi);
       unsigned int a = b->getBeginAtomIdx(), c = b->getEndAtomIdx();
-      JoinJunction J;
+      ZipJunction J;
       J.fragA = fragOf[a];
       J.fragB = fragOf[c];
       J.atomA = a;
@@ -1603,7 +1603,7 @@ TEST_CASE("FragmentJoiner greedily reassembles a molecule coordinate-only",
     for (double a = -180.0; a < 180.0; a += 20.0)
       p.defaultAngles.push_back(a);
 
-    const auto ctx = joinFragments(*m, fragOf, frags, junctions);
+    const auto ctx = zipFragments(*m, fragOf, frags, junctions);
     REQUIRE(ctx.isValid());
     auto res = runRigidRotorSearch(ctx, p).results;
     REQUIRE(!res.empty());
@@ -1634,14 +1634,14 @@ TEST_CASE("FragmentJoiner greedily reassembles a molecule coordinate-only",
   run("CCOC(=O)c1ccc(OC)cc1", 0.9);  // ester + methoxy, several junctions
 }
 
-TEST_CASE("buildFragmentJoinerInput + FragmentJoiner produce a valid conformer",
-          "[joiner][integration]") {
+TEST_CASE("buildFragmentJoinerInput + FragmentZipper produce a valid conformer",
+          "[zipper][integration]") {
   auto run = [](const std::string &smi) {
     INFO("smiles=" << smi);
     std::unique_ptr<ROMol> raw(SmilesToMol(smi));
     REQUIRE(raw);
 
-    FragmentJoinerInput in =
+    FragmentZipperInput in =
         buildFragmentJoinerInput(*raw, /*nConfs=*/12, /*seed=*/0xC0FFEE);
     REQUIRE(in.mol);
     REQUIRE(in.fragments.size() >= 2);
@@ -1658,7 +1658,7 @@ TEST_CASE("buildFragmentJoinerInput + FragmentJoiner produce a valid conformer",
     p.rootSeeds = 3;
     p.tree.beamWidth = 60;
     p.diversityRmsThresh = 0.5;
-    auto res = runRigidRotorSearch(joinFragments(in), p).results;
+    auto res = runRigidRotorSearch(zipFragments(in), p).results;
     REQUIRE(!res.empty());
 
     const unsigned int n = in.mol->getNumAtoms();
@@ -1687,14 +1687,14 @@ TEST_CASE("buildFragmentJoinerInput + FragmentJoiner produce a valid conformer",
 }
 
 TEST_CASE("every RigidRotorSearchMode runs and returns a valid ensemble",
-          "[joiner][search]") {
+          "[zipper][search]") {
   // The searches are extracted behind RigidRotorSearch; each mode must place +
   // drive real geometry.  Experimental modes currently delegate to tree, so
   // they must also succeed.
   std::unique_ptr<ROMol> raw(
       SmilesToMol("CCOC(=O)c1ccc(OCCN)cc1"));  // multi-rotor
   REQUIRE(raw);
-  FragmentJoinerInput in =
+  FragmentZipperInput in =
       buildFragmentJoinerInput(*raw, /*nConfs=*/12, /*seed=*/0xC0FFEE);
   REQUIRE(in.mol);
   REQUIRE(in.fragments.size() >= 2);
@@ -1708,7 +1708,7 @@ TEST_CASE("every RigidRotorSearchMode runs and returns a valid ensemble",
     RigidRotorSearchParams p;
     p.searchMode = mode;
     p.diversityRmsThresh = 0.5;
-    auto res = runRigidRotorSearch(joinFragments(in), p).results;
+    auto res = runRigidRotorSearch(zipFragments(in), p).results;
     REQUIRE(!res.empty());
     CHECK(res.front().coords.size() == 3u * n);
     for (double v : res.front().coords) CHECK(std::isfinite(v));
@@ -1772,7 +1772,7 @@ TEST_CASE("createFragmentConfGen validates params and builds",
   }
   SECTION("incoherent params are rejected with a message") {
     FragmentConfGenParams bad;
-    bad.joiner.ffVariant = "MMFF95";  // not a real variant
+    bad.zipper.ffVariant = "MMFF95";  // not a real variant
     CHECK_FALSE(bad.validate().empty());
     CHECK_THROWS_AS(createFragmentConfGen(bad), std::invalid_argument);
 
@@ -1817,7 +1817,7 @@ TEST_CASE("createFragmentConfGen validates params and builds",
     autoP.search.thompsonBudget = 500;
     CHECK(autoP.validate().empty());
   }
-  SECTION("label variant may be empty (means: use joiner variant)") {
+  SECTION("label variant may be empty (means: use zipper variant)") {
     FragmentConfGenParams p;
     p.labelFFVariant = "";  // empty is allowed
     CHECK(p.validate().empty());
@@ -1828,7 +1828,7 @@ TEST_CASE("createFragmentConfGen validates params and builds",
     for (const std::string v :
          {"MMFF94", "MMFF94s", "MMFF94_TOR", "MMFF94s_TOR"}) {
       FragmentConfGenParams p;
-      p.joiner.ffVariant = v;
+      p.zipper.ffVariant = v;
       p.embedding.ffVariant = v;
       p.labelFFVariant = v;
       INFO("variant " << v);
@@ -1870,8 +1870,8 @@ TEST_CASE("createFragmentConfGen validates params and builds",
   }
 }
 
-TEST_CASE("joinFragments reports why a join failed", "[assembler][joiner]") {
-  // The joiner used to do all of this in a constructor, which left it no way
+TEST_CASE("zipFragments reports why a join failed", "[assembler][zipper]") {
+  // The zipper used to do all of this in a constructor, which left it no way
   // to say what went wrong -- an unjoinable molecule just produced a context
   // whose coordinates were the all-zero placeholder.
   std::unique_ptr<ROMol> m(SmilesToMol("c1ccccc1CCc1ccccc1"));
@@ -1881,7 +1881,7 @@ TEST_CASE("joinFragments reports why a join failed", "[assembler][joiner]") {
   REQUIRE(in.fragments.size() >= 2);
 
   SECTION("a well-formed input joins") {
-    const auto ctx = joinFragments(in);
+    const auto ctx = zipFragments(in);
     CHECK(ctx.isValid());
     CHECK(ctx.status == FragmentJoinerStatus::Ok);
     CHECK(!ctx.edges.empty());
@@ -1893,18 +1893,18 @@ TEST_CASE("joinFragments reports why a join failed", "[assembler][joiner]") {
     auto empty = in;
     empty.fragments.clear();
     empty.junctions.clear();
-    const auto ctx = joinFragments(empty);
+    const auto ctx = zipFragments(empty);
     CHECK_FALSE(ctx.isValid());
     CHECK(ctx.status == FragmentJoinerStatus::NoFragments);
   }
 
   SECTION("unviable parameters are reported, not acted on") {
-    FragmentJoinerParams bad;
+    FragmentZipperParams bad;
     bad.ffVariant = "MMFF95";  // not a real variant
     CHECK_FALSE(bad.isValid());
     CHECK_FALSE(bad.validate().empty());
 
-    const auto ctx = joinFragments(in, bad);
+    const auto ctx = zipFragments(in, bad);
     CHECK_FALSE(ctx.isValid());
     CHECK(ctx.status == FragmentJoinerStatus::BadParams);
     // and it stopped BEFORE doing any of the work
@@ -1914,7 +1914,7 @@ TEST_CASE("joinFragments reports why a join failed", "[assembler][joiner]") {
   SECTION("a fragment with an empty conformer pool") {
     auto starved = in;
     starved.fragments.front().confs.clear();
-    const auto ctx = joinFragments(starved);
+    const auto ctx = zipFragments(starved);
     CHECK_FALSE(ctx.isValid());
     CHECK(ctx.status == FragmentJoinerStatus::NoFragmentConformers);
     // the rotor topology is still worked out -- only the placement is not
@@ -1964,9 +1964,9 @@ TEST_CASE("AUTO sentinels: 0 means DISABLED, AUTO means derive",
   }
   SECTION("the resolved dump reports EFFECTIVE values, not the raw struct") {
     FragmentConfGenParams p;
-    p.joiner.ffVariant = "MMFF94s";
+    p.zipper.ffVariant = "MMFF94s";
     p.embedding.ffVariant =
-        "MMFF94";  // the pipeline overrides this from the joiner
+        "MMFF94";  // the pipeline overrides this from the zipper
     p.energyWindow = 10.0;
     const FragmentConfGenParams r = resolvedFragmentConfGenParams(p);
     CHECK(r.embedding.ffVariant == "MMFF94s");  // driven, not as authored
@@ -2073,8 +2073,8 @@ TEST_CASE("FragmentConfGenParams text round-trips through the serializer",
     p.sampleTrivialRotors = true;
     p.embedding.numConfsPerFragment = 250;
     p.search.searchMode = RigidRotorSearchMode::Systematic;
-    p.joiner.ffVariant = "MMFF94s";
-    p.joiner.fragShrugDisplacement = 0.15;
+    p.zipper.ffVariant = "MMFF94s";
+    p.zipper.fragShrugDisplacement = 0.15;
     p.outputRanking = OutputRanking::InterFragScore;
     p.rankByBasinEnergy = true;
     p.labelFFVariant = "MMFF94s";
@@ -2101,8 +2101,8 @@ TEST_CASE("FragmentConfGenParams text round-trips through the serializer",
     CHECK(q.sampleTrivialRotors == true);
     CHECK(q.embedding.numConfsPerFragment == 250u);
     CHECK(q.search.searchMode == RigidRotorSearchMode::Systematic);
-    CHECK(q.joiner.ffVariant == "MMFF94s");
-    CHECK(q.joiner.fragShrugDisplacement == Catch::Approx(0.15));
+    CHECK(q.zipper.ffVariant == "MMFF94s");
+    CHECK(q.zipper.fragShrugDisplacement == Catch::Approx(0.15));
     CHECK(q.outputRanking == OutputRanking::InterFragScore);
     CHECK(q.rankByBasinEnergy == true);
     CHECK(q.labelFFVariant == "MMFF94s");
@@ -2121,7 +2121,7 @@ TEST_CASE("FragmentConfGenParams text round-trips through the serializer",
     const std::string err = fragmentConfGenParamsFromString(
         "# just one parameter\njoiner.ffVariant = MMFF94s\n", p);
     CHECK(err.empty());
-    CHECK(p.joiner.ffVariant == "MMFF94s");
+    CHECK(p.zipper.ffVariant == "MMFF94s");
     CHECK(p.numOutputConfs == origOut);  // untouched
   }
   SECTION("unknown key and bad value are reported, not silently ignored") {
@@ -2448,7 +2448,7 @@ TEST_CASE("search parameters are validated by the search that will run",
     CHECK(p.validate().empty());
 
     FragmentConfGenParams badJoiner;
-    badJoiner.joiner.interFragVdwCutoff = -1.0;
+    badJoiner.zipper.interFragVdwCutoff = -1.0;
     CHECK_FALSE(badJoiner.validate().empty());
     CHECK_THROWS_AS(createFragmentConfGen(badJoiner), std::invalid_argument);
 

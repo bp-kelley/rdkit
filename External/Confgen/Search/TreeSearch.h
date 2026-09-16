@@ -12,7 +12,7 @@
 #include <RDGeneral/export.h>
 #include <vector>
 
-#include "Search/RigidRotorSearch.h"  // RigidRotorSearch base (pulls FragmentJoinerContext + RigidRotorSearchParams)
+#include "Search/RigidRotorSearch.h"  // RigidRotorSearch base (pulls FragmentZipperContext + RigidRotorSearchParams)
 #include "Search/RotorDriver.h"
 #include "Search/InterFragScore.h"
 #include "Search/SearchResult.h"
@@ -97,7 +97,7 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT TreeSearch : public RigidRotorSearch {
   std::string validateParams(const RigidRotorSearchParams &sp,
                              const std::string &ffVariant) const override;
 
-  std::vector<SearchResult> search(const FragmentJoinerContext &ctx,
+  std::vector<SearchResult> search(const FragmentZipperContext &ctx,
                                    const RigidRotorSearchParams &sp) override;
   // deterministic: lastBudget() stays 0 (base default)
 };

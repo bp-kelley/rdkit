@@ -6,10 +6,10 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-#include "Joiner/FragmentJoiner.h"
+#include "Zipper/FragmentZipper.h"
 #include "FragmentConfGen.h"
 #include "Utils/TheobaldRmsd.h"
-#include "Joiner/JoinerProfiling.h"
+#include "Zipper/ZipperProfiling.h"
 
 #include <Geometry/Transform3D.h>
 #include <GraphMol/MolOps.h>
@@ -130,8 +130,8 @@ namespace {
 //! PRECONDITION:
 //! all frags have confs and confChoice indexes into each fragment's pool.
 std::vector<double> placeFragments(const ROMol &mol,
-                                   const std::vector<JoinFragment> &frags,
-                                   const std::vector<JoinEdge> &edges,
+                                   const std::vector<ZipFragment> &frags,
+                                   const std::vector<ZipEdge> &edges,
                                    unsigned int root,
                                    const std::vector<unsigned int> &confChoice);
 }  // namespace
@@ -349,12 +349,12 @@ std::vector<double> embedMin(RWMol &m, unsigned int nConfs, int seed,
 }
 }  // namespace
 
-FragmentJoinerInput buildFragmentJoinerInput(
+FragmentZipperInput buildFragmentJoinerInput(
     const ROMol &input, unsigned int nConfs, int seed,
     const std::string &ffVariant, bool fragUseDG, bool fragMinimizeFF,
-    const Embedder *lib, const FragmentJoinerParams *asmParams,
+    const Embedder *lib, const FragmentZipperParams *asmParams,
     const std::vector<unsigned int> *linkBondsOverride) {
-  FragmentJoinerInput out;
+  FragmentZipperInput out;
 
   const double shrugDispl = asmParams ? asmParams->fragShrugDisplacement : 0.0;
   const double shrugK = asmParams ? asmParams->fragShrugForceConst : 100.0;
@@ -436,7 +436,7 @@ FragmentJoinerInput buildFragmentJoinerInput(
     out.fragments[out.atomFragment[a]].atoms.push_back(a);
   }
 
-  auto sortConfs = [](std::vector<JoinFragment> &fr) {
+  auto sortConfs = [](std::vector<ZipFragment> &fr) {
     for (auto &f : fr) {
       std::sort(
           f.confs.begin(), f.confs.end(),
@@ -497,7 +497,7 @@ FragmentJoinerInput buildFragmentJoinerInput(
   for (auto bi : links) {
     const Bond *b = m->getBondWithIdx(bi);
     unsigned int a = b->getBeginAtomIdx(), c = b->getEndAtomIdx();
-    JoinJunction J;
+    ZipJunction J;
     J.fragA = out.atomFragment[a];
     J.fragB = out.atomFragment[c];
     J.atomA = a;
@@ -625,21 +625,21 @@ FragmentJoinerInput buildFragmentJoinerInput(
   return out;
 }
 
-std::string FragmentJoinerParams::validate() const {
+std::string FragmentZipperParams::validate() const {
   if (!isValidFF(ffVariant)) {
-    // isValidFF() is the same test; kept local so the joiner does not depend on
+    // isValidFF() is the same test; kept local so the zipper does not depend on
     // FragmentConfGen.  Widen BOTH when a non-MMFF family arrives.
-    return "joiner.ffVariant is not a known force field (got \"" + ffVariant +
+    return "zipper.ffVariant is not a known force field (got \"" + ffVariant +
            "\")";
   }
   if (interFragVdwCutoff < 0.0) {
-    return "joiner.interFragVdwCutoff must be >= 0";
+    return "zipper.interFragVdwCutoff must be >= 0";
   }
   if (fragShrugDisplacement < 0.0) {
-    return "joiner.fragShrugDisplacement must be >= 0";
+    return "zipper.fragShrugDisplacement must be >= 0";
   }
   if (fragShrugForceConst < 0.0) {
-    return "joiner.fragShrugForceConst must be >= 0";
+    return "zipper.fragShrugForceConst must be >= 0";
   }
   return {};
 }
@@ -649,7 +649,7 @@ const char *fragmentJoinerStatusMessage(FragmentJoinerStatus s) {
     case FragmentJoinerStatus::Ok:
       return "ok";
     case FragmentJoinerStatus::BadParams:
-      return "the joiner parameters are not viable";
+      return "the zipper parameters are not viable";
     case FragmentJoinerStatus::NoFragments:
       return "no fragments to join";
     case FragmentJoinerStatus::NoFragmentConformers:
@@ -660,7 +660,7 @@ const char *fragmentJoinerStatusMessage(FragmentJoinerStatus s) {
   return "unknown";
 }
 
-std::vector<unsigned int> FragmentJoinerContext::getIntraRotorBonds(
+std::vector<unsigned int> FragmentZipperContext::getIntraRotorBonds(
     const RigidRotorSearchParams &sp) const {
   std::vector<unsigned int> out;
   for (const auto &r : intraRotorBonds) {
@@ -681,7 +681,7 @@ std::vector<unsigned int> FragmentJoinerContext::getIntraRotorBonds(
   return out;
 }
 
-std::optional<IntraRotorType> FragmentJoinerContext::getIntraType(
+std::optional<IntraRotorType> FragmentZipperContext::getIntraType(
     unsigned int bond) const {
   for (const auto &r : intraRotorBonds) {
     if (r.bond == bond) {
@@ -691,12 +691,12 @@ std::optional<IntraRotorType> FragmentJoinerContext::getIntraType(
   return std::nullopt;
 }
 
-FragmentJoinerContext joinFragments(const ROMol &mol, std::vector<int> atomFragment,
-                                    std::vector<JoinFragment> fragments,
-                                    std::vector<JoinJunction> junctions,
-                                    FragmentJoinerParams params,
+FragmentZipperContext zipFragments(const ROMol &mol, std::vector<int> atomFragment,
+                                    std::vector<ZipFragment> fragments,
+                                    std::vector<ZipJunction> junctions,
+                                    FragmentZipperParams params,
                                     std::vector<IntraRotor> intraRotorBonds) {
-  FragmentJoinerContext ctx;
+  FragmentZipperContext ctx;
   ctx.mol = ROMol(mol);  // ROMol copy-ASSIGN is deleted; copy then move
   ctx.frags = std::move(fragments);
   ctx.intraRotorBonds = std::move(intraRotorBonds);
@@ -743,7 +743,7 @@ FragmentJoinerContext joinFragments(const ROMol &mol, std::vector<int> atomFragm
       }
       visited[other] = 1;
       q.push(other);
-      JoinEdge e;
+      ZipEdge e;
       e.parentFrag = f;
       e.childFrag = other;
       if (J.fragA == f) {
@@ -765,7 +765,7 @@ FragmentJoinerContext joinFragments(const ROMol &mol, std::vector<int> atomFragm
   // Check for embedding fails
   for (const auto &f : ctx.frags) {
     if (f.confs.empty()) {
-      BOOST_LOG(rdWarningLog) << "FragmentJoiner:: Fragment embedding failure" << std::endl;
+      BOOST_LOG(rdWarningLog) << "FragmentZipper:: Fragment embedding failure" << std::endl;
       ctx.status = FragmentJoinerStatus::NoFragmentConformers;
       return ctx;
     }
@@ -806,17 +806,17 @@ FragmentJoinerContext joinFragments(const ROMol &mol, std::vector<int> atomFragm
   return ctx;
 }
 
-FragmentJoinerContext joinFragments(FragmentJoinerInput in,
-                                    FragmentJoinerParams params) {
-  return joinFragments(*in.mol, std::move(in.atomFragment), std::move(in.fragments),
+FragmentZipperContext zipFragments(FragmentZipperInput in,
+                                    FragmentZipperParams params) {
+  return zipFragments(*in.mol, std::move(in.atomFragment), std::move(in.fragments),
                        std::move(in.junctions), std::move(params),
                        std::move(in.intraRotorBonds));
 }
 
 namespace {
 std::vector<double> placeFragments(
-    const ROMol &mol, const std::vector<JoinFragment> &frags,
-    const std::vector<JoinEdge> &edges, unsigned int root,
+    const ROMol &mol, const std::vector<ZipFragment> &frags,
+    const std::vector<ZipEdge> &edges, unsigned int root,
     const std::vector<unsigned int> &confChoice) {
   const unsigned int n = mol.getNumAtoms();
   std::vector<RDGeom::Point3D> buffer(n);
@@ -836,7 +836,7 @@ std::vector<double> placeFragments(
   // walk the BFS edges: each parent is already placed before its child edge is
   // hit
   for (size_t e = 0; e < edges.size(); ++e) {
-    const JoinEdge &ed = edges[e];
+    const ZipEdge &ed = edges[e];
     std::vector<RDGeom::Point3D> cc =
         frags[ed.childFrag].confs[confChoice[ed.childFrag]].pos;
     placeChildCoords(cc, ed.childAtom, ed.parentAtom, buffer[ed.parentAtom],
@@ -862,12 +862,12 @@ std::vector<double> placeFragments(
 }
 }  // namespace
 
-std::vector<double> FragmentJoinerContext::placeAll(
+std::vector<double> FragmentZipperContext::placeAll(
     const std::vector<unsigned int> &confChoice) const {
   return placeFragments(mol, frags, edges, root, confChoice);
 }
 
-void FragmentJoinerContext::symmetryDedup(
+void FragmentZipperContext::symmetryDedup(
     std::vector<SearchResult> &v, double thr) const {
   if (thr <= 0.0 || v.size() <= 1) {
     return;

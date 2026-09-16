@@ -84,7 +84,7 @@ EnumerateSynthons3D::EnumerateSynthons3D(
   // FragmentConfGenParams::randomSeed is the public seed for the whole
   // pipeline; the nested EmbedderParams seed is an implementation detail.
   flp.randomSeed = d_params.confgen.randomSeed;
-  flp.ffVariant = d_params.confgen.joiner.ffVariant;
+  flp.ffVariant = d_params.confgen.zipper.ffVariant;
   // n.b. share the embedder across searches for better
   //  optimization
   if (d_params.confgen.embedder) {
@@ -286,7 +286,7 @@ unsigned int EnumerateSynthons3D::prefill(unsigned int numThreads) {
       try {
         if (coarse) {
           // See if we can actually embed.
-          if (!ffCanType(*id, d_params.confgen.joiner.ffVariant)) {
+          if (!ffCanType(*id, d_params.confgen.zipper.ffVariant)) {
             d_embedder->markUnembeddable(*id);
             continue;
           }
@@ -649,7 +649,7 @@ void EnumerateSynthons3D::initFromStream(std::istream &ss) {
   // Make the embedder now that we have the settings
   EmbedderParams flp = d_params.confgen.embedding;
   flp.randomSeed = d_params.confgen.randomSeed;
-  flp.ffVariant = d_params.confgen.joiner.ffVariant;
+  flp.ffVariant = d_params.confgen.zipper.ffVariant;
   if (d_params.confgen.embedder) {
     d_embedder = d_params.confgen.embedder;
   } else {

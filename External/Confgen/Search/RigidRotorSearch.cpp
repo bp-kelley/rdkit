@@ -115,7 +115,7 @@ std::unique_ptr<RigidRotorSearch> makeRigidRotorSearch(
   }
 }
 
-RigidRotorSearchResult runRigidRotorSearch(const FragmentJoinerContext &ctx,
+RigidRotorSearchResult runRigidRotorSearch(const FragmentZipperContext &ctx,
                                            const RigidRotorSearchParams &sp) {
   RigidRotorSearchResult out;
   if (!ctx.isValid()) {
