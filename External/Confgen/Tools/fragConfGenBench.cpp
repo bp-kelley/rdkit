@@ -4628,6 +4628,28 @@ void runBank() {
               pp.embedding.setClassParam(FragmentClass::Rigid, rg);
             }
           }
+          // EMBED_RANDOMCOORDS: comma list of classes to embed from random
+          // coords (rigid,smallring,largering,acyclic,exhaustive,fast), or "1"
+          // for the README table (smallring,largering,exhaustive).  A/B knob
+          // for FragmentParams::useRandomCoords.
+          if (const char *rc = std::getenv("EMBED_RANDOMCOORDS")) {
+            std::string v(rc);
+            if (v == "1") v = "smallring,largering,exhaustive";
+            const std::pair<const char *, FragmentClass> names[] = {
+                {"rigid", FragmentClass::Rigid},
+                {"smallring", FragmentClass::SmallRing},
+                {"largering", FragmentClass::LargeRing},
+                {"acyclic", FragmentClass::Acyclic},
+                {"exhaustive", FragmentClass::Exhaustive},
+                {"fast", FragmentClass::Fast}};
+            for (const auto &nm : names) {
+              if (v.find(nm.first) != std::string::npos) {
+                FragmentParams cp = pp.embedding.classParams[nm.second];
+                cp.useRandomCoords = true;
+                pp.embedding.setClassParam(nm.second, cp);
+              }
+            }
+          }
           if (std::getenv("FRAGLIB_ENERGYLOG"))
             pp.embedding.logFragmentEnergies = true;
           requireValidParams(pp, "runBank");

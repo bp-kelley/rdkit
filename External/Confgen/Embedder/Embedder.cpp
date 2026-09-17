@@ -223,6 +223,7 @@ bool embedFragment(RWMol &frag, const EmbedderParams &params) {
                                        ? DGeomHelpers::ETKDGv3
                                        : DGeomHelpers::EmbedParameters());
   ps.randomSeed = params.randomSeed;
+  ps.useRandomCoords = fp.useRandomCoords;
 
   // Embed the full sample pool, then reduce to keepN by RMSD-diverse,
   // lowest-energy selection.

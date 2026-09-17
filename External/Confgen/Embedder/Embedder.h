@@ -87,6 +87,13 @@ struct FragmentParams {
   int confsPerRotor;  //!< 0 = don't scale the pool by rotor count
   double expPower = 2;
 
+  //! Seed distance geometry from RANDOM coordinates rather than eigenvalues.
+  /*!
+    greg indicates that random coordinates sample rings better, especially
+    for macrocycles.
+  */
+  bool useRandomCoords = false;
+
   //! Allow overrides for the defaults
   std::optional<FragmentEmbedMode> embedMode = std::nullopt;
   std::optional<FragmentMinimize> minimizeMode = std::nullopt;
@@ -115,6 +122,7 @@ inline bool operator==(const FragmentParams &a, const FragmentParams &b) {
          a.maxConfs == b.maxConfs && a.eWindow == b.eWindow &&
          a.rmsd == b.rmsd && a.op == b.op &&
          a.confsPerRotor == b.confsPerRotor && a.expPower == b.expPower &&
+         a.useRandomCoords == b.useRandomCoords &&
          a.embedMode == b.embedMode && a.minimizeMode == b.minimizeMode &&
          a.minimizeMaxIters == b.minimizeMaxIters;
 }

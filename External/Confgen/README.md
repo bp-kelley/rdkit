@@ -140,7 +140,7 @@ parameters to find optimal conformations:
 | SmallRing  | 30      | 800     | 800      | 8       | 0.1  | MULTIPLY    | 6           |   N	  |
 | LargeRing  | 100     | 1600    | 1000     | 24      | 0.1  | EXPONENTIAL | 10          |   Y	  |
 | Acyclic    | 5       | 50      | **1**    | 8       | 0.1  | EXPONENTIAL | 10          |   N	  |
-| Exhaustive | 30      | 1000    | 100      | 12      | 0.1  | MAXIMUM     | 0           |   N	  |
+| Exhaustive | 30      | 1000    | 100      | 12      | 0.1  | MAXIMUM     | 0           |   Y	  |
 | Fast       | 10      | 100     | 20       | 8       | 0.1  | MAXIMUM     | 0           |   N	  |
 
 Notes:
