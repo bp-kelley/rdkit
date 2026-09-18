@@ -152,6 +152,48 @@ Datum qmol_from_ctab(PG_FUNCTION_ARGS) {
   PG_RETURN_MOL_P(res);
 }
 
+PGDLLEXPORT Datum mol_from_cdxml(PG_FUNCTION_ARGS);
+PG_FUNCTION_INFO_V1(mol_from_cdxml);
+Datum mol_from_cdxml(PG_FUNCTION_ARGS) {
+  char *data = PG_GETARG_CSTRING(0);
+  bool keepConformer = PG_GETARG_BOOL(1);
+  bool sanitize = PG_GETARG_BOOL(2);
+  bool removeHs = PG_GETARG_BOOL(3);
+  CROMol mol;
+  Mol *res;
+
+  mol = parseMolCDXML(data, keepConformer, true, false, sanitize, removeHs,
+                      false);
+  if (!mol) {
+    PG_RETURN_NULL();
+  }
+  res = deconstructROMol(mol);
+  freeCROMol(mol);
+
+  PG_RETURN_MOL_P(res);
+}
+
+PGDLLEXPORT Datum qmol_from_cdxml(PG_FUNCTION_ARGS);
+PG_FUNCTION_INFO_V1(qmol_from_cdxml);
+Datum qmol_from_cdxml(PG_FUNCTION_ARGS) {
+  char *data = PG_GETARG_CSTRING(0);
+  bool keepConformer = PG_GETARG_BOOL(1);
+  bool mergeHs = PG_GETARG_BOOL(2);
+  bool strictQueryParsing = PG_GETARG_BOOL(3);
+  CROMol mol;
+  Mol *res;
+
+  mol = parseMolCDXML(data, keepConformer, true, true, false, mergeHs,
+                      strictQueryParsing);
+  if (!mol) {
+    PG_RETURN_NULL();
+  }
+  res = deconstructROMol(mol);
+  freeCROMol(mol);
+
+  PG_RETURN_MOL_P(res);
+}
+
 PGDLLEXPORT Datum mol_from_smarts(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(mol_from_smarts);
 Datum mol_from_smarts(PG_FUNCTION_ARGS) {
