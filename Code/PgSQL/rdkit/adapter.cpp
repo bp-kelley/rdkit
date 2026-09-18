@@ -74,6 +74,7 @@
 #include <GraphMol/MolDraw2D/MolDraw2DSVG.h>
 #include <GraphMol/MolDraw2D/MolDraw2DUtils.h>
 #include <GraphMol/MolEnumerator/MolEnumerator.h>
+#include <stdexcept>
 
 #include <RDGeneral/BoostStartInclude.h>
 #include <boost/integer_traits.hpp>
@@ -312,6 +313,46 @@ extern "C" CROMol parseMolCTAB(char *data, bool keepConformer, bool warnOnFail,
   } else {
     if (!keepConformer) {
       mol->clearConformers();
+    }
+  }
+
+  return (CROMol)mol;
+}
+
+extern "C" CROMol parseMolCDXML(char *data, bool keepConformer,
+                                bool warnOnFail, bool asQuery, bool sanitize,
+                                bool removeHs, bool strictQueryParsing) {
+  RWMol *mol = nullptr;
+
+  try {
+    v2::CDXMLParser::CDXMLParserParams params;
+    params.sanitize = sanitize;
+    params.removeHs = removeHs;
+    params.parseQueries = asQuery;
+    params.strictQueryParsing = strictQueryParsing;
+    auto mols = v2::CDXMLParser::MolsFromCDXML(data, params);
+    if (mols.size() != 1) {
+      throw std::runtime_error("CDXML input must contain exactly one molecule");
+    }
+    mol = mols.front().release();
+    if (!keepConformer) {
+      mol->clearConformers();
+    }
+  } catch (const std::exception &e) {
+    if (warnOnFail) {
+      ereport(WARNING,
+              (errcode(ERRCODE_WARNING), errmsg("could not create molecule from CDXML: %s", e.what())));
+    } else {
+      ereport(ERROR,
+              (errcode(ERRCODE_DATA_EXCEPTION), errmsg("could not create molecule from CDXML: %s", e.what())));
+    }
+  } catch (...) {
+    if (warnOnFail) {
+      ereport(WARNING,
+              (errcode(ERRCODE_WARNING), errmsg("could not create molecule from CDXML")));
+    } else {
+      ereport(ERROR,
+              (errcode(ERRCODE_DATA_EXCEPTION), errmsg("could not create molecule from CDXML")));
     }
   }
 
