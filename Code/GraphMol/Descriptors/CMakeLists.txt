@@ -18,13 +18,14 @@ if(RDK_BUILD_OSMORDRED_SUPPORT)
    message(fatal_error "-- LAPACKE not found")
  endif(NOT LAPACKE_FOUND)
 
- set(OSMORDRED_HDRS Osmordred.h)
+ set(OSMORDRED_HDRS Osmordred.h Osmordred2DExt.h)
  set(OSMORDRED_SOURCES
               Osmordred.cpp
 	      OsmordredHelpers.cpp
               OsmordredBasicPhyschemCountsRules.cpp
  	      OsmordredTopologicalConnectivityShape.cpp
-	      OsmordredMatrixAutocorrEStateFragments.cpp)
+	      OsmordredMatrixAutocorrEStateFragments.cpp
+              Osmordred2DExt.cpp)
 
  include_directories(Descriptors LAPACK::LAPACK LAPACKE::LAPACKE ${LAPACK_INCLUDE_DIRS} ${LAPACKE_INCLUDE_DIRS})
 endif(RDK_BUILD_OSMORDRED_SUPPORT)
@@ -99,6 +100,7 @@ rdkit_catch_test(descriptorsTestCatch catch_tests.cpp LINK_LIBRARIES Descriptors
 
 if(RDK_BUILD_OSMORDRED_SUPPORT)
  rdkit_catch_test(testOsmordred test_osmordred.cpp LINK_LIBRARIES Descriptors SmilesParse FileParsers)
+ rdkit_catch_test(testOsmordred2DExt test_osmordred2dext.cpp LINK_LIBRARIES Descriptors SmilesParse FileParsers)
 endif(RDK_BUILD_OSMORDRED_SUPPORT)
 
 if(RDK_BUILD_BOOST_PYTHON_WRAPPERS)
