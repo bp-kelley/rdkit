@@ -133,17 +133,20 @@ The current strategy employs ETKDG + MMFF minimiation.  Each fragment is assigne
 a fragment class, i.e. SmallRing, LargeRing, Rigid etc and computed with varying
 parameters to find optimal conformations:
 
-| fragment   | min     | max     | maxConfs | eWindow | rmsd | conf count  | confs/rotor | Random |
-| class      | sampled | sampled | output   |         |      | operator    |             | Coords |
-|------------|--------:|--------:|---------:|--------:|-----:|-------------|------------:| ------:|
-| Rigid      | 30      | 30      | 100      | 8       | 0.1  | MAXIMUM     | 0           |   N	  |
-| SmallRing  | 30      | 800     | 800      | 8       | 0.1  | MULTIPLY    | 6           |   N	  |
-| LargeRing  | 100     | 1600    | 1000     | 24      | 0.1  | EXPONENTIAL | 10          |   Y	  |
-| Acyclic    | 5       | 50      | **1**    | 8       | 0.1  | EXPONENTIAL | 10          |   N	  |
-| Exhaustive | 30      | 1000    | 100      | 12      | 0.1  | MAXIMUM     | 0           |   Y	  |
-| Fast       | 10      | 100     | 20       | 8       | 0.1  | MAXIMUM     | 0           |   N	  |
+| fragment   | min     | max     | maxConfs | eWindow | rmsd | conf count  | confs/rotor | Random |   ETKDG    |
+| class      | sampled | sampled | output   |         |      | operator    |             | Coords |  TORSIONS  |
+|------------|--------:|--------:|---------:|--------:|-----:|-------------|------------:| ------:| ---------: |
+| Rigid      | 30      | 30      | 100      | 8       | 0.1  | MAXIMUM     | 0           |   N	  |            |
+| SmallRing  | 30      | 800     | 800      | 8       | 0.1  | MULTIPLY    | 6           |   N	  | SmallRing  |
+| LargeRing  | 100     | 1600    | 1000     | 24      | 0.1  | EXPONENTIAL | 10          |   N	  |            |
+| MacroCycle | 100     | 1600    | 1000     | 24      | 0.1  | EXPONENTIAL | 10          |   Y	  | MacroCycle |
+| Acyclic    | 5       | 50      | **1**    | 8       | 0.1  | EXPONENTIAL | 10          |   N	  |            |
+| Exhaustive | 30      | 1000    | 100      | 12      | 0.1  | MAXIMUM     | 0           |   Y    |  Variable  |
+| Fast       | 10      | 100     | 20       | 8       | 0.1  | MAXIMUM     | 0           |   N	  |            |
 
 Notes:
+ We need to test internal coordinates as well.
+ VARIABLE = use smallring and macrocycle random coords and etkdg torsions.
  Random Coords replicate macrocycles a lot better (according to Greg Landrum) so we
  turn them on for large rings to better sample conformational space.  We are investigating
  whether we should turn them on the SmallRings as well.
