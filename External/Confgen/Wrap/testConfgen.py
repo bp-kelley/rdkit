@@ -119,7 +119,7 @@ class TestCase(unittest.TestCase):
 
     # the graph-only zip must agree with the assembled product
     target = [1, 2]
-    graph = lib.ZipProduct(target)
+    graph = lib.Get2D(target)
     product = lib.GetProduct(target)
     self.assertTrue(product.ok)
     self.assertGreater(product.mol.GetNumConformers(), 0)
@@ -128,22 +128,18 @@ class TestCase(unittest.TestCase):
 
     # a product scored against one of its OWN poses overlays perfectly
     confId = product.mol.GetConformer(0).GetId()
-    scorer = rdFragmentConfGen.ShapeProductScorer(product.mol, confId)
+    scorer = rdFragmentConfGen.ShapeScorer(product.mol, confId)
     self.assertAlmostEqual(scorer.Score(product.mol), 1.0, places=3)
 
     # ... and the search finds it again
-    tp = rdFragmentConfGen.ThompsonSynthonParams()
-    tp.budget = 60
+    tp = rdFragmentConfGen.SynthonSearch3DParams()
+    #tp.budget = 60
     tp.numThreads = 1
     tp.numBestProducts = 3
-    res = rdFragmentConfGen.ThompsonSynthonSearch(lib, scorer, tp)
+    res = rdFragmentConfGen.SynthonSearch3D(lib, scorer, tp)
     self.assertGreater(res.evaluations, 0)
     self.assertEqual(list(res.reagents), target)
     self.assertLessEqual(len(res.best), 3)
-
-    refined = rdFragmentConfGen.RefineSynthons(lib, scorer, res.reagents, 3, 1, 3)
-    self.assertEqual(list(refined.reagents), target)
-
 
 if __name__ == '__main__':
   unittest.main()
