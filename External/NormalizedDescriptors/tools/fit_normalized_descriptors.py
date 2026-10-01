@@ -90,6 +90,11 @@ DEFAULT_FAMILIES = [
   # slow to fit, use --families to opt in: gausshyper, ncf
 ]
 
+# pseudo distribution: the sample's own CDF, stored as (x, cdf) knots and
+# used when no scipy family fits well (e.g. multimodal BCUT2D values)
+EMPIRICAL = "empirical"
+EMPIRICAL_KNOTS = 1000
+
 
 def log(*args):
   print(*args, file=sys.stderr, flush=True)
@@ -108,10 +113,19 @@ def scipy_dist(name):
 
 def make_cdf(fit):
   """The descriptastorus normalization for one fit, vectorized."""
+  lo, hi = fit["min"], fit["max"]
+  if fit["dist"] == EMPIRICAL:
+    knots = np.asarray(fit["knots"], dtype=float)
+
+    def ecdf(x):
+      return np.interp(np.clip(np.asarray(x, dtype=float), lo, hi),
+                       knots[:, 0], knots[:, 1])
+
+    return ecdf
+
   dist = scipy_dist(fit["dist"])
   params = fit["params"]
   args, loc, scale = params[:-2], params[-2], params[-1]
-  lo, hi = fit["min"], fit["max"]
 
   def cdf(x):
     x = np.clip(np.asarray(x, dtype=float), lo, hi)
@@ -294,11 +308,15 @@ def cmd_missing(args):
 
 
 def ks_distance(sorted_vals, cdf_vals):
+  """max |cdf(v) - fraction of values <= v| over the observed values.
+
+  This is the KS statistic without the jump term, so count descriptors are
+  judged on the values they actually take (a continuous CDF can't match the
+  jumps of a discrete one between integers, and nothing is normalized there).
+  """
   n = len(sorted_vals)
-  # with ties, the ECDF only steps at the last copy of each value
-  hi = np.searchsorted(sorted_vals, sorted_vals, side="right") / n
-  lo = np.searchsorted(sorted_vals, sorted_vals, side="left") / n
-  return float(max(np.max(hi - cdf_vals), np.max(cdf_vals - lo)))
+  ecdf = np.searchsorted(sorted_vals, sorted_vals, side="right") / n
+  return float(np.max(np.abs(ecdf - cdf_vals)))
 
 
 def _fit_one(task):
@@ -318,6 +336,17 @@ def _fit_one(task):
       all_vals, np.clip(cdf, 0, 1)), time.time() - t0
   except Exception as e:  # many families fail on some data
     return family, None, math.inf, time.time() - t0
+
+
+def empirical_knots(vals, nknots=EMPIRICAL_KNOTS):
+  """(x, fraction of values <= x) at every distinct value, or at nknots
+  quantiles when there are more distinct values than that."""
+  vals = np.sort(vals)
+  xs = np.unique(vals)
+  if len(xs) > nknots:
+    xs = np.unique(np.quantile(vals, np.linspace(0, 1, nknots), method="lower"))
+  ys = np.searchsorted(vals, xs, side="right") / len(vals)
+  return [[float(x), float(y)] for x, y in zip(xs, ys)]
 
 
 def fit_sample(vals, families, nfit, timeout, pool, rng):
@@ -361,21 +390,26 @@ def cmd_fit(args):
       pool.terminate()
       pool.join()
     best = results[0]
-    if best[1] is None:
-      log(f"No family could be fit to {name}")
-      continue
-    fits["descriptors"][name] = {
-      "dist": best[0],
-      "params": best[1],
+    entry = {
       "min": float(vals.min()),
       "max": float(vals.max()),
       "mean": float(vals.mean()),
       "std": float(vals.std()),
-      "source": source or f"fit to {os.path.basename(path)} "
-      f"(n={len(vals)}, KS={best[2]:.4g}, scipy {scipy.__version__})",
     }
-    runners = ", ".join(f"{r[0]} {r[2]:.4g}" for r in results[1:4])
-    log(f"{name}: {best[0]} KS={best[2]:.4g} (next: {runners})")
+    runners = ", ".join(f"{r[0]} {r[2]:.4g}" for r in results[:3])
+    if best[1] is None or best[2] > args.max_ks:
+      entry.update(dist=EMPIRICAL, params=[], knots=empirical_knots(vals))
+      entry["source"] = source or (
+        f"empirical CDF of {os.path.basename(path)} (n={len(vals)}); best "
+        f"scipy fit KS={best[2]:.4g} > {args.max_ks:g}")
+      log(f"{name}: empirical CDF (best scipy fits: {runners})")
+    else:
+      entry.update(dist=best[0], params=best[1])
+      entry["source"] = source or (
+        f"fit to {os.path.basename(path)} (n={len(vals)}, KS={best[2]:.4g}, "
+        f"scipy {scipy.__version__})")
+      log(f"{name}: {runners}")
+    fits["descriptors"][name] = entry
     # save as we go, fitting everything can take a while
     save_fits(fits, args.fits)
 
@@ -432,9 +466,13 @@ def build_grid(cdf, lo, hi, dist, params, tol, max_points):
 def table_entries(fits, tol, max_points):
   for name, fit in fits["descriptors"].items():
     cdf = make_cdf(fit)
-    dist = scipy_dist(fit["dist"])
-    xs, ys = build_grid(cdf, fit["min"], fit["max"], dist, fit["params"], tol,
-                        max_points)
+    if fit["dist"] == EMPIRICAL:
+      knots = np.asarray(fit["knots"], dtype=float)
+      xs, ys = knots[:, 0], knots[:, 1]
+    else:
+      dist = scipy_dist(fit["dist"])
+      xs, ys = build_grid(cdf, fit["min"], fit["max"], dist, fit["params"],
+                          tol, max_points)
     if not np.all(np.isfinite(ys)):
       raise RuntimeError(f"{name}: CDF is not finite on [{fit['min']}, "
                          f"{fit['max']}]")
@@ -575,6 +613,9 @@ def main(argv=None):
   s.add_argument("--timeout", type=float, default=300,
                  help="seconds allowed for all families on one descriptor "
                  "(default: %(default)s)")
+  s.add_argument("--max-ks", type=float, default=0.05,
+                 help="store the empirical CDF instead when the best scipy "
+                 "fit's KS distance is above this (default: %(default)s)")
   s.add_argument("--seed", type=int, default=42)
   s.add_argument("--replace", action="store_true",
                  help="refit descriptors already in the fits file")
