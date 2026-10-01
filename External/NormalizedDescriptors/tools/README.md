@@ -60,7 +60,12 @@ The reference set is descriptastorus' `data/chembl_100k.smi`.
 
 `fit` tries the 45 scipy families descriptastorus already uses (pass
 `--families` to change that) on a random subset of 20000 values, then picks the
-family with the smallest Kolmogorov-Smirnov distance to all values. Use
+family with the smallest distance between its CDF and the fraction of values
+below each observed value (the KS statistic without the jump term, so count
+descriptors are judged at the integers they take). If no family gets within
+`--max-ks` (default 0.05), the empirical CDF of the sample is stored instead
+(`"dist": "empirical"` with `knots`), which suits multimodal descriptors
+such as BCUT2D. Use
 `--replace` to refit a descriptor that already has a fit.
 
 Requires numpy and scipy; `compute` also needs the RDKit python wrappers.
