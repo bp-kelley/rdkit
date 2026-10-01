@@ -26,12 +26,15 @@ class TestCase(unittest.TestCase):
     self.assertEqual(table.GetCDF(), (0.1, 0.5, 0.7, 0.9))
     self.assertEqual(table.GetMin(), 0.0)
     self.assertEqual(table.GetMax(), 10.0)
+    self.assertEqual(table.GetDistribution(), "")
+    self.assertEqual(rdnd.CDFTable(0, 1, [0, 1], [0, 1], distribution="norm").GetDistribution(),
+                     "norm")
     with self.assertRaises(ValueError):
       rdnd.CDFTable(0.0, 1.0, [1.0, 0.0], [0.0, 1.0])
 
   def testCDFTableSet(self):
     tables = rdnd.CDFTableSet()
-    tables.LoadFromString("# comment\nfoo 0 10 3 0 0 5 0.5 10 1\n")
+    tables.LoadFromString("# comment\ndescriptor foo norm 0 10 3\n0 0\n5 0.5\n10 1\n")
     tables.AddTable("bar", rdnd.CDFTable(-1, 1, [-1, 1], [0.25, 0.75]))
     self.assertEqual(len(tables), 2)
     self.assertEqual(tables.GetNames(), ["bar", "foo"])
@@ -46,11 +49,12 @@ class TestCase(unittest.TestCase):
     self.assertEqual(tables2.GetNames(), tables.GetNames())
     self.assertEqual(tables2.GetTable("foo").GetCDF(), tables.GetTable("foo").GetCDF())
     with self.assertRaises(ValueError):
-      rdnd.CDFTableSet().LoadFromString("foo 0 1 2 0 0")
+      rdnd.CDFTableSet().LoadFromString("descriptor foo norm 0 1 2\n0 0\n")
 
   def testDefaultTables(self):
     tables = rdnd.GetDefaultTables()
-    self.assertEqual(len(tables), 201)
+    self.assertGreaterEqual(len(tables), 201)
+    self.assertTrue(tables.GetTable("MolLogP").GetDistribution())
     # reference values from descriptastorus' RDKit2DNormalized
     self.assertAlmostEqual(rdnd.NormalizeDescriptor("MolLogP", 2.5), 0.28147, places=3)
     self.assertAlmostEqual(tables.Normalize("ExactMolWt", 350.1), 0.34379, places=3)

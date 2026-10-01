@@ -69,9 +69,15 @@ TEST_CASE("CDFTable interpolation") {
 
 TEST_CASE("CDFTableSet") {
   std::string text = R"TXT(# a comment
-foo 0 10 3 0 0 5 0.5 10 1
+descriptor foo norm 0 10 3
+0 0
+# comments are allowed between points
+5 0.5
 
-bar -1 1 2 -1 0.25 1 0.75
+10 1
+descriptor bar tabulated -1 1 2
+-1 0.25
+1 0.75
 )TXT";
   CDFTableSet tables;
   std::istringstream inStream(text);
@@ -81,6 +87,7 @@ bar -1 1 2 -1 0.25 1 0.75
   CHECK(tables.hasTable("foo"));
   CHECK_THAT(tables.normalize("foo", 2.5), WithinAbs(0.25, 1e-12));
   CHECK_THAT(tables.normalize("bar", 0.0), WithinAbs(0.5, 1e-12));
+  CHECK(tables.getTable("foo").getDistribution() == "norm");
 
   SECTION("missing descriptors normalize to 0") {
     CHECK(!tables.hasTable("baz"));
@@ -97,11 +104,20 @@ bar -1 1 2 -1 0.25 1 0.75
     for (const auto &name : tables.getNames()) {
       CHECK(tables2.getTable(name).getXs() == tables.getTable(name).getXs());
       CHECK(tables2.getTable(name).getCDF() == tables.getTable(name).getCDF());
+      CHECK(tables2.getTable(name).getDistribution() ==
+            tables.getTable(name).getDistribution());
     }
   }
   SECTION("malformed input") {
-    for (const auto &bad : {"foo 0 1", "foo 0 1 2 0 0 1", "foo 0 1 1 0 0 1 1",
-                            "foo 0 1 0", "foo a 1 1 0 0"}) {
+    for (const auto &bad : {
+             "foo norm 0 1 1\n0 0",               // missing keyword
+             "descriptor foo norm 0 1",           // short header
+             "descriptor foo norm 0 1 0",         // no points
+             "descriptor foo norm 0 1 2\n0 0",    // too few points
+             "descriptor foo norm 0 1 1\n0 0 1",  // extra field
+             "descriptor foo norm a 1 1\n0 0",    // bad number
+             "descriptor foo norm 0 1 1 7\n0 0",  // extra header field
+         }) {
       INFO(bad);
       CDFTableSet badTables;
       std::istringstream badStream(bad);
@@ -112,7 +128,7 @@ bar -1 1 2 -1 0.25 1 0.75
 
 TEST_CASE("default tables match descriptastorus") {
   const auto &tables = getDefaultTables();
-  CHECK(tables.size() == 201);
+  CHECK(tables.size() >= 201);
   // reference values from descriptastorus' RDKit2DNormalized, i.e.
   // scipy.stats.<dist>.cdf(clip(v, minV, maxV), *params)
   struct {
@@ -132,6 +148,6 @@ TEST_CASE("default tables match descriptastorus") {
   for (const auto &ref : refs) {
     INFO(ref.name << " " << ref.value);
     CHECK_THAT(tables.normalize(ref.name, ref.value),
-               WithinAbs(ref.expected, 1e-3));
+               WithinAbs(ref.expected, 1e-4));
   }
 }

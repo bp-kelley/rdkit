@@ -35,14 +35,14 @@ namespace NormalizedDescriptors {
 
   This reproduces descriptastorus' RDKit2DNormalized, which evaluates a fitted
   scipy.stats distribution's CDF on the clipped value; the table is that CDF
-  sampled on a grid (see Scripts/dists_to_cdf_tables.py).
+  sampled on a grid (see tools/fit_normalized_descriptors.py).
 */
 class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT CDFTable {
  public:
   CDFTable() = default;
   //! \c xs must be non-empty, sorted ascending, and the same size as \c cdf
   CDFTable(double minV, double maxV, std::vector<double> xs,
-           std::vector<double> cdf);
+           std::vector<double> cdf, std::string distribution = "");
 
   //! returns the normalized value, in [0, 1], for \c value
   double normalize(double value) const;
@@ -52,19 +52,27 @@ class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT CDFTable {
   double getMax() const { return d_maxV; }
   const std::vector<double> &getXs() const { return d_xs; }
   const std::vector<double> &getCDF() const { return d_cdf; }
+  //! name of the fitted scipy.stats distribution the table was sampled
+  //! from (informational only)
+  const std::string &getDistribution() const { return d_distribution; }
 
  private:
   double d_minV = 0.0;
   double d_maxV = 0.0;
   std::vector<double> d_xs;
   std::vector<double> d_cdf;
+  std::string d_distribution;
 };
 
 //! A named collection of CDF tables, one per descriptor.
 /*!
-  The text format read and written by this class has one descriptor per line:
+  The text format read and written by this class (the one produced by
+  tools/fit_normalized_descriptors.py) has, for each descriptor, a header line
+  followed by npoints lines of points sorted by x:
 
-    name minV maxV npts x_0 cdf_0 x_1 cdf_1 ... x_{npts-1} cdf_{npts-1}
+    descriptor <name> <scipy distribution> <min> <max> <npoints>
+    <x> <cdf>
+    ...
 
   Fields are whitespace separated. Blank lines and lines starting with '#'
   are ignored.
@@ -101,7 +109,7 @@ class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT CDFTableSet {
 
 //! returns the path of the CDF tables fitted to descriptastorus'
 //! RDKit2DNormalized distributions:
-//!   $RDBASE/External/NormalizedDescriptors/data/rdkit2d_cdf_v1.txt
+//!   $RDBASE/External/NormalizedDescriptors/data/normalized_descriptor_cdfs.txt
 RDKIT_NORMALIZEDDESCRIPTORS_EXPORT std::string getDefaultTablePath();
 
 //! returns the default CDF tables, loading them from getDefaultTablePath()

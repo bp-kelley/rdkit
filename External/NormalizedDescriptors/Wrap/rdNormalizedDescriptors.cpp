@@ -21,11 +21,13 @@ using namespace RDKit::NormalizedDescriptors;
 
 namespace {
 CDFTable *makeCDFTable(double minV, double maxV, const python::object &xs,
-                       const python::object &cdf) {
+                       const python::object &cdf,
+                       const std::string &distribution) {
   std::vector<double> xsv, cdfv;
   pythonObjectToVect<double>(xs, xsv);
   pythonObjectToVect<double>(cdf, cdfv);
-  return new CDFTable(minV, maxV, std::move(xsv), std::move(cdfv));
+  return new CDFTable(minV, maxV, std::move(xsv), std::move(cdfv),
+                      distribution);
 }
 
 python::tuple getXs(const CDFTable &table) {
@@ -80,10 +82,10 @@ BOOST_PYTHON_MODULE(rdNormalizedDescriptors) {
       "table and clipped to [0, 1]. Non-finite values normalize to 0.0.",
       python::no_init)
       .def("__init__",
-           python::make_constructor(makeCDFTable,
-                                    python::default_call_policies(),
-                                    (python::arg("minV"), python::arg("maxV"),
-                                     python::arg("xs"), python::arg("cdf"))),
+           python::make_constructor(
+               makeCDFTable, python::default_call_policies(),
+               (python::arg("minV"), python::arg("maxV"), python::arg("xs"),
+                python::arg("cdf"), python::arg("distribution") = "")),
            "Constructor. xs must be sorted and the same length as cdf")
       .def("Normalize", &CDFTable::normalize,
            (python::arg("self"), python::arg("value")),
@@ -93,7 +95,11 @@ BOOST_PYTHON_MODULE(rdNormalizedDescriptors) {
       .def("GetMin", &CDFTable::getMin, python::arg("self"))
       .def("GetMax", &CDFTable::getMax, python::arg("self"))
       .def("GetXs", getXs, python::arg("self"))
-      .def("GetCDF", getCDF, python::arg("self"));
+      .def("GetCDF", getCDF, python::arg("self"))
+      .def("GetDistribution", &CDFTable::getDistribution,
+           python::return_value_policy<python::copy_const_reference>(),
+           python::arg("self"),
+           "name of the scipy.stats distribution the table was sampled from");
 
   python::class_<CDFTableSet>("CDFTableSet",
                               "A collection of CDF tables keyed by "

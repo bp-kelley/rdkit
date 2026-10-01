@@ -17,14 +17,19 @@
 #include <cstdlib>
 #include <fstream>
 #include <limits>
+#include <locale>
 #include <sstream>
 
 namespace RDKit {
 namespace NormalizedDescriptors {
 
 CDFTable::CDFTable(double minV, double maxV, std::vector<double> xs,
-                   std::vector<double> cdf)
-    : d_minV(minV), d_maxV(maxV), d_xs(std::move(xs)), d_cdf(std::move(cdf)) {
+                   std::vector<double> cdf, std::string distribution)
+    : d_minV(minV),
+      d_maxV(maxV),
+      d_xs(std::move(xs)),
+      d_cdf(std::move(cdf)),
+      d_distribution(std::move(distribution)) {
   if (d_xs.empty()) {
     throw ValueErrorException("CDFTable requires at least one point");
   }
@@ -96,42 +101,56 @@ double CDFTableSet::normalize(const std::string &name, double value) const {
   return it->second.normalize(value);
 }
 
-void CDFTableSet::loadFromStream(std::istream &inStream) {
-  std::string line;
-  unsigned int lineNum = 0;
+namespace {
+// returns false at end of stream, skips blank and comment lines
+bool getDataLine(std::istream &inStream, std::string &line,
+                 unsigned int &lineNum) {
   while (std::getline(inStream, line)) {
     ++lineNum;
     auto start = line.find_first_not_of(" \t\r\n");
-    if (start == std::string::npos || line[start] == '#') {
-      continue;
+    if (start != std::string::npos && line[start] != '#') {
+      return true;
     }
+  }
+  return false;
+}
+
+[[noreturn]] void parseError(const std::string &msg, unsigned int lineNum) {
+  std::ostringstream errout;
+  errout << msg << " on line " << lineNum;
+  throw ValueErrorException(errout.str());
+}
+}  // namespace
+
+void CDFTableSet::loadFromStream(std::istream &inStream) {
+  std::string line;
+  unsigned int lineNum = 0;
+  while (getDataLine(inStream, line, lineNum)) {
     std::istringstream ls(line);
     ls.imbue(std::locale::classic());
-    std::string name;
+    std::string keyword, name, distribution, extra;
     double minV, maxV;
     size_t npts;
-    if (!(ls >> name >> minV >> maxV >> npts) || npts == 0) {
-      std::ostringstream errout;
-      errout << "bad CDF table header on line " << lineNum;
-      throw ValueErrorException(errout.str());
+    if (!(ls >> keyword) || keyword != "descriptor") {
+      parseError("expected a 'descriptor' line", lineNum);
+    }
+    if (!(ls >> name >> distribution >> minV >> maxV >> npts) || npts == 0 ||
+        (ls >> extra)) {
+      parseError("bad descriptor header", lineNum);
     }
     std::vector<double> xs(npts), cdf(npts);
     for (size_t i = 0; i < npts; ++i) {
-      if (!(ls >> xs[i] >> cdf[i])) {
-        std::ostringstream errout;
-        errout << "CDF table for " << name << " on line " << lineNum
-               << " has fewer than " << npts << " points";
-        throw ValueErrorException(errout.str());
+      if (!getDataLine(inStream, line, lineNum)) {
+        parseError("CDF table for " + name + " ends early", lineNum);
+      }
+      std::istringstream ps(line);
+      ps.imbue(std::locale::classic());
+      if (!(ps >> xs[i] >> cdf[i]) || (ps >> extra)) {
+        parseError("bad CDF point for " + name, lineNum);
       }
     }
-    std::string extra;
-    if (ls >> extra) {
-      std::ostringstream errout;
-      errout << "CDF table for " << name << " on line " << lineNum
-             << " has more than " << npts << " points";
-      throw ValueErrorException(errout.str());
-    }
-    addTable(name, CDFTable(minV, maxV, std::move(xs), std::move(cdf)));
+    addTable(name, CDFTable(minV, maxV, std::move(xs), std::move(cdf),
+                            std::move(distribution)));
   }
 }
 
@@ -147,12 +166,14 @@ void CDFTableSet::writeToStream(std::ostream &outStream) const {
   auto oldPrecision =
       outStream.precision(std::numeric_limits<double>::max_digits10);
   for (const auto &[name, table] : d_tables) {
-    outStream << name << " " << table.getMin() << " " << table.getMax() << " "
-              << table.getXs().size();
+    const auto &distribution = table.getDistribution();
+    outStream << "descriptor " << name << " "
+              << (distribution.empty() ? "tabulated" : distribution) << " "
+              << table.getMin() << " " << table.getMax() << " "
+              << table.getXs().size() << "\n";
     for (size_t i = 0; i < table.getXs().size(); ++i) {
-      outStream << " " << table.getXs()[i] << " " << table.getCDF()[i];
+      outStream << table.getXs()[i] << " " << table.getCDF()[i] << "\n";
     }
-    outStream << "\n";
   }
   outStream.precision(oldPrecision);
 }
@@ -160,7 +181,8 @@ void CDFTableSet::writeToStream(std::ostream &outStream) const {
 std::string getDefaultTablePath() {
   const char *rdbase = std::getenv("RDBASE");
   std::string base = rdbase ? rdbase : "";
-  return base + "/External/NormalizedDescriptors/data/rdkit2d_cdf_v1.txt";
+  return base +
+         "/External/NormalizedDescriptors/data/normalized_descriptor_cdfs.txt";
 }
 
 const CDFTableSet &getDefaultTables() {
