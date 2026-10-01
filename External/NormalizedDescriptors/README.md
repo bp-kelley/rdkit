@@ -26,22 +26,33 @@ scipy CDFs. See `tools/README.md` for the format and for adding descriptors.
 
 ## Usage
 
+`calcNormalizedDescriptors` computes the 217 descriptors in
+`rdkit.Chem.Descriptors._descList` (same names, same order, given by
+`getNormalizedDescriptorNames`) and normalizes them. As in descriptastorus, a
+descriptor that cannot be computed or has no table gives `0.0`.
+
 C++:
 
 ```c++
 #include <GraphMol/NormalizedDescriptors/NormalizedDescriptors.h>
 
 using namespace RDKit::NormalizedDescriptors;
-const auto &tables = getDefaultTables();  // reads $RDBASE/External/...
-double v = tables.normalize("MolLogP", 2.5);
+const auto &names = getNormalizedDescriptorNames();
+std::vector<double> vals = calcNormalizedDescriptors(mol);  // default tables
+std::vector<double> raw = calcDescriptorValues(mol);         // unnormalized
+double v = getDefaultTables().normalize("MolLogP", 2.5);
 ```
 
 Python:
 
 ```python
+from rdkit import Chem
 from rdkit.Chem import rdNormalizedDescriptors as rdnd
+names = rdnd.GetNormalizedDescriptorNames()
+vals = rdnd.CalcNormalizedDescriptors(Chem.MolFromSmiles('c1ccccc1O'))
 rdnd.NormalizeDescriptor('MolLogP', 2.5)
-tables = rdnd.CDFTableSet()
-tables.LoadFromFile('my_tables.txt')
-tables.Normalize('MolLogP', 2.5)
 ```
+
+`test_data/reference_descriptors.tsv` holds `rdkit.Chem.Descriptors` values
+for a few molecules (from `test_data/make_reference.py`); the tests check the
+C++ calculation against it.

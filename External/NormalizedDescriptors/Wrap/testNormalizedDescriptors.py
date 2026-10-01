@@ -7,10 +7,17 @@
 #  which is included in the file license.txt, found at the root
 #  of the RDKit source tree.
 #
+import csv
 import math
+import os
 import unittest
 
+from rdkit import Chem
+from rdkit import RDConfig
 from rdkit.Chem import rdNormalizedDescriptors as rdnd
+
+refFile = os.path.join(RDConfig.RDBaseDir, 'External', 'NormalizedDescriptors', 'test_data',
+                       'reference_descriptors.tsv')
 
 
 class TestCase(unittest.TestCase):
@@ -59,6 +66,28 @@ class TestCase(unittest.TestCase):
     self.assertAlmostEqual(rdnd.NormalizeDescriptor("MolLogP", 2.5), 0.28147, places=3)
     self.assertAlmostEqual(tables.Normalize("ExactMolWt", 350.1), 0.34379, places=3)
     self.assertEqual(rdnd.NormalizeDescriptor("NotADescriptor", 1.0), 0.0)
+
+  def testCalcNormalizedDescriptors(self):
+    names = rdnd.GetNormalizedDescriptorNames()
+    self.assertEqual(len(names), 217)
+    with open(refFile) as inf:
+      rows = list(csv.reader(inf, delimiter='\t'))
+    self.assertEqual(tuple(rows[0][1:]), names)
+    tables = rdnd.GetDefaultTables()
+    for row in rows[1:]:
+      mol = Chem.MolFromSmiles(row[0])
+      raw = rdnd.CalcDescriptorValues(mol)
+      normalized = rdnd.CalcNormalizedDescriptors(mol)
+      self.assertEqual(len(raw), len(names))
+      self.assertEqual(rdnd.CalcNormalizedDescriptors(mol, tables), normalized)
+      for name, val, ref, nval in zip(names, raw, row[1:], normalized):
+        ref = float(ref)
+        self.assertAlmostEqual(val, ref, delta=1e-4 * max(1.0, abs(ref)), msg=f'{row[0]} {name}')
+        self.assertAlmostEqual(nval, tables.Normalize(name, ref), delta=1e-4,
+                               msg=f'{row[0]} {name}')
+    # a table set without a descriptor gives 0.0 for it
+    empty = rdnd.CalcNormalizedDescriptors(Chem.MolFromSmiles('CCO'), rdnd.CDFTableSet())
+    self.assertEqual(set(empty), {0.0})
 
 
 if __name__ == '__main__':

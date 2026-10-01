@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include <GraphMol/ROMol.h>
 #include "../NormalizedDescriptors.h"
 
 namespace python = boost::python;
@@ -63,6 +64,35 @@ std::string toString(const CDFTableSet &tables) {
   std::ostringstream outStream;
   tables.writeToStream(outStream);
   return outStream.str();
+}
+
+python::list toList(const std::vector<double> &vals) {
+  python::list res;
+  for (auto v : vals) {
+    res.append(v);
+  }
+  return res;
+}
+
+python::list calcNormalizedHelper(const RDKit::ROMol &mol,
+                                  python::object tables) {
+  if (tables.is_none()) {
+    return toList(calcNormalizedDescriptors(mol));
+  }
+  const CDFTableSet &tableSet = python::extract<const CDFTableSet &>(tables);
+  return toList(calcNormalizedDescriptors(mol, tableSet));
+}
+
+python::list calcDescriptorValuesHelper(const RDKit::ROMol &mol) {
+  return toList(calcDescriptorValues(mol));
+}
+
+python::tuple getNormalizedDescriptorNamesHelper() {
+  python::list res;
+  for (const auto &name : getNormalizedDescriptorNames()) {
+    res.append(name);
+  }
+  return python::tuple(res);
 }
 
 double normalizeWithDefaults(const std::string &name, double value) {
@@ -136,6 +166,21 @@ BOOST_PYTHON_MODULE(rdNormalizedDescriptors) {
               python::return_value_policy<python::reference_existing_object>(),
               "returns the default CDF tables (fitted to descriptastorus' "
               "RDKit2DNormalized distributions)");
+  python::def("GetNormalizedDescriptorNames",
+              getNormalizedDescriptorNamesHelper,
+              "returns the names of the descriptors calculated by "
+              "CalcNormalizedDescriptors, in the order they are returned "
+              "(the order of rdkit.Chem.Descriptors._descList)");
+  python::def("CalcNormalizedDescriptors", calcNormalizedHelper,
+              (python::arg("mol"), python::arg("tables") = python::object()),
+              "calculates the descriptors named by "
+              "GetNormalizedDescriptorNames and normalizes them to [0, 1] "
+              "with tables (the default tables when None). Descriptors that "
+              "cannot be calculated or have no table are 0.0");
+  python::def("CalcDescriptorValues", calcDescriptorValuesHelper,
+              python::arg("mol"),
+              "calculates the raw (unnormalized) values of the descriptors "
+              "named by GetNormalizedDescriptorNames; failures are nan");
   python::def("NormalizeDescriptor", normalizeWithDefaults,
               (python::arg("name"), python::arg("value")),
               "normalizes a descriptor value with the default tables, returns "

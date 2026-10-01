@@ -11,9 +11,14 @@
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 #include <cmath>
+#include <cstdlib>
+#include <fstream>
 #include <limits>
+#include <memory>
 #include <sstream>
 
+#include <GraphMol/ROMol.h>
+#include <GraphMol/SmilesParse/SmilesParse.h>
 #include <RDGeneral/Exceptions.h>
 #include "NormalizedDescriptors.h"
 
@@ -150,4 +155,62 @@ TEST_CASE("default tables match descriptastorus") {
     CHECK_THAT(tables.normalize(ref.name, ref.value),
                WithinAbs(ref.expected, 1e-4));
   }
+}
+
+namespace {
+std::vector<std::string> splitTabs(const std::string &line) {
+  std::vector<std::string> res;
+  std::istringstream ss(line);
+  std::string field;
+  while (std::getline(ss, field, '\t')) {
+    res.push_back(field);
+  }
+  return res;
+}
+}  // namespace
+
+TEST_CASE("calcNormalizedDescriptors matches rdkit.Chem.Descriptors") {
+  const auto &names = getNormalizedDescriptorNames();
+  REQUIRE(names.size() == 217);
+  CHECK(names.front() == "MaxAbsEStateIndex");
+  CHECK(names.back() == "fr_urea");
+
+  const char *rdbase = std::getenv("RDBASE");
+  REQUIRE(rdbase);
+  std::ifstream inStream(
+      std::string(rdbase) +
+      "/External/NormalizedDescriptors/test_data/reference_descriptors.tsv");
+  REQUIRE(inStream);
+  std::string line;
+  REQUIRE(std::getline(inStream, line));
+  auto header = splitTabs(line);
+  REQUIRE(header.size() == names.size() + 1);
+  for (size_t i = 0; i < names.size(); ++i) {
+    CHECK(header[i + 1] == names[i]);
+  }
+
+  const auto &tables = getDefaultTables();
+  unsigned int nMols = 0;
+  while (std::getline(inStream, line)) {
+    auto fields = splitTabs(line);
+    REQUIRE(fields.size() == names.size() + 1);
+    std::unique_ptr<RDKit::ROMol> mol(RDKit::SmilesToMol(fields[0]));
+    REQUIRE(mol);
+    ++nMols;
+    auto raw = calcDescriptorValues(*mol);
+    auto normalized = calcNormalizedDescriptors(*mol);
+    REQUIRE(raw.size() == names.size());
+    REQUIRE(normalized.size() == names.size());
+    for (size_t i = 0; i < names.size(); ++i) {
+      INFO(fields[0] << " " << names[i]);
+      double expected = std::stod(fields[i + 1]);
+      double tol = 1e-4 * std::max(1.0, std::fabs(expected));
+      CHECK_THAT(raw[i], WithinAbs(expected, tol));
+      CHECK_THAT(normalized[i],
+                 WithinAbs(tables.normalize(names[i], expected), 1e-4));
+      CHECK(normalized[i] >= 0.0);
+      CHECK(normalized[i] <= 1.0);
+    }
+  }
+  CHECK(nMols == 10);
 }

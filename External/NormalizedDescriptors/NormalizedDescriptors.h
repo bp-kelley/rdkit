@@ -21,6 +21,7 @@
 #include <vector>
 
 namespace RDKit {
+class ROMol;
 namespace NormalizedDescriptors {
 
 //! A tabulated cumulative distribution function for a single descriptor.
@@ -115,6 +116,34 @@ RDKIT_NORMALIZEDDESCRIPTORS_EXPORT std::string getDefaultTablePath();
 //! returns the default CDF tables, loading them from getDefaultTablePath()
 //! on first use
 RDKIT_NORMALIZEDDESCRIPTORS_EXPORT const CDFTableSet &getDefaultTables();
+
+//! returns the names of the descriptors calculated by
+//! calcNormalizedDescriptors(), in the order they are returned.
+/*!
+  These are the descriptors in rdkit.Chem.Descriptors._descList, in the same
+  order.
+*/
+RDKIT_NORMALIZEDDESCRIPTORS_EXPORT const std::vector<std::string> &
+getNormalizedDescriptorNames();
+
+//! calculates the raw (unnormalized) values of the descriptors named by
+//! getNormalizedDescriptorNames(); a descriptor that cannot be calculated
+//! for \c mol is NaN
+RDKIT_NORMALIZEDDESCRIPTORS_EXPORT std::vector<double> calcDescriptorValues(
+    const ROMol &mol);
+
+//! calculates the descriptors named by getNormalizedDescriptorNames() and
+//! normalizes them with \c tables
+/*!
+  Following descriptastorus' RDKit2DNormalized, a descriptor that cannot be
+  calculated, or that has no table, is 0.0.
+*/
+RDKIT_NORMALIZEDDESCRIPTORS_EXPORT std::vector<double>
+calcNormalizedDescriptors(const ROMol &mol, const CDFTableSet &tables);
+
+//! calculates the normalized descriptors using getDefaultTables()
+RDKIT_NORMALIZEDDESCRIPTORS_EXPORT std::vector<double>
+calcNormalizedDescriptors(const ROMol &mol);
 
 }  // namespace NormalizedDescriptors
 }  // namespace RDKit
