@@ -80,10 +80,10 @@ BOOST_PYTHON_MODULE(rdNormalizedDescriptors) {
       "table and clipped to [0, 1]. Non-finite values normalize to 0.0.",
       python::no_init)
       .def("__init__",
-           python::make_constructor(
-               makeCDFTable, python::default_call_policies(),
-               (python::arg("minV"), python::arg("maxV"), python::arg("xs"),
-                python::arg("cdf"))),
+           python::make_constructor(makeCDFTable,
+                                    python::default_call_policies(),
+                                    (python::arg("minV"), python::arg("maxV"),
+                                     python::arg("xs"), python::arg("cdf"))),
            "Constructor. xs must be sorted and the same length as cdf")
       .def("Normalize", &CDFTable::normalize,
            (python::arg("self"), python::arg("value")),

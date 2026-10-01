@@ -59,8 +59,7 @@ TEST_CASE("CDFTable interpolation") {
   }
   SECTION("invalid tables") {
     CHECK_THROWS_AS(CDFTable(0.0, 1.0, {}, {}), ValueErrorException);
-    CHECK_THROWS_AS(CDFTable(0.0, 1.0, {0.0, 1.0}, {0.0}),
-                    ValueErrorException);
+    CHECK_THROWS_AS(CDFTable(0.0, 1.0, {0.0, 1.0}, {0.0}), ValueErrorException);
     CHECK_THROWS_AS(CDFTable(0.0, 1.0, {1.0, 0.0}, {0.0, 1.0}),
                     ValueErrorException);
     CHECK_THROWS_AS(CDFTable(1.0, 0.0, {0.0, 1.0}, {0.0, 1.0}),
@@ -106,8 +105,7 @@ bar -1 1 2 -1 0.25 1 0.75
       INFO(bad);
       CDFTableSet badTables;
       std::istringstream badStream(bad);
-      CHECK_THROWS_AS(badTables.loadFromStream(badStream),
-                      ValueErrorException);
+      CHECK_THROWS_AS(badTables.loadFromStream(badStream), ValueErrorException);
     }
   }
 }
