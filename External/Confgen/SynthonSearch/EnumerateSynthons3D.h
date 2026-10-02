@@ -63,10 +63,37 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT SynthonProduct {
 constexpr int kDefaultSynthonProductConfs = 10;
 
 //! Controls how the conformers are made for searching
+/*!
+  | style | fragment geometry from |
+  |-------|------------------------|
+  | `Full`          | RigidConfGenDefaults                      |
+  | `Coarse`        | ETKDG on the CAPPED synthon, in situ      |
+  | `CoarseSampled` | sampled from FULL UNCAPPED molecules      |
+
+  The difference between CoarseSampled and Coarse is that Coarse
+  samples fragments in the context of final products.  This is intended
+  to sample better rotations, vdw with other side chains etc.
+  However, it makes the generation of the embedded library much more
+  expensive.
+*/
 enum class SynthonEmbedStyle {
-  Full, // Use RigidConfGenDefaults
-  Coarse // Use ETKDG to make the reactants in-situ and rotor drive them
+  Full,          // Use RigidConfGenDefaults
+  Coarse,        // Use ETKDG to make the reactants in-situ and rotor drive them
+  CoarseSampled  // As Coarse, but fraglib geometries sampled from full molecules
 };
+
+//! returns true if we are using a coarse embedding method
+inline bool isCoarseAssembly(SynthonEmbedStyle s) {
+  return s == SynthonEmbedStyle::Coarse ||
+         s == SynthonEmbedStyle::CoarseSampled;
+}
+
+//! Returns a name from a SynthonEmbedStyle
+RDKIT_FRAGMENTCONFGEN_EXPORT const char *synthonEmbedStyleName(
+    SynthonEmbedStyle s);
+//! \return false if the given name is not a style.
+RDKIT_FRAGMENTCONFGEN_EXPORT bool synthonEmbedStyleFromName(
+    const std::string &name, SynthonEmbedStyle &out);
 
 struct RDKIT_FRAGMENTCONFGEN_EXPORT EnumerateSynthons3DParams {
   FragmentConfGenParams confgen;

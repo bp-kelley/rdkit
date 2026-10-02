@@ -59,6 +59,32 @@ const char *synthonBuildStatusMessage(SynthonBuildStatus s) {
   return "unknown";
 }
 
+const char *synthonEmbedStyleName(SynthonEmbedStyle s) {
+  switch (s) {
+    case SynthonEmbedStyle::Full:
+      return "full";
+    case SynthonEmbedStyle::Coarse:
+      return "coarse";
+    case SynthonEmbedStyle::CoarseSampled:
+      return "coarsesampled";
+  }
+  return "unknown";
+}
+
+bool synthonEmbedStyleFromName(const std::string &name,
+                               SynthonEmbedStyle &out) {
+  if (name == "full") {
+    out = SynthonEmbedStyle::Full;
+  } else if (name == "coarse") {
+    out = SynthonEmbedStyle::Coarse;
+  } else if (name == "coarsesampled") {
+    out = SynthonEmbedStyle::CoarseSampled;
+  } else {
+    return false;
+  }
+  return true;
+}
+
 EnumerateSynthons3D::EnumerateSynthons3D(
     const EnumerationTypes::BBS &reagents, EnumerateSynthons3DParams params)
     // Delegate so a log blocker is alive while the BASE is constructed; see
