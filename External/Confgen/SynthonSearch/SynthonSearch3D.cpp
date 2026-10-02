@@ -17,6 +17,8 @@
 #include <cmath>
 #include <limits>
 #include <map>
+#include <RDGeneral/Exceptions.h>
+
 #include <numeric>
 #include <random>
 #include <sstream>
@@ -27,8 +29,14 @@ namespace RDKit {
 // ---------------------------------------------------------------- scorer ---
 
 ShapeScorer::ShapeScorer(const ROMol &query, int queryConfId,
-                                       bool allCarbonRadii)
-    : d_allCarbonRadii(allCarbonRadii) {
+                                       bool allCarbonRadii,
+                                       double colorWeight)
+    : d_allCarbonRadii(allCarbonRadii), d_colorWeight(colorWeight) {
+  if (colorWeight < 0.0 || colorWeight > 1.0) {
+    throw ValueErrorException(
+        "ShapeScorer: colorWeight must be in [0, 1], got " +
+        std::to_string(colorWeight));
+  }
   RDLog::LogStateSetter blocker;
   // NOTE: confId -1 means ALL conformers of the query, not just the first --
   // the query is a multi-conformer shape.
@@ -41,11 +49,18 @@ ShapeScorer::ShapeScorer(const ROMol &query, int queryConfId,
 ShapeScorer::~ShapeScorer() = default;
 
 std::optional<double> ShapeScorer::score(ROMol &product) const {
+  const auto s = scoreComponents(product);
+  return s ? std::optional<double>((*s)[0]) : std::nullopt;
+}
+
+std::optional<std::array<double, 3>> ShapeScorer::scoreComponents(
+    ROMol &product) const {
   if (!d_queryShape || !product.getNumConformers()) {
     return std::nullopt;
   }
   RDLog::LogStateSetter blocker;
-  double best = -std::numeric_limits<double>::infinity();
+  std::array<double, 3> best{-std::numeric_limits<double>::infinity(), 0.0,
+                             0.0};
   // Iterate the conformers themselves: getConformer() takes an ID, not an
   // index, so indexing works only while the IDs happen to run 0..n-1.  A
   // molecule whose conformers were filtered, or one read from a file with
@@ -54,22 +69,26 @@ std::optional<double> ShapeScorer::score(ROMol &product) const {
        ++ci) {
     const int confId = (*ci)->getId();
     try {
-      // [0] combined shape+colour, [1] shape, [2] colour.  We rank on the
-      // combination: shape alone cannot tell two synthons of similar bulk
-      // apart, and colour alone ignores whether they occupy the same space.
+      // [0] combined shape+color, [1] shape, [2] color.  We rank on the
+      // combination (modified tanimoto combo)
       GaussianShape::ShapeInputOptions opts;
       opts.allCarbonRadii = d_allCarbonRadii;
       const auto s = GaussianShape::AlignMolecule(
           *d_queryShape, product, opts, nullptr,
           GaussianShape::ShapeOverlayOptions(), confId);
-      if (s[0] > best) {
-        best = s[0];
+      // The winner's parts travel with it
+      auto w = s;
+      if (d_colorWeight != 0.5) {
+        w[0] = (1.0 - d_colorWeight) * s[1] + d_colorWeight * s[2];
+      }
+      if (w[0] > best[0]) {
+        best = w;
       }
     } catch (...) {
       // one conformer failing to align is not the product failing to score
     }
   }
-  if (!std::isfinite(best)) {
+  if (!std::isfinite(best[0])) {
     return std::nullopt;
   }
   return best;
@@ -479,7 +498,12 @@ std::string describeParams(const SynthonSearch3DParams &params,
      << "search.numThreads=" << threads
      << (params.numThreads ? "" : " (resolved from hardware concurrency)")
      << "\n"
-     << "search.numBestProducts=" << params.numBestProducts << "\n";
+     << "search.numBestProducts=" << params.numBestProducts << "\n"
+     << "search.keepScoreThreshold=" << params.keepScoreThreshold
+     << (params.keepScoreThreshold > Disabled ? "" : " (disabled, top-N only)")
+     << "\n"
+     << "search.maxKeptProducts=" << params.maxKeptProducts
+     << (params.maxKeptProducts > 0 ? "" : " (no ceiling)") << "\n";
 
   const bool on = params.queryHeavyAtoms && params.pruneMinimum > 0.0;
   os << "prune.enabled=" << on << "\n"
@@ -521,6 +545,22 @@ SynthonSearchResult synthonSearch3D(
     const EnumerateSynthons3D &lib, const SynthonProductScorer &scorer,
     const SynthonSearch3DParams &params, MultipleTrajectoryStats *outStats) {
   BOOST_LOG(rdInfoLog) << describeParams(params, lib);
+  // The size filter bounds SHAPE only -- it is a heavy-atom ratio, we
+  //  can't do the same for color
+  if (params.queryHeavyAtoms && params.pruneMinimum > 0.0) {
+    if (const auto *shape = dynamic_cast<const ShapeScorer *>(&scorer)) {
+      if (shape->colorWeight() > 0.5) {
+        BOOST_LOG(rdWarningLog)
+            << "prune.boundVsColorWeight=MISMATCH: colorWeight="
+            << shape->colorWeight()
+            << " weights color above shape, but the size filter bounds SHAPE "
+               "only (heavy-atom ratio); it cannot bound color, so pruned "
+               "candidates may be false negatives.  Disable pruning "
+               "(pruneMinimum=Disabled) for a color-weighted search you want "
+               "to trust.\n";
+      }
+    }
+  }
 
   MultipleTrajectoryStats stats;
   SynthonSearchResult result;
@@ -929,9 +969,26 @@ SynthonSearchResult synthonSearch3D(
   result.scoreMs = sharedScorer.scoreMs();
 
   Timing finalistTiming;
-  if (params.numBestProducts > 0 && !ranked.empty()) {
-    ranked.resize(std::min<size_t>(
-        ranked.size(), static_cast<size_t>(params.numBestProducts)));
+  // How many of `ranked` to report/save.  `ranked` is sorted best-first, so
+  // both limits are prefix lengths and the threshold scan is a single walk.
+  size_t keep = params.numBestProducts > 0
+                    ? static_cast<size_t>(params.numBestProducts)
+                    : 0;
+  if (params.keepScoreThreshold > Disabled) {
+    size_t above = 0;
+    while (above < ranked.size() &&
+           ranked[above].second >= params.keepScoreThreshold) {
+      ++above;
+    }
+    // max, not assignment: the threshold only ever adds, so a run that clears
+    // it nowhere still reports its best products.
+    keep = std::max(keep, above);
+  }
+  if (params.maxKeptProducts > 0) {
+    keep = std::min(keep, static_cast<size_t>(params.maxKeptProducts));
+  }
+  if (keep > 0 && !ranked.empty()) {
+    ranked.resize(std::min<size_t>(ranked.size(), keep));
     materializeFinalists(lib, scorer, params.numThreads, ranked, result,
                          finalistTiming, stats);
     result.confgenMs += finalistTiming.confgenNs / 1.0e6;

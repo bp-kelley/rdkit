@@ -317,7 +317,7 @@ int main(int argc, char *argv[]) {
       std::printf("\n  DEAD SYNTHONS (cache: %zu entries, %zu unembeddable)\n",
                   fl->size(), fl->numUnembeddable());
       const bool coarse =
-          lib.params3D().embedStyle == SynthonEmbedStyle::Coarse;
+          isCoarseAssembly(lib.params3D().embedStyle);
       const std::set<std::string> exitSymbols(
           lib.molzipParams().atomSymbols.begin(),
           lib.molzipParams().atomSymbols.end());

@@ -158,8 +158,17 @@ int main(int argc, char **argv) {
       fragRms = std::stod(val("--frag-rmsd"));
     } else if (a == "--style") {
       style = val("--style");
-      if (style != "coarse" && style != "full") {
-        std::cerr << "--style must be coarse or full\n";
+      SynthonEmbedStyle parsed;
+      if (synthonEmbedStyleFromName(style, parsed) &&
+          parsed == SynthonEmbedStyle::CoarseSampled) {
+        std::cerr << "--style coarsesampled: the uncapped full-molecule "
+                     "sampling that builds the fraglib is NOT IMPLEMENTED "
+                     "yet.";
+
+        return 1;
+      }
+      if (!synthonEmbedStyleFromName(style, parsed)) {
+        std::cerr << "--style must be full, coarse or coarsesampled\n";
         return 1;
       }
     } else if (a == "--max-per-pos") {
@@ -219,8 +228,11 @@ int main(int argc, char **argv) {
   const unsigned int rings = SynthonZip::numRingClosures(exitCounts);
 
   EnumerateSynthons3DParams params;
-  params.embedStyle = style == "coarse" ? SynthonEmbedStyle::Coarse
-                                        : SynthonEmbedStyle::Full;
+  if (!synthonEmbedStyleFromName(style, params.embedStyle)) {
+    std::cerr << "unknown --style '" << style
+              << "'; expected full, coarse or coarsesampled\n";
+    return 1;
+  }
   
   // Do the ring detection and set the correct synthon cut bonds
   //  so we don't have to do Full conf gen whenever these fragments
@@ -262,7 +274,7 @@ int main(int argc, char **argv) {
     return cuts;
   };
 
-  if (rings && params.embedStyle == SynthonEmbedStyle::Coarse) {
+  if (rings && isCoarseAssembly(params.embedStyle)) {
     // Log that we found ring formation
     std::printf(
         "[gensynthonlib] this synthon reaction closes %u ring(s): pre-creating final rigid fragments\n",
@@ -300,7 +312,7 @@ int main(int argc, char **argv) {
   std::printf("[gensynthonlib] %s/%s: %zu positions, %zu synthons -> %.3g products\n",
               synthons.c_str(), rxn.c_str(), bbs.size(), nSynthons, space);
   std::printf("[gensynthonlib] style=%s prefill=%s\n",
-              params.embedStyle == SynthonEmbedStyle::Coarse ? "coarse" : "full",
+              synthonEmbedStyleName(params.embedStyle),
               prefill ? "yes" : "no");
   std::fflush(stdout);
 
@@ -331,7 +343,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   std::printf("[gensynthonlib] built in %.1f s\n", buildMs / 1000.0);
-  if (rings && lib.params3D().embedStyle == SynthonEmbedStyle::Coarse) {
+  if (rings && isCoarseAssembly(lib.params3D().embedStyle)) {
     size_t tagged = 0, cutTotal = 0;
     for (unsigned int p = 0; p < lib.arity(); ++p) {
       const auto &row = lib.getReagents()[p];

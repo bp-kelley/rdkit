@@ -157,6 +157,19 @@ python::object ScoreHelper(const ShapeScorer &self,
   return v ? python::object(*v) : python::object();
 }
 
+//! As ScoreHelper, but returns (combined, shape, colour) rather than just the
+//! combined value.  Reported together because combined is their mean, so it
+//! cannot be read without them -- see ShapeScorer::scoreComponents.
+python::object ScoreComponentsHelper(const ShapeScorer &self,
+                                     const ROMol &product) {
+  ROMol copy(product);
+  const auto v = self.scoreComponents(copy);
+  if (!v) {
+    return python::object();
+  }
+  return python::object(python::make_tuple((*v)[0], (*v)[1], (*v)[2]));
+}
+
 python::list ReagentsOf(const SynthonSearchResult &r) {
   python::list l;
   for (auto v : r.reagents) {
@@ -353,11 +366,22 @@ Options:\n\
         "ShapeScorer",
         "Shape+colour overlay against a fixed query.  The query shape is built "
         "once and reused, so one scorer should serve a whole search.\n"
-	"The current expectation is a range of [0,1]",
-        python::init<const RDKit::ROMol &, python::optional<int, bool>>(
-            python::args("self", "query", "queryConfId", "allCarbonRadii")))
+	"The current expectation is a range of [0,1]\n"
+        "colourWeight: (1-w)*shape + w*colour; 0.5 (default) is the plain mean "
+        "and is bit-for-bit the previous behaviour, 0 is shape only, 1 colour "
+        "only.  It changes which CONFORMER wins too, so it is a different "
+        "search, not a re-sort.",
+        python::init<const RDKit::ROMol &,
+                     python::optional<int, bool, double>>(
+            python::args("self", "query", "queryConfId", "allCarbonRadii",
+                         "colourWeight")))
         .def("Score", &RDKit::ScoreHelper,
              "Returns score of best conformer, None if scoring is not possible",
+             python::args("self", "product"))
+        .def("ScoreComponents", &RDKit::ScoreComponentsHelper,
+             "Returns (combined, shape, colour) for the same best conformer "
+             "Score() picks, None if scoring is not possible.  combined is "
+             "their mean, so a hit with no colour overlap cannot exceed 0.5.",
              python::args("self", "product"));
 
 
@@ -398,6 +422,18 @@ Options:\n\
                        &RDKit::SynthonSearch3DParams::numThreads)
         .def_readwrite("numBestProducts",
                        &RDKit::SynthonSearch3DParams::numBestProducts)
+        .def_readwrite("keepScoreThreshold",
+                       &RDKit::SynthonSearch3DParams::keepScoreThreshold,
+                       "Also retain every product scoring at or above this, "
+                       "not just the top numBestProducts; 0 disables it "
+                       "(top-N only).  Retention is never fewer than "
+                       "numBestProducts, so this only ever adds hits.  Each "
+                       "retained hit is re-assembled, so it costs per hit -- "
+                       "see maxKeptProducts.")
+        .def_readwrite("maxKeptProducts",
+                       &RDKit::SynthonSearch3DParams::maxKeptProducts,
+                       "Ceiling on retained products when keepScoreThreshold "
+                       "is set; highest-scoring kept, 0 = no ceiling.")
         .def_readwrite("largestFirst",
                        &RDKit::SynthonSearch3DParams::largestFirst,
                        "Sweep positions largest-mean-atoms first (default true)")
@@ -494,8 +530,46 @@ Options:\n\
     python::class_<RDKit::Embedder, std::shared_ptr<RDKit::Embedder>,
                    boost::noncopyable>("Embedder", python::no_init)
         .def("Size", &RDKit::Embedder::size, python::args("self"))
+        .def("HasSamplingProvenance", &RDKit::Embedder::hasSamplingProvenance,
+             python::args("self"),
+             "False for a legacy FRAGLIB1 file, whose sampling params are "
+             "DEFAULTS rather than what it was built with.  Absence of "
+             "provenance is not evidence of isolated embedding.")
+        .def("ContextNumProducts",
+             +[](const RDKit::Embedder &self) {
+               return self.params().contextSampling.numProducts;
+             },
+             python::args("self"),
+             "Whole products sampled per synthon when the fragment geometries "
+             "were harvested; 0 = isolated embedding.")
+        .def("ContextElectrostatics",
+             +[](const RDKit::Embedder &self) {
+               switch (self.params().contextSampling.electrostatics) {
+                 case RDKit::ContextElectrostatics::Off:
+                   return "off";
+                 case RDKit::ContextElectrostatics::On:
+                   return "on";
+                 case RDKit::ContextElectrostatics::Both:
+                   return "both";
+               }
+               return "unknown";
+             },
+             python::args("self"))
         .def("NumUnembeddable", &RDKit::Embedder::numUnembeddable,
              python::args("self"));
+
+    python::def("ClassifyFragment",
+                +[](const RDKit::ROMol &m) {
+                  RDKit::RWMol copy(m);
+                  return std::string(
+                      RDKit::fragmentClassName(RDKit::classifyFragment(copy)));
+                },
+                python::args("mol"),
+                "Ring-content class: Acyclic / Rigid / LargeRing / SmallRing.  "
+                "NOTE aromatic, <=4-membered AND fused/bridged/spiro all return "
+                "Rigid BEFORE ring size is considered, so most drug-like "
+                "polycyclics never reach the LargeRing recipe.")
+      ;
 
     python::def("LoadEmbedder", &RDKit::LoadEmbedderFile,
                 "Load a precompiled embedder into the enumeration",

@@ -466,7 +466,7 @@ int main(int argc, char **argv) {
       return 1;
     }
     std::printf("[synthonbench] cross library: %s (%s)\n", crossFile.c_str(),
-                crossLib.params3D().embedStyle == SynthonEmbedStyle::Coarse
+                isCoarseAssembly(crossLib.params3D().embedStyle)
                     ? "COARSE"
                     : "FULL");
   }
@@ -480,7 +480,7 @@ int main(int argc, char **argv) {
       << "library.reaction=" << rxn << "\n"
       << "library.maxPerPosition=" << maxPerPos << "\n"
       << "library.embedStyle="
-      << (lib.params3D().embedStyle == SynthonEmbedStyle::Coarse ? "Coarse"
+      << (isCoarseAssembly(lib.params3D().embedStyle) ? "Coarse"
                                                                  : "Full")
       << "\n"
       << "library.prefill=" << lib.params3D().prefillEmbedder << "\n"

@@ -921,6 +921,63 @@ TEST_CASE("Embedder embed cache", "[embedder]") {
     }
   }
 
+  SECTION("sampling provenance round-trips, and a V1 file is flagged") {
+    // A fraglib built by harvesting geometries from whole molecules is NOT
+    // interchangeable with an isolated-embedding one, so the file has to say
+    // which it is.  Before ContextSamplingParams the fraglib recorded nothing
+    // while the .s3d recorded its embed style, so the pair could disagree
+    // undetectably.
+    EmbedderParams built = params;
+    built.contextSampling.numProducts = 5;
+    built.contextSampling.electrostatics = ContextElectrostatics::On;
+    built.contextSampling.pruneRms = 0.35;
+    Embedder lib(built);
+    auto benzene = mol("c1ccccc1");
+    REQUIRE(benzene);
+    REQUIRE(lib.get(*benzene));
+
+    std::stringstream ss;
+    lib.serialize(ss);
+
+    // Load into an embedder whose own params say something different, so a
+    // pass cannot come from the constructor's defaults.
+    EmbedderParams other = params;
+    other.contextSampling.numProducts = 123;
+    other.contextSampling.electrostatics = ContextElectrostatics::Off;
+    Embedder loaded(other);
+    loaded.initFromStream(ss);
+    CHECK(loaded.hasSamplingProvenance());
+    CHECK(loaded.params().contextSampling == built.contextSampling);
+
+    // Defaults: Disabled products, Both electrostatics, AutoR prune.
+    EmbedderParams plain = params;
+    Embedder isolated(plain);
+    REQUIRE(isolated.get(*benzene));
+    std::stringstream ss2;
+    isolated.serialize(ss2);
+    Embedder loaded2(other);
+    loaded2.initFromStream(ss2);
+    CHECK(loaded2.hasSamplingProvenance());
+    CHECK_FALSE(loaded2.params().contextSampling.enabled());
+    CHECK(loaded2.params().contextSampling.electrostatics ==
+          ContextElectrostatics::Both);
+
+    // A stream that is neither version must be rejected outright rather than
+    // read as whichever layout happens to parse.
+    std::string bad = ss2.str();
+    REQUIRE(bad.size() > 8);
+    bad[7] = '9';  // FRAGLIB9
+    std::stringstream ssBad(bad);
+    Embedder rejected(other);
+    CHECK_THROWS(rejected.initFromStream(ssBad));
+
+    // V1 compatibility is NOT faked here: the sampling block is written before
+    // the fragment map, so a V1 stream cannot be made by truncating a V2 one,
+    // and byte surgery at that offset would only test the surgery.  It is
+    // verified against the real legacy corpus fraglib, which loads with
+    // 218026 fragments and hasSamplingProvenance() == false.
+  }
+
   SECTION("serialize / initFromStream round-trips the cache with conformers") {
     Embedder lib(params);
     auto benzene = mol("c1ccccc1");

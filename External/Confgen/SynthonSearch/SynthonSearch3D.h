@@ -27,6 +27,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <array>
 #include <optional>
 #include <vector>
 
@@ -57,16 +58,33 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT ShapeScorer
   //! ShapeScorer, return the tanimotoscore/2
   //! \param queryConfId    -1 uses ALL the query's conformers, not just one
   //! \param allCarbonRadii  true treats every atom as carbon. [default True]
+  //! \param colorWeight   weight on color v shape; 0.5 is the plain mean [default]
+  /*!
+    `colorWeight` moves the objective off the 50/50 mean:
+    `score = (1 - w) * shape + w * color`, with 0.5 reproducing the previous
+  */
   explicit ShapeScorer(const ROMol &query, int queryConfId = -1,
-                              bool allCarbonRadii = true);
+                              bool allCarbonRadii = true,
+                              double colorWeight = 0.5);
   ~ShapeScorer() override;
+
+  //! Return the current weight on color
+  double colorWeight() const { return d_colorWeight; }
 
   //! Note: score over all the conformers of product
   std::optional<double> score(ROMol &product) const override;
 
+  //! The same best conformer as score(), split into its scoring components
+  /*!
+    \return {combined, shape, color}, or nullopt if unscorable.
+    Combined is half of the combined score
+  */
+  std::optional<std::array<double, 3>> scoreComponents(ROMol &product) const;
+
  private:
   std::unique_ptr<GaussianShape::ShapeInput> d_queryShape;
   bool d_allCarbonRadii = true;
+  double d_colorWeight = 0.5;
 };
 
 struct RDKIT_FRAGMENTCONFGEN_EXPORT SynthonHit {
@@ -97,6 +115,9 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT SynthonSearchResult {
 
 //! Parameters for synthonSearch3D.
 /*!
+  Note: searches are done in random seeded "trajectories".  More
+  trajectories increases sampling.
+  
   A trajectory is independent in search but can share results between
   multile concurrent trajectories.
 
@@ -118,6 +139,35 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT SynthonSearch3DParams {
   unsigned int numThreads = 0;  //!< one shared pool; 0 = hardware concurrency
   int numBestProducts = 10;
 
+  //! Also retain EVERY product scoring at or above this, not just the top N.
+  /*!
+    A fixed count throws away real hits: a library rich in matches loses
+    everything past `numBestProducts` even when those products score as well
+    as the best in a library that was kept entire. A score threshold retains
+    on merit instead, so what comes back does not depend on which library a
+    product happened to live in.
+
+    `Disabled` (0) = top `numBestProducts` only. Note 0 cannot mean "keep
+    everything" here: combo scores live in [0, 1], so a 0.0 threshold would
+    admit every product ever scored -- raise `numBestProducts` for that.
+
+    Retention is never fewer than `numBestProducts`, so the threshold only
+    ever ADDS hits; a run that finds nothing above it still reports its best.
+
+    COSTS PER HIT, not per search: hits above the threshold are
+    *materialized* (re-assembled with conformers and re-scored), unlike the
+    reagents+score pairs the search keeps for free. Hence `maxKeptProducts`.
+  */
+  double keepScoreThreshold = Disabled;
+
+  //! Ceiling on retained products, guarding `keepScoreThreshold`.
+  /*!
+    A permissive threshold on a large library can clear thousands of
+    products, and each one materialized holds a molecule with conformers.
+    The highest-scoring are kept. `Disabled` (0) = no ceiling.
+  */
+  int maxKeptProducts = 1000;
+
   //! Query heavy-atom count, enabling the size filter.  0 = filter off.
   unsigned int queryHeavyAtoms = Disabled;
   //! Size-filter thresholds, as [minimum, maximum].
@@ -138,10 +188,18 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT SynthonSearch3DParams {
     every other candidate that could still be worth reporting (a combo of 0.7
     is already a good match).
 
-    HEURISTIC, not a proven bound: Gaussian shape and colour are not
-    rigorously bounded by a heavy-atom ratio -- colour depends on which
+    HEURISTIC, not a proven bound: Gaussian shape and color are not
+    rigorously bounded by a heavy-atom ratio -- color depends on which
     pharmacophore features are present. Measure the false-negative rate
     before relying on it.
+
+    FOR THE SAME REASON THE FILTER IS SHAPE-ONLY, and there is no equivalent
+    cheap estimate for color. So it interacts badly with
+    `ShapeScorer::colorWeight` above 0.5: the objective moves toward a
+    quantity the filter cannot estimate, and its rejections become false
+    negatives on precisely the candidates the raised weight was meant to
+    surface. The search warns when both are on; prefer pruneMinimum=Disabled
+    for a color-weighted search whose recall you need to trust.
   */
   double pruneMinimum = Disabled;
   double pruneMaximum = 1.0;
@@ -181,7 +239,7 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT SynthonPositionSweep {
   unsigned int cacheHits = 0;    //!< requests answered without building
   double wallMs = 0.0;
   double confgenMs = 0.0;  //!< assembling products, summed over threads
-  double scoreMs = 0.0;    //!< shape+colour overlay, summed over threads
+  double scoreMs = 0.0;    //!< shape+color overlay, summed over threads
 };
 
 //! Accounting which separates logical search work from physical computation.
