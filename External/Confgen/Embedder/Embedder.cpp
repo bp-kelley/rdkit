@@ -75,8 +75,6 @@ std::map<FragmentClass, FragmentParams> getDefaultFragmentParams() {
   return m;
 }
 
-namespace {
-
 //! Classify by ring content.
 //!  This is designed to sample puckers/n-inversions etc.
 //!  Acyclic = No Rings
@@ -129,6 +127,8 @@ const char *fragmentClassName(FragmentClass cls) {
       return "Acyclic";
   }
 }
+
+namespace {
 
 //! Embed a fragment
 bool embedFragment(RWMol &frag, const EmbedderParams &params) {
@@ -858,9 +858,10 @@ namespace {
 // Embedder format version.
 //  XXX FIX ME Should we use boost serialize?
 
-// ON-DISK BYTES, unchanged by the Fraglib -> Embedder rename: every existing
-// .frag file starts with these, and changing them would orphan the lot.
-constexpr char kEmbedderMagic[8] = {'F', 'R', 'A', 'G', 'L', 'I', 'B', '1'};
+// XXX Fix me: remove for final release, all embedded stores will need
+//  need to be recreated
+constexpr char kEmbedderMagicV1[8] = {'F', 'R', 'A', 'G', 'L', 'I', 'B', '1'};
+constexpr char kEmbedderMagic[8] = {'F', 'R', 'A', 'G', 'L', 'I', 'B', '2'};
 template <typename T>
 void wRaw(std::ostream &os, const T &v) {
   os.write(reinterpret_cast<const char *>(&v), sizeof(T));
@@ -896,6 +897,9 @@ void Embedder::serialize(std::ostream &os) const {
   wRaw(os, d_params.minimizeMaxIters);
   wRaw(os, d_params.perClassEmbedding);
   wRaw(os, d_params.energyWindow);
+  wRaw(os, d_params.contextSampling.numProducts);
+  wRaw(os, static_cast<int>(d_params.contextSampling.electrostatics));
+  wRaw(os, d_params.contextSampling.pruneRms);
 
   // n.b. we need to pickle failures as well (empty mols/pickles)
   //  as these are sentinels for failed embeddings
@@ -921,14 +925,20 @@ void Embedder::initFromStream(std::istream &is) {
 
   char magic[8] = {0};
   is.read(magic, sizeof(magic));
-  if (std::memcmp(magic, kEmbedderMagic, sizeof(magic)) != 0) {
+  const bool isV2 =
+      std::memcmp(magic, kEmbedderMagic, sizeof(magic)) == 0;
+  const bool isV1 =
+      std::memcmp(magic, kEmbedderMagicV1, sizeof(magic)) == 0;
+  if (!isV2 && !isV1) {
     // Report the magic we WANT, from the constant -- a hardcoded version in
     // this message goes stale the first time the format is bumped.
     throw std::runtime_error(
         "Embedder::initFromStream: bad magic (not a " +
-        std::string(kEmbedderMagic, sizeof(kEmbedderMagic)) + " file), got \"" +
-        std::string(magic, sizeof(magic)) + "\"");
+        std::string(kEmbedderMagic, sizeof(kEmbedderMagic)) + " or " +
+        std::string(kEmbedderMagicV1, sizeof(kEmbedderMagicV1)) +
+        " file), got \"" + std::string(magic, sizeof(magic)) + "\"");
   }
+  d_hasSamplingProvenance = isV2;
 
   int embedMode = 0, minMode = 0;
   rRaw(is, d_params.numConfsPerFragment);
@@ -942,6 +952,18 @@ void Embedder::initFromStream(std::istream &is) {
   rRaw(is, d_params.minimizeMaxIters);
   rRaw(is, d_params.perClassEmbedding);
   rRaw(is, d_params.energyWindow);
+  if (isV2) {
+    int ele = 0;
+    rRaw(is, d_params.contextSampling.numProducts);
+    rRaw(is, ele);
+    d_params.contextSampling.electrostatics =
+        static_cast<ContextElectrostatics>(ele);
+    rRaw(is, d_params.contextSampling.pruneRms);
+  } else {
+    // A V1 file records nothing about sampling.  Leave the DEFAULTS and let
+    // hasSamplingProvenance() say so -- do not infer "isolated" from silence.
+    d_params.contextSampling = ContextSamplingParams{};
+  }
 
   std::uint64_t n = 0;
   rRaw(is, n);

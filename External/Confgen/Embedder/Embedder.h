@@ -69,6 +69,12 @@ enum class FragmentClass {
   Fast
 };
 
+//! Classify a fragment by ring content: Acyclic / Rigid / LargeRing / SmallRing.
+RDKIT_FRAGMENTCONFGEN_EXPORT FragmentClass classifyFragment(RWMol &frag);
+
+//! Human-readable name for a FragmentClass.
+RDKIT_FRAGMENTCONFGEN_EXPORT const char *fragmentClassName(FragmentClass cls);
+
 //! Operators to modify # of rotors to # sampled conformers
 enum class FragmentSamplesOperator {
   MAXIMUM,     //!< Sample the specified maxium
@@ -137,6 +143,32 @@ getDefaultFragmentParams();
 
 //! Embedding parameters, controls DG type, post-minimization type
 //!  and how to sample conformers
+//! Electrostatics regime used when sampling fragments from full products.
+enum class ContextElectrostatics { Off, On, Both };
+
+//! How fragment geometries were harvested from whole molecules.
+/*!
+  The basic idea is: generate a full conformation ensemble
+  with the given electrostatic in the context of a full molecule.
+  This is used for synthon-embedding where the "fragments" we are
+  using large, i.e. more than cuts at rotors.
+*/
+struct RDKIT_FRAGMENTCONFGEN_EXPORT ContextSamplingParams {
+  //! Whole products sampled per synthon.  Disabled (0) = isolated embedding.
+  int numProducts = Disabled;
+  //! Electrostatics regime; only meaningful when numProducts > 0.
+  ContextElectrostatics electrostatics = ContextElectrostatics::Both;
+  //! RMSD for pruning harvested geometries.  AutoR (-1) = use the class recipe.
+  double pruneRms = AutoR;
+
+  bool enabled() const { return numProducts > Disabled; }
+
+  bool operator==(const ContextSamplingParams &o) const {
+    return numProducts == o.numProducts &&
+           electrostatics == o.electrostatics && pruneRms == o.pruneRms;
+  }
+};
+
 struct RDKIT_FRAGMENTCONFGEN_EXPORT EmbedderParams {
   //! number of 3D conformers generated for each fragment
   unsigned int numConfsPerFragment = 10;
@@ -146,6 +178,9 @@ struct RDKIT_FRAGMENTCONFGEN_EXPORT EmbedderParams {
   int randomSeed = AutoI;
   //! How each embedded conformer is scored (some scores minimize as well)
   FragmentMinimize minimizeMode = FragmentMinimize::Full;
+
+  //! Where the fragment geometries came from; see ContextSamplingParams.
+  ContextSamplingParams contextSampling;
 
   //! Heavy-atom flat-bottom half-width (A) for ShrugScore.
   double shrugDisplacement = 0.1;
@@ -297,6 +332,13 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT Embedder {
 
   const EmbedderParams &params() const { return d_params; }
 
+  //! Did the file this was loaded from record its sampling provenance?
+  /*!
+    XXX Fix me: Backwards compatibility check, will be removed for final
+    release)
+  */
+  bool hasSamplingProvenance() const { return d_hasSamplingProvenance; }
+
   //! serialize the fragment library to a stream
   void serialize(std::ostream &os) const;
   //! unserialize the fragment library from a stream
@@ -313,6 +355,7 @@ class RDKIT_FRAGMENTCONFGEN_EXPORT Embedder {
   mutable std::map<std::string, RWMol *> d_embedder;
   mutable std::mutex d_mutex;
   EmbedderParams d_params;
+  bool d_hasSamplingProvenance = true;  //!< false for a legacy FRAGLIB1 file
 };
 
 }  // namespace RDKit
