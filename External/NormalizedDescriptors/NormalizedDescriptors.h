@@ -35,7 +35,7 @@ namespace NormalizedDescriptors {
   This reproduces descriptastorus' RDKit2DHistogramNormalized, which looks
   the value up with python's bisect:
     bins[bisect(bins, (v,))][1]
-  (see tools/fit_normalized_descriptors.py for how the tables are made).
+  (see tools/make_normalized_histograms.py for how the tables are made).
 */
 class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT HistogramTable {
  public:
@@ -61,7 +61,7 @@ class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT HistogramTable {
 //! A named collection of histogram tables, one per descriptor.
 /*!
   The text format read and written by this class (the one produced by
-  tools/fit_normalized_descriptors.py) has, for each descriptor, a header line
+  tools/make_normalized_histograms.py) has, for each descriptor, a header line
   followed by nbins lines of bins sorted by edge:
 
     histogram <name> <nbins>
