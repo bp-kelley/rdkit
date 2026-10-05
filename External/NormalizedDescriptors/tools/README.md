@@ -1,97 +1,63 @@
-# Building the normalized descriptor tables
+# Building the normalized descriptor histograms
 
-`fit_normalized_descriptors.py` maintains the data behind the
-NormalizedDescriptors extension, a port of descriptastorus' normalized
-descriptors. descriptastorus has two separate methods, and so do these tables.
-They are never mixed: a descriptor's fitted value never comes from its data
-histogram, and its histogram value never comes from a fit.
+`make_normalized_histograms.py` maintains the data behind the
+NormalizedDescriptors extension, a port of descriptastorus'
+`RDKit2DHistogramNormalized` descriptors.
 
-1. **Fitted distribution** (`RDKit2DNormalized`). Each value `v` becomes
+No distribution is fitted. Each descriptor's raw values over a reference set of
+molecules are binned with `numpy.histogram`, exactly as descriptastorus'
+`data/d_descriptors/make_histdists.py` does, and a value is normalized by
+looking it up in the cumulative bins, exactly as descriptastorus does.
 
-       clip(dist.cdf(clip(v, min, max), *shape, loc, scale), 0, 1)
+## Table
 
-   where `dist` is the `scipy.stats` distribution that best fits the
-   descriptor over a reference set of molecules.
-
-2. **Histogram** (`RDKit2DHistogramNormalized`). No fitting. The raw values
-   are binned with `numpy.histogram` exactly as descriptastorus'
-   `data/d_descriptors/make_histdists.py` does, and `v` is looked up in the
-   cumulative bins exactly as descriptastorus does.
-
-## Files
-
-| file | method | what it is |
-| --- | --- | --- |
-| `../data/normalized_descriptor_fits.json` | fitted | One fit per descriptor: scipy family, parameters (`shape..., loc, scale`), clip `min`/`max`, sample `mean`/`std`, and where the fit came from. The source of truth for method 1. |
-| `../data/normalized_descriptor_cdfs.txt` | fitted | Generated from the fits. Each fitted CDF evaluated on an adaptive grid so that linear interpolation stays within `1e-5` of scipy. |
-| `../data/normalized_descriptor_histograms.txt` | histogram | The cumulative histogram bins. |
-
-The first 201 fits are imported unchanged from descriptastorus'
-`descriptastorus/descriptors/dists.py`, and the first 201 histograms unchanged
-from `descriptastorus/descriptors/hists.py`, so the C++ results match
-descriptastorus.
-
-## Fitted table format
-
-    # comment lines start with #
-    descriptor <name> <scipy distribution> <min> <max> <npoints>
-    <x> <cdf>
-    ... (npoints lines, x ascending, first x == min, last x == max)
-
-To normalize `v`: clip it to `[min, max]`, find the bracketing points and
-interpolate linearly. When `min == max` there is a single point and the result
-is that constant.
-
-## Histogram table format
+`../data/normalized_descriptor_histograms.txt`. The first 201 histograms are
+imported unchanged from descriptastorus' `descriptastorus/descriptors/hists.py`.
+The other 17 (SPS, AvgIpc, Phi, BCUT2D_* and the newer counts) are binned from
+descriptastorus' `data/chembl_100k.smi`.
 
     # comment lines start with #
     histogram <name> <nbins>
     <left edge> <cumulative fraction>
     ... (nbins lines, edges ascending)
 
-To normalize `v`: the cumulative fraction of the first bin whose edge is
+There are `min(1000, distinct values)` equal-width bins. The cumulative
+fraction on each line is the share of values up to and including that bin.
+
+To normalize `v`: take the cumulative fraction of the first bin whose edge is
 `>= v`, or `1.0` when `v` is greater than every edge. In python this is
 `bins[bisect.bisect(bins, (v,))][1]`. There is no interpolation and no
 clipping.
 
-## Regenerating the tables
+## Commands
 
-    python fit_normalized_descriptors.py table
-    python fit_normalized_descriptors.py check --samples /path/to/descriptastorus/data/d_descriptors
-    python fit_normalized_descriptors.py check-hists /path/to/descriptastorus/descriptastorus/descriptors/hists.py
+    # check the table against a descriptastorus hists.py, lookup for lookup
+    python make_normalized_histograms.py check /path/to/descriptastorus/descriptastorus/descriptors/hists.py
 
-`check` compares the interpolated table with scipy on random values, on every
-integer in range, and on the reference samples when given. `check-hists`
-compares lookups in the histogram table with lookups in a descriptastorus
-`hists.py`.
-
-## Adding new or missing descriptors
-
-The reference set is descriptastorus' `data/chembl_100k.smi`.
-
-    # RDKit descriptors that don't have a fit yet
-    # (add --histograms for those without a histogram)
-    python fit_normalized_descriptors.py missing
+    # RDKit descriptors that have no histogram yet
+    python make_normalized_histograms.py missing
 
     # compute them (one d_<name>.gz per descriptor, the same format as
-    # descriptastorus' data/d_descriptors)
-    python fit_normalized_descriptors.py compute \
+    # descriptastorus' data/d_descriptors) and bin them into the table
+    python make_normalized_histograms.py compute \
         --smiles /path/to/descriptastorus/data/chembl_100k.smi \
-        --out samples $(python fit_normalized_descriptors.py missing)
+        --out samples $(python make_normalized_histograms.py missing)
+    python make_normalized_histograms.py histogram samples/d_*.gz
 
-    # method 1: fit each sample, then regenerate the interpolation table
-    python fit_normalized_descriptors.py fit samples/d_*.gz
-    python fit_normalized_descriptors.py table
-    python fit_normalized_descriptors.py check --samples samples
+## Rebuilding with the current RDKit
 
-    # method 2: bin each sample into the histogram table
-    python fit_normalized_descriptors.py histogram samples/d_*.gz
+The imported histograms were computed with an older RDKit on a different
+molecule set. To rebuild every histogram with the installed RDKit on
+`chembl_100k.smi`:
 
-`fit` tries the 45 scipy families descriptastorus already uses (pass
-`--families` to change that) on a random subset of 20000 values, then keeps the
-family with the smallest distance between its CDF and the fraction of values
-below each observed value (the KS statistic without the jump term, so count
-descriptors are judged at the integers they take). Use `--replace` to refit a
-descriptor that already has a fit, or to rebuild a histogram.
+    python make_normalized_histograms.py compute \
+        --smiles /path/to/descriptastorus/data/chembl_100k.smi \
+        --out samples $(python make_normalized_histograms.py names)
+    python make_normalized_histograms.py histogram --replace samples/d_*.gz
 
-Requires numpy and scipy; `compute` also needs the RDKit python wrappers.
+`compute` uses `rdkit.Chem.Descriptors._descList`. Of the 218 names, only
+`RDKit2D_calculated` (descriptastorus' marker column) is not in it, so that
+one is kept as imported. AvgIpc is slow on large peptides, and computing it for
+100k molecules takes on the order of 40 CPU-minutes.
+
+Requires numpy; `compute` also needs the RDKit python wrappers.
