@@ -7,8 +7,8 @@
 //  which is included in the file license.txt, found at the root
 //  of the RDKit source tree.
 //
-//  CDF-table normalization of molecular descriptors, ported from the
-//  RDKit2DNormalized descriptors of descriptastorus
+//  Histogram normalization of molecular descriptors, ported from the
+//  RDKit2DHistogramNormalized descriptors of descriptastorus
 //  (https://github.com/bp-kelley/descriptastorus).
 //
 #include <RDGeneral/export.h>
@@ -24,76 +24,69 @@ namespace RDKit {
 class ROMol;
 namespace NormalizedDescriptors {
 
-//! A tabulated cumulative distribution function for a single descriptor.
+//! A cumulative histogram of a descriptor over a reference set of molecules.
 /*!
-  The table is a set of (x, cdf(x)) points sorted by x. A descriptor value v is
-  normalized by:
-    1. clipping v to [minV, maxV],
-    2. linearly interpolating the CDF between the bracketing table points
-       (values outside the tabulated x range take the first/last cdf value),
-    3. clipping the result to [0, 1].
-  Non-finite values normalize to 0.0.
+  The table is a list of bins, each with a left edge and the fraction of the
+  reference set in that bin or below it, sorted by edge. A descriptor value v
+  normalizes to the fraction of the first bin whose edge is >= v, or to 1.0
+  when v is greater than every edge. There is no interpolation and no clipping.
+  NaN normalizes to 0.0.
 
-  This reproduces descriptastorus' RDKit2DNormalized, which evaluates a fitted
-  scipy.stats distribution's CDF on the clipped value; the table is that CDF
-  sampled on a grid (see tools/fit_normalized_descriptors.py).
+  This reproduces descriptastorus' RDKit2DHistogramNormalized, which looks
+  the value up with python's bisect:
+    bins[bisect(bins, (v,))][1]
+  (see tools/fit_normalized_descriptors.py for how the tables are made).
 */
-class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT CDFTable {
+class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT HistogramTable {
  public:
-  CDFTable() = default;
-  //! \c xs must be non-empty, sorted ascending, and the same size as \c cdf
-  CDFTable(double minV, double maxV, std::vector<double> xs,
-           std::vector<double> cdf, std::string distribution = "");
+  HistogramTable() = default;
+  //! \c edges must be non-empty, sorted ascending, and the same size as
+  //! \c fractions
+  HistogramTable(std::vector<double> edges, std::vector<double> fractions);
 
-  //! returns the normalized value, in [0, 1], for \c value
+  //! returns the normalized value for \c value
   double normalize(double value) const;
   double operator()(double value) const { return normalize(value); }
 
-  double getMin() const { return d_minV; }
-  double getMax() const { return d_maxV; }
-  const std::vector<double> &getXs() const { return d_xs; }
-  const std::vector<double> &getCDF() const { return d_cdf; }
-  //! name of the fitted scipy.stats distribution the table was sampled
-  //! from (informational only)
-  const std::string &getDistribution() const { return d_distribution; }
+  //! the left edge of each bin
+  const std::vector<double> &getEdges() const { return d_edges; }
+  //! the cumulative fraction of the reference set for each bin
+  const std::vector<double> &getFractions() const { return d_fractions; }
 
  private:
-  double d_minV = 0.0;
-  double d_maxV = 0.0;
-  std::vector<double> d_xs;
-  std::vector<double> d_cdf;
-  std::string d_distribution;
+  std::vector<double> d_edges;
+  std::vector<double> d_fractions;
 };
 
-//! A named collection of CDF tables, one per descriptor.
+//! A named collection of histogram tables, one per descriptor.
 /*!
   The text format read and written by this class (the one produced by
   tools/fit_normalized_descriptors.py) has, for each descriptor, a header line
-  followed by npoints lines of points sorted by x:
+  followed by nbins lines of bins sorted by edge:
 
-    descriptor <name> <scipy distribution> <min> <max> <npoints>
-    <x> <cdf>
+    histogram <name> <nbins>
+    <edge> <cumulative fraction>
     ...
 
   Fields are whitespace separated. Blank lines and lines starting with '#'
   are ignored.
 */
-class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT CDFTableSet {
+class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT HistogramTableSet {
  public:
-  CDFTableSet() = default;
+  HistogramTableSet() = default;
 
   //! adds (or replaces) the table for descriptor \c name
   /*!
     A new table gets the next index (see getTableIndex()); replacing a table
     keeps its index.
   */
-  void addTable(const std::string &name, CDFTable table);
+  void addTable(const std::string &name, HistogramTable table);
   bool hasTable(const std::string &name) const;
   //! throws a KeyErrorException if \c name has no table
-  const CDFTable &getTable(const std::string &name) const;
+  const HistogramTable &getTable(const std::string &name) const;
   //! returns the table with index \c idx, throws an IndexErrorException if
   //! \c idx is out of range
-  const CDFTable &getTable(size_t idx) const;
+  const HistogramTable &getTable(size_t idx) const;
   //! returns the index of the table for \c name, or -1 if there is none
   int getTableIndex(const std::string &name) const;
   //! returns the descriptor names, in index order
@@ -127,21 +120,21 @@ class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT CDFTableSet {
   void writeToStream(std::ostream &outStream) const;
 
  private:
-  std::vector<CDFTable> d_tables;
+  std::vector<HistogramTable> d_tables;
   std::vector<std::string> d_names;
   std::map<std::string, size_t> d_index;
   // table index for each entry of getNormalizedDescriptorNames(), -1 if none
   std::vector<int> d_descriptorTableIndex;
 };
 
-//! returns the path of the CDF tables fitted to descriptastorus'
-//! RDKit2DNormalized distributions:
-//!   $RDBASE/External/NormalizedDescriptors/data/normalized_descriptor_cdfs.txt
+//! returns the path of the histogram tables built from the reference
+//! distributions of descriptastorus' RDKit2DHistogramNormalized:
+//!   $RDBASE/External/NormalizedDescriptors/data/normalized_descriptor_histograms.txt
 RDKIT_NORMALIZEDDESCRIPTORS_EXPORT std::string getDefaultTablePath();
 
-//! returns the default CDF tables, loading them from getDefaultTablePath()
-//! on first use
-RDKIT_NORMALIZEDDESCRIPTORS_EXPORT const CDFTableSet &getDefaultTables();
+//! returns the default histogram tables, loading them from
+//! getDefaultTablePath() on first use
+RDKIT_NORMALIZEDDESCRIPTORS_EXPORT const HistogramTableSet &getDefaultTables();
 
 //! returns the names of the descriptors calculated by
 //! calcNormalizedDescriptors(), in the order they are returned.
@@ -165,11 +158,11 @@ RDKIT_NORMALIZEDDESCRIPTORS_EXPORT std::vector<double> calcDescriptorValues(
 //! calculates the descriptors named by getNormalizedDescriptorNames() and
 //! normalizes them with \c tables
 /*!
-  Following descriptastorus' RDKit2DNormalized, a descriptor that cannot be
+  Following descriptastorus, a descriptor that cannot be
   calculated, or that has no table, is 0.0.
 */
 RDKIT_NORMALIZEDDESCRIPTORS_EXPORT std::vector<double>
-calcNormalizedDescriptors(const ROMol &mol, const CDFTableSet &tables);
+calcNormalizedDescriptors(const ROMol &mol, const HistogramTableSet &tables);
 
 //! calculates the normalized descriptors using getDefaultTables()
 RDKIT_NORMALIZEDDESCRIPTORS_EXPORT std::vector<double>

@@ -21,33 +21,31 @@ namespace python = boost::python;
 using namespace RDKit::NormalizedDescriptors;
 
 namespace {
-CDFTable *makeCDFTable(double minV, double maxV, const python::object &xs,
-                       const python::object &cdf,
-                       const std::string &distribution) {
-  std::vector<double> xsv, cdfv;
-  pythonObjectToVect<double>(xs, xsv);
-  pythonObjectToVect<double>(cdf, cdfv);
-  return new CDFTable(minV, maxV, std::move(xsv), std::move(cdfv),
-                      distribution);
+HistogramTable *makeHistogramTable(const python::object &edges,
+                                   const python::object &fractions) {
+  std::vector<double> edgev, fracv;
+  pythonObjectToVect<double>(edges, edgev);
+  pythonObjectToVect<double>(fractions, fracv);
+  return new HistogramTable(std::move(edgev), std::move(fracv));
 }
 
-python::tuple getXs(const CDFTable &table) {
+python::tuple toTuple(const std::vector<double> &vals) {
   python::list res;
-  for (auto v : table.getXs()) {
+  for (auto v : vals) {
     res.append(v);
   }
   return python::tuple(res);
 }
 
-python::tuple getCDF(const CDFTable &table) {
-  python::list res;
-  for (auto v : table.getCDF()) {
-    res.append(v);
-  }
-  return python::tuple(res);
+python::tuple getEdges(const HistogramTable &table) {
+  return toTuple(table.getEdges());
 }
 
-python::list normalizeDescriptorsHelper(const CDFTableSet &tables,
+python::tuple getFractions(const HistogramTable &table) {
+  return toTuple(table.getFractions());
+}
+
+python::list normalizeDescriptorsHelper(const HistogramTableSet &tables,
                                         const python::object &values) {
   std::vector<double> vals;
   pythonObjectToVect<double>(values, vals);
@@ -58,7 +56,7 @@ python::list normalizeDescriptorsHelper(const CDFTableSet &tables,
   return res;
 }
 
-python::list getNames(const CDFTableSet &tables) {
+python::list getNames(const HistogramTableSet &tables) {
   python::list res;
   for (const auto &name : tables.getNames()) {
     res.append(name);
@@ -66,12 +64,12 @@ python::list getNames(const CDFTableSet &tables) {
   return res;
 }
 
-void loadFromString(CDFTableSet &tables, const std::string &text) {
+void loadFromString(HistogramTableSet &tables, const std::string &text) {
   std::istringstream inStream(text);
   tables.loadFromStream(inStream);
 }
 
-std::string toString(const CDFTableSet &tables) {
+std::string toString(const HistogramTableSet &tables) {
   std::ostringstream outStream;
   tables.writeToStream(outStream);
   return outStream.str();
@@ -90,7 +88,7 @@ python::list calcNormalizedHelper(const RDKit::ROMol &mol,
   if (tables.is_none()) {
     return toList(calcNormalizedDescriptors(mol));
   }
-  python::extract<const CDFTableSet &> tableSet(tables);
+  python::extract<const HistogramTableSet &> tableSet(tables);
   return toList(calcNormalizedDescriptors(mol, tableSet()));
 }
 
@@ -113,65 +111,62 @@ double normalizeWithDefaults(const std::string &name, double value) {
 
 BOOST_PYTHON_MODULE(rdNormalizedDescriptors) {
   python::scope().attr("__doc__") =
-      "Module containing CDF-table normalization of molecular descriptors, a "
-      "port of the RDKit2DNormalized descriptors from descriptastorus";
+      "Module containing histogram normalization of molecular descriptors, a "
+      "port of the RDKit2DHistogramNormalized descriptors from "
+      "descriptastorus";
 
-  python::class_<CDFTable>(
-      "CDFTable",
-      "A tabulated cumulative distribution function for one descriptor.\n"
-      "Values are clipped to [minV, maxV], linearly interpolated in the "
-      "table and clipped to [0, 1]. Non-finite values normalize to 0.0.",
+  python::class_<HistogramTable>(
+      "HistogramTable",
+      "A cumulative histogram for one descriptor: the left edge of each bin "
+      "and the fraction of the reference set in that bin or below it.\n"
+      "A value normalizes to the fraction of the first bin whose edge is >= "
+      "the value, or 1.0 past the last edge. NaN normalizes to 0.0.",
       python::no_init)
       .def("__init__",
            python::make_constructor(
-               makeCDFTable, python::default_call_policies(),
-               (python::arg("minV"), python::arg("maxV"), python::arg("xs"),
-                python::arg("cdf"), python::arg("distribution") = "")),
-           "Constructor. xs must be sorted and the same length as cdf")
-      .def("Normalize", &CDFTable::normalize,
+               makeHistogramTable, python::default_call_policies(),
+               (python::arg("edges"), python::arg("fractions"))),
+           "Constructor. edges must be sorted and the same length as "
+           "fractions")
+      .def("Normalize", &HistogramTable::normalize,
            (python::arg("self"), python::arg("value")),
-           "returns the normalized value, in [0, 1]")
-      .def("__call__", &CDFTable::normalize,
+           "returns the normalized value")
+      .def("__call__", &HistogramTable::normalize,
            (python::arg("self"), python::arg("value")))
-      .def("GetMin", &CDFTable::getMin, python::arg("self"))
-      .def("GetMax", &CDFTable::getMax, python::arg("self"))
-      .def("GetXs", getXs, python::arg("self"))
-      .def("GetCDF", getCDF, python::arg("self"))
-      .def("GetDistribution", &CDFTable::getDistribution,
-           python::return_value_policy<python::copy_const_reference>(),
-           python::arg("self"),
-           "name of the scipy.stats distribution the table was sampled from");
+      .def("GetEdges", getEdges, python::arg("self"))
+      .def("GetFractions", getFractions, python::arg("self"));
 
-  python::class_<CDFTableSet>("CDFTableSet",
-                              "A collection of CDF tables keyed by "
-                              "descriptor name",
-                              python::init<>(python::args("self")))
-      .def("AddTable", &CDFTableSet::addTable,
+  python::class_<HistogramTableSet>(
+      "HistogramTableSet",
+      "A collection of histogram tables keyed by descriptor name",
+      python::init<>(python::args("self")))
+      .def("AddTable", &HistogramTableSet::addTable,
            (python::arg("self"), python::arg("name"), python::arg("table")),
            "adds (or replaces) the table for a descriptor")
-      .def("HasTable", &CDFTableSet::hasTable,
+      .def("HasTable", &HistogramTableSet::hasTable,
            (python::arg("self"), python::arg("name")))
       .def("GetTable",
-           (const CDFTable &(CDFTableSet::*)(size_t) const) &
-               CDFTableSet::getTable,
+           (const HistogramTable &(HistogramTableSet::*)(size_t) const) &
+               HistogramTableSet::getTable,
            (python::arg("self"), python::arg("idx")),
            python::return_internal_reference<1>(),
            "returns the table with an index, raises IndexError if out of "
            "range")
       .def("GetTable",
-           (const CDFTable &(CDFTableSet::*)(const std::string &) const) &
-               CDFTableSet::getTable,
+           (const HistogramTable &(HistogramTableSet::*)(const std::string &)
+                const) &
+               HistogramTableSet::getTable,
            (python::arg("self"), python::arg("name")),
            python::return_internal_reference<1>(),
            "returns the table for a descriptor, raises KeyError if missing")
       .def("GetNames", getNames, python::arg("self"),
-           "returns the sorted descriptor names")
-      .def("GetTableIndex", &CDFTableSet::getTableIndex,
+           "returns the descriptor names, in index order")
+      .def("GetTableIndex", &HistogramTableSet::getTableIndex,
            (python::arg("self"), python::arg("name")),
            "returns the index of the table for a descriptor, -1 if missing")
       .def("Normalize",
-           (double(CDFTableSet::*)(size_t, double) const) &
-               CDFTableSet::normalize,
+           (double(HistogramTableSet::*)(size_t, double) const) &
+               HistogramTableSet::normalize,
            (python::arg("self"), python::arg("idx"), python::arg("value")),
            "normalizes a value with the table with an index")
       .def("NormalizeDescriptors", normalizeDescriptorsHelper,
@@ -179,12 +174,12 @@ BOOST_PYTHON_MODULE(rdNormalizedDescriptors) {
            "normalizes values given in the order of "
            "GetNormalizedDescriptorNames(); missing tables give 0.0")
       .def("Normalize",
-           (double(CDFTableSet::*)(const std::string &, double) const) &
-               CDFTableSet::normalize,
+           (double(HistogramTableSet::*)(const std::string &, double) const) &
+               HistogramTableSet::normalize,
            (python::arg("self"), python::arg("name"), python::arg("value")),
            "normalizes a descriptor value, returns 0.0 for descriptors "
            "without a table")
-      .def("LoadFromFile", &CDFTableSet::loadFromFile,
+      .def("LoadFromFile", &HistogramTableSet::loadFromFile,
            (python::arg("self"), python::arg("fileName")),
            "adds the tables in a file to this set")
       .def("LoadFromString", loadFromString,
@@ -192,14 +187,14 @@ BOOST_PYTHON_MODULE(rdNormalizedDescriptors) {
            "adds the tables in a string to this set")
       .def("ToString", toString, python::arg("self"),
            "returns the tables in the text format read by LoadFromString")
-      .def("__len__", &CDFTableSet::size, python::arg("self"));
+      .def("__len__", &HistogramTableSet::size, python::arg("self"));
 
   python::def("GetDefaultTablePath", getDefaultTablePath,
-              "returns the path of the default CDF tables");
+              "returns the path of the default histogram tables");
   python::def("GetDefaultTables", getDefaultTables,
               python::return_value_policy<python::reference_existing_object>(),
-              "returns the default CDF tables (fitted to descriptastorus' "
-              "RDKit2DNormalized distributions)");
+              "returns the default histogram tables (descriptastorus' "
+              "RDKit2DHistogramNormalized reference distributions)");
   python::def("GetNormalizedDescriptorNames",
               getNormalizedDescriptorNamesHelper,
               "returns the names of the descriptors calculated by "
@@ -208,7 +203,7 @@ BOOST_PYTHON_MODULE(rdNormalizedDescriptors) {
   python::def("CalcNormalizedDescriptors", calcNormalizedHelper,
               (python::arg("mol"), python::arg("tables") = python::object()),
               "calculates the descriptors named by "
-              "GetNormalizedDescriptorNames and normalizes them to [0, 1] "
+              "GetNormalizedDescriptorNames and normalizes them "
               "with tables (the default tables when None). Descriptors that "
               "cannot be calculated or have no table are 0.0");
   python::def("CalcDescriptorValues", calcDescriptorValuesHelper,

@@ -25,88 +25,81 @@
 using namespace RDKit::NormalizedDescriptors;
 using Catch::Matchers::WithinAbs;
 
-TEST_CASE("CDFTable interpolation") {
-  CDFTable table(0.0, 10.0, {0.0, 2.0, 4.0, 8.0}, {0.1, 0.5, 0.7, 0.9});
-  SECTION("table points") {
-    CHECK_THAT(table.normalize(0.0), WithinAbs(0.1, 1e-12));
-    CHECK_THAT(table.normalize(2.0), WithinAbs(0.5, 1e-12));
-    CHECK_THAT(table.normalize(8.0), WithinAbs(0.9, 1e-12));
+TEST_CASE("HistogramTable lookup") {
+  HistogramTable table({0.0, 2.0, 4.0, 8.0}, {0.1, 0.5, 0.7, 0.9});
+  SECTION("values at an edge take that bin") {
+    CHECK(table.normalize(0.0) == 0.1);
+    CHECK(table.normalize(2.0) == 0.5);
+    CHECK(table.normalize(8.0) == 0.9);
   }
-  SECTION("linear interpolation") {
-    CHECK_THAT(table.normalize(1.0), WithinAbs(0.3, 1e-12));
-    CHECK_THAT(table.normalize(3.0), WithinAbs(0.6, 1e-12));
-    CHECK_THAT(table(6.0), WithinAbs(0.8, 1e-12));
+  SECTION("values between edges take the next bin, without interpolation") {
+    CHECK(table.normalize(1.0) == 0.5);
+    CHECK(table.normalize(3.0) == 0.7);
+    CHECK(table(6.0) == 0.9);
   }
-  SECTION("clipping to min/max and outside the table") {
-    CHECK_THAT(table.normalize(-5.0), WithinAbs(0.1, 1e-12));
-    CHECK_THAT(table.normalize(9.0), WithinAbs(0.9, 1e-12));
-    CHECK_THAT(table.normalize(1e6), WithinAbs(0.9, 1e-12));
+  SECTION("values outside the edges") {
+    CHECK(table.normalize(-5.0) == 0.1);
+    CHECK(table.normalize(8.5) == 1.0);
+    CHECK(table.normalize(1e6) == 1.0);
   }
   SECTION("non-finite values") {
     CHECK(table.normalize(std::numeric_limits<double>::quiet_NaN()) == 0.0);
-    CHECK(table.normalize(std::numeric_limits<double>::infinity()) == 0.0);
+    CHECK(table.normalize(std::numeric_limits<double>::infinity()) == 1.0);
+    CHECK(table.normalize(-std::numeric_limits<double>::infinity()) == 0.1);
   }
-  SECTION("results are clipped to [0, 1]") {
-    CDFTable bad(0.0, 1.0, {0.0, 1.0}, {-0.5, 1.5});
-    CHECK(bad.normalize(0.0) == 0.0);
-    CHECK(bad.normalize(1.0) == 1.0);
-    CHECK_THAT(bad.normalize(0.5), WithinAbs(0.5, 1e-12));
+  SECTION("fractions are not clipped") {
+    HistogramTable bad({0.0, 1.0}, {-0.5, 1.5});
+    CHECK(bad.normalize(0.0) == -0.5);
+    CHECK(bad.normalize(1.0) == 1.5);
   }
-  SECTION("min clipping applies before the table lookup") {
-    CDFTable clipped(1.0, 3.0, {0.0, 4.0}, {0.0, 1.0});
-    CHECK_THAT(clipped.normalize(0.0), WithinAbs(0.25, 1e-12));
-    CHECK_THAT(clipped.normalize(4.0), WithinAbs(0.75, 1e-12));
-  }
-  SECTION("single point table") {
-    CDFTable single(0.0, 0.0, {0.0}, {0.42});
-    CHECK_THAT(single.normalize(-1.0), WithinAbs(0.42, 1e-12));
-    CHECK_THAT(single.normalize(12.0), WithinAbs(0.42, 1e-12));
+  SECTION("single bin table") {
+    HistogramTable single({0.0}, {0.42});
+    CHECK(single.normalize(-1.0) == 0.42);
+    CHECK(single.normalize(0.0) == 0.42);
+    CHECK(single.normalize(12.0) == 1.0);
   }
   SECTION("invalid tables") {
-    CHECK_THROWS_AS(CDFTable(0.0, 1.0, {}, {}), ValueErrorException);
-    CHECK_THROWS_AS(CDFTable(0.0, 1.0, {0.0, 1.0}, {0.0}), ValueErrorException);
-    CHECK_THROWS_AS(CDFTable(0.0, 1.0, {1.0, 0.0}, {0.0, 1.0}),
-                    ValueErrorException);
-    CHECK_THROWS_AS(CDFTable(1.0, 0.0, {0.0, 1.0}, {0.0, 1.0}),
+    CHECK_THROWS_AS(HistogramTable({}, {}), ValueErrorException);
+    CHECK_THROWS_AS(HistogramTable({0.0, 1.0}, {0.0}), ValueErrorException);
+    CHECK_THROWS_AS(HistogramTable({1.0, 0.0}, {0.0, 1.0}),
                     ValueErrorException);
   }
 }
 
-TEST_CASE("CDFTableSet") {
+TEST_CASE("HistogramTableSet") {
   std::string text = R"TXT(# a comment
-descriptor foo norm 0 10 3
-0 0
-# comments are allowed between points
+histogram foo 3
+0 0.2
+# comments are allowed between bins
 5 0.5
 
 10 1
-descriptor bar tabulated -1 1 2
+histogram bar 2
 -1 0.25
 1 0.75
 )TXT";
-  CDFTableSet tables;
+  HistogramTableSet tables;
   std::istringstream inStream(text);
   tables.loadFromStream(inStream);
   REQUIRE(tables.size() == 2);
   CHECK(tables.getNames() == std::vector<std::string>{"foo", "bar"});
   CHECK(tables.hasTable("foo"));
-  CHECK_THAT(tables.normalize("foo", 2.5), WithinAbs(0.25, 1e-12));
-  CHECK_THAT(tables.normalize("bar", 0.0), WithinAbs(0.5, 1e-12));
-  CHECK(tables.getTable("foo").getDistribution() == "norm");
+  CHECK(tables.normalize("foo", 2.5) == 0.5);
+  CHECK(tables.normalize("bar", 0.0) == 0.75);
 
   SECTION("index-based access") {
     CHECK(tables.getTableIndex("foo") == 0);
     CHECK(tables.getTableIndex("bar") == 1);
     CHECK(tables.getTableIndex("baz") == -1);
     CHECK(&tables.getTable(1) == &tables.getTable("bar"));
-    CHECK_THAT(tables.normalize(0, 2.5), WithinAbs(0.25, 1e-12));
+    CHECK(tables.normalize(0, 2.5) == 0.5);
     CHECK_THROWS_AS(tables.getTable(2), IndexErrorException);
     CHECK_THROWS_AS(tables.normalize(2, 1.0), IndexErrorException);
     // replacing a table keeps its index
-    tables.addTable("foo", CDFTable(0, 1, {0, 1}, {0, 1}));
+    tables.addTable("foo", HistogramTable({0, 1}, {0.3, 0.6}));
     CHECK(tables.getTableIndex("foo") == 0);
     CHECK(tables.size() == 2);
-    CHECK_THAT(tables.normalize(0, 0.5), WithinAbs(0.5, 1e-12));
+    CHECK(tables.normalize(0, 0.5) == 0.6);
   }
   SECTION("missing descriptors normalize to 0") {
     CHECK(!tables.hasTable("baz"));
@@ -116,29 +109,31 @@ descriptor bar tabulated -1 1 2
   SECTION("round trip") {
     std::ostringstream outStream;
     tables.writeToStream(outStream);
-    CDFTableSet tables2;
+    HistogramTableSet tables2;
     std::istringstream inStream2(outStream.str());
     tables2.loadFromStream(inStream2);
     REQUIRE(tables2.getNames() == tables.getNames());
     for (const auto &name : tables.getNames()) {
-      CHECK(tables2.getTable(name).getXs() == tables.getTable(name).getXs());
-      CHECK(tables2.getTable(name).getCDF() == tables.getTable(name).getCDF());
-      CHECK(tables2.getTable(name).getDistribution() ==
-            tables.getTable(name).getDistribution());
+      CHECK(tables2.getTable(name).getEdges() ==
+            tables.getTable(name).getEdges());
+      CHECK(tables2.getTable(name).getFractions() ==
+            tables.getTable(name).getFractions());
     }
   }
   SECTION("malformed input") {
     for (const auto &bad : {
-             "foo norm 0 1 1\n0 0",               // missing keyword
-             "descriptor foo norm 0 1",           // short header
-             "descriptor foo norm 0 1 0",         // no points
-             "descriptor foo norm 0 1 2\n0 0",    // too few points
-             "descriptor foo norm 0 1 1\n0 0 1",  // extra field
-             "descriptor foo norm a 1 1\n0 0",    // bad number
-             "descriptor foo norm 0 1 1 7\n0 0",  // extra header field
+             "foo 1\n0 0",                      // missing keyword
+             "descriptor foo norm 0 1 1\n0 0",  // fitted-table header
+             "histogram foo",                   // short header
+             "histogram foo 0",                 // no bins
+             "histogram foo 2\n0 0",            // too few bins
+             "histogram foo 1\n0 0 1",          // extra field
+             "histogram foo 1\na 0",            // bad number
+             "histogram foo 1 7\n0 0",          // extra header field
+             "histogram foo 2\n1 0\n0 1",       // unsorted edges
          }) {
       INFO(bad);
-      CDFTableSet badTables;
+      HistogramTableSet badTables;
       std::istringstream badStream(bad);
       CHECK_THROWS_AS(badTables.loadFromStream(badStream), ValueErrorException);
     }
@@ -148,26 +143,26 @@ descriptor bar tabulated -1 1 2
 TEST_CASE("default tables match descriptastorus") {
   const auto &tables = getDefaultTables();
   CHECK(tables.size() >= 201);
-  // reference values from descriptastorus' RDKit2DNormalized, i.e.
-  // scipy.stats.<dist>.cdf(clip(v, minV, maxV), *params)
+  // reference values from descriptastorus' RDKit2DHistogramNormalized, i.e.
+  // bins[bisect(bins, (v,))][1] with the bins in descriptastorus' hists.py
   struct {
     const char *name;
     double value;
     double expected;
   } refs[] = {
-      {"MolLogP", 2.5, 0.28147344406620506},
-      {"MolLogP", -100.0, 1.737987092370867e-06},
-      {"MolLogP", 100.0, 0.9999973063987906},
-      {"NumHDonors", 2.0, 0.7316602057680455},
-      {"ExactMolWt", 350.1, 0.34378524188563014},
-      {"TPSA", 75.3, 0.5290342513421387},
-      {"fr_benzene", 1.0, 0.35822936499573854},
-      {"qed", 0.6, 0.506022609149951},
+      {"MolLogP", 2.5, 0.29897092796495756},
+      {"MolLogP", -100.0, 1.000070004900343e-05},
+      {"MolLogP", 100.0, 1.0},
+      {"NumHDonors", 0.0, 0.5992519476363345},
+      {"NumHDonors", 2.0, 0.9729981098676908},
+      {"ExactMolWt", 350.1, 0.37919654375806305},
+      {"TPSA", 75.3, 0.5698098866920684},
+      {"fr_benzene", 1.0, 0.8641404898342884},
+      {"qed", 0.6, 0.5122958607102497},
   };
   for (const auto &ref : refs) {
     INFO(ref.name << " " << ref.value);
-    CHECK_THAT(tables.normalize(ref.name, ref.value),
-               WithinAbs(ref.expected, 1e-4));
+    CHECK(tables.normalize(ref.name, ref.value) == ref.expected);
   }
 }
 
@@ -220,8 +215,6 @@ TEST_CASE("calcNormalizedDescriptors matches rdkit.Chem.Descriptors") {
       double expected = std::stod(fields[i + 1]);
       double tol = 1e-4 * std::max(1.0, std::fabs(expected));
       CHECK_THAT(raw[i], WithinAbs(expected, tol));
-      CHECK_THAT(normalized[i],
-                 WithinAbs(tables.normalize(names[i], expected), 1e-4));
       CHECK(normalized[i] ==
             tables.normalize(tables.getTableIndex(names[i]), raw[i]));
       CHECK(normalized[i] >= 0.0);
@@ -249,11 +242,11 @@ TEST_CASE("normalizeDescriptors") {
 
   // a set with only some descriptors gives 0.0 for the others, and tables
   // that aren't descriptors are ignored
-  CDFTableSet partial;
-  partial.addTable("not_a_descriptor", CDFTable(0, 1, {0, 1}, {1, 1}));
+  HistogramTableSet partial;
+  partial.addTable("not_a_descriptor", HistogramTable({0, 1}, {1, 1}));
   CHECK(partial.normalizeDescriptors(vals) ==
         std::vector<double>(names.size(), 0.0));
-  partial.addTable("MolLogP", CDFTable(0, 2, {0, 2}, {0, 1}));
+  partial.addTable("MolLogP", HistogramTable({0, 2}, {0.25, 0.5}));
   auto res = partial.normalizeDescriptors(vals);
   auto logpIdx = getNormalizedDescriptorIndex("MolLogP");
   for (size_t i = 0; i < names.size(); ++i) {

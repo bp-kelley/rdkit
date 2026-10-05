@@ -23,52 +23,35 @@
 namespace RDKit {
 namespace NormalizedDescriptors {
 
-CDFTable::CDFTable(double minV, double maxV, std::vector<double> xs,
-                   std::vector<double> cdf, std::string distribution)
-    : d_minV(minV),
-      d_maxV(maxV),
-      d_xs(std::move(xs)),
-      d_cdf(std::move(cdf)),
-      d_distribution(std::move(distribution)) {
-  if (d_xs.empty()) {
-    throw ValueErrorException("CDFTable requires at least one point");
+HistogramTable::HistogramTable(std::vector<double> edges,
+                               std::vector<double> fractions)
+    : d_edges(std::move(edges)), d_fractions(std::move(fractions)) {
+  if (d_edges.empty()) {
+    throw ValueErrorException("HistogramTable requires at least one bin");
   }
-  if (d_xs.size() != d_cdf.size()) {
-    throw ValueErrorException("CDFTable x and cdf sizes differ");
+  if (d_edges.size() != d_fractions.size()) {
+    throw ValueErrorException("HistogramTable edge and fraction sizes differ");
   }
-  if (d_maxV < d_minV) {
-    throw ValueErrorException("CDFTable maxV is smaller than minV");
-  }
-  if (!std::is_sorted(d_xs.begin(), d_xs.end())) {
-    throw ValueErrorException("CDFTable x values must be sorted");
+  if (!std::is_sorted(d_edges.begin(), d_edges.end())) {
+    throw ValueErrorException("HistogramTable edges must be sorted");
   }
 }
 
-double CDFTable::normalize(double value) const {
-  if (d_xs.empty() || !std::isfinite(value)) {
+double HistogramTable::normalize(double value) const {
+  if (d_edges.empty() || std::isnan(value)) {
     return 0.0;
   }
-  double v = std::clamp(value, d_minV, d_maxV);
-  double res;
-  if (v <= d_xs.front()) {
-    res = d_cdf.front();
-  } else if (v >= d_xs.back()) {
-    res = d_cdf.back();
-  } else {
-    // first point with x > v; v is strictly inside the table so 0 < hi < size
-    auto hi = std::upper_bound(d_xs.begin(), d_xs.end(), v) - d_xs.begin();
-    auto lo = hi - 1;
-    double dx = d_xs[hi] - d_xs[lo];
-    double frac = dx > 0 ? (v - d_xs[lo]) / dx : 0.0;
-    res = d_cdf[lo] + frac * (d_cdf[hi] - d_cdf[lo]);
+  // the number of edges < value, as python's bisect(bins, (value,))
+  auto p =
+      std::lower_bound(d_edges.begin(), d_edges.end(), value) - d_edges.begin();
+  if (static_cast<size_t>(p) < d_fractions.size()) {
+    return d_fractions[p];
   }
-  if (!std::isfinite(res)) {
-    return 0.0;
-  }
-  return std::clamp(res, 0.0, 1.0);
+  return 1.0;
 }
 
-void CDFTableSet::addTable(const std::string &name, CDFTable table) {
+void HistogramTableSet::addTable(const std::string &name,
+                                 HistogramTable table) {
   auto it = d_index.find(name);
   if (it != d_index.end()) {
     d_tables[it->second] = std::move(table);
@@ -87,11 +70,12 @@ void CDFTableSet::addTable(const std::string &name, CDFTable table) {
   }
 }
 
-bool CDFTableSet::hasTable(const std::string &name) const {
+bool HistogramTableSet::hasTable(const std::string &name) const {
   return d_index.find(name) != d_index.end();
 }
 
-const CDFTable &CDFTableSet::getTable(const std::string &name) const {
+const HistogramTable &HistogramTableSet::getTable(
+    const std::string &name) const {
   auto it = d_index.find(name);
   if (it == d_index.end()) {
     throw KeyErrorException(name);
@@ -99,19 +83,20 @@ const CDFTable &CDFTableSet::getTable(const std::string &name) const {
   return d_tables[it->second];
 }
 
-const CDFTable &CDFTableSet::getTable(size_t idx) const {
+const HistogramTable &HistogramTableSet::getTable(size_t idx) const {
   if (idx >= d_tables.size()) {
     throw IndexErrorException(static_cast<int>(idx));
   }
   return d_tables[idx];
 }
 
-int CDFTableSet::getTableIndex(const std::string &name) const {
+int HistogramTableSet::getTableIndex(const std::string &name) const {
   auto it = d_index.find(name);
   return it == d_index.end() ? -1 : static_cast<int>(it->second);
 }
 
-double CDFTableSet::normalize(const std::string &name, double value) const {
+double HistogramTableSet::normalize(const std::string &name,
+                                    double value) const {
   auto it = d_index.find(name);
   if (it == d_index.end()) {
     return 0.0;
@@ -119,11 +104,11 @@ double CDFTableSet::normalize(const std::string &name, double value) const {
   return d_tables[it->second].normalize(value);
 }
 
-double CDFTableSet::normalize(size_t idx, double value) const {
+double HistogramTableSet::normalize(size_t idx, double value) const {
   return getTable(idx).normalize(value);
 }
 
-std::vector<double> CDFTableSet::normalizeDescriptors(
+std::vector<double> HistogramTableSet::normalizeDescriptors(
     const std::vector<double> &values) const {
   const auto nDescriptors = getNormalizedDescriptorNames().size();
   if (values.size() != nDescriptors) {
@@ -165,59 +150,53 @@ bool getDataLine(std::istream &inStream, std::string &line,
 }
 }  // namespace
 
-void CDFTableSet::loadFromStream(std::istream &inStream) {
+void HistogramTableSet::loadFromStream(std::istream &inStream) {
   std::string line;
   unsigned int lineNum = 0;
   while (getDataLine(inStream, line, lineNum)) {
     std::istringstream ls(line);
     ls.imbue(std::locale::classic());
-    std::string keyword, name, distribution, extra;
-    double minV, maxV;
-    size_t npts;
-    if (!(ls >> keyword) || keyword != "descriptor") {
-      parseError("expected a 'descriptor' line", lineNum);
+    std::string keyword, name, extra;
+    size_t nbins;
+    if (!(ls >> keyword) || keyword != "histogram") {
+      parseError("expected a 'histogram' line", lineNum);
     }
-    if (!(ls >> name >> distribution >> minV >> maxV >> npts) || npts == 0 ||
-        (ls >> extra)) {
-      parseError("bad descriptor header", lineNum);
+    if (!(ls >> name >> nbins) || nbins == 0 || (ls >> extra)) {
+      parseError("bad histogram header", lineNum);
     }
-    std::vector<double> xs(npts), cdf(npts);
-    for (size_t i = 0; i < npts; ++i) {
+    std::vector<double> edges(nbins), fractions(nbins);
+    for (size_t i = 0; i < nbins; ++i) {
       if (!getDataLine(inStream, line, lineNum)) {
-        parseError("CDF table for " + name + " ends early", lineNum);
+        parseError("histogram for " + name + " ends early", lineNum);
       }
-      std::istringstream ps(line);
-      ps.imbue(std::locale::classic());
-      if (!(ps >> xs[i] >> cdf[i]) || (ps >> extra)) {
-        parseError("bad CDF point for " + name, lineNum);
+      std::istringstream bs(line);
+      bs.imbue(std::locale::classic());
+      if (!(bs >> edges[i] >> fractions[i]) || (bs >> extra)) {
+        parseError("bad histogram bin for " + name, lineNum);
       }
     }
-    addTable(name, CDFTable(minV, maxV, std::move(xs), std::move(cdf),
-                            std::move(distribution)));
+    addTable(name, HistogramTable(std::move(edges), std::move(fractions)));
   }
 }
 
-void CDFTableSet::loadFromFile(const std::string &fileName) {
+void HistogramTableSet::loadFromFile(const std::string &fileName) {
   std::ifstream inStream(fileName);
   if (!inStream) {
-    throw BadFileException("could not open CDF table file " + fileName);
+    throw BadFileException("could not open histogram table file " + fileName);
   }
   loadFromStream(inStream);
 }
 
-void CDFTableSet::writeToStream(std::ostream &outStream) const {
+void HistogramTableSet::writeToStream(std::ostream &outStream) const {
   auto oldPrecision =
       outStream.precision(std::numeric_limits<double>::max_digits10);
   for (size_t i = 0; i < d_tables.size(); ++i) {
-    const auto &name = d_names[i];
     const auto &table = d_tables[i];
-    const auto &distribution = table.getDistribution();
-    outStream << "descriptor " << name << " "
-              << (distribution.empty() ? "tabulated" : distribution) << " "
-              << table.getMin() << " " << table.getMax() << " "
-              << table.getXs().size() << "\n";
-    for (size_t j = 0; j < table.getXs().size(); ++j) {
-      outStream << table.getXs()[j] << " " << table.getCDF()[j] << "\n";
+    outStream << "histogram " << d_names[i] << " " << table.getEdges().size()
+              << "\n";
+    for (size_t j = 0; j < table.getEdges().size(); ++j) {
+      outStream << table.getEdges()[j] << " " << table.getFractions()[j]
+                << "\n";
     }
   }
   outStream.precision(oldPrecision);
@@ -227,13 +206,13 @@ std::string getDefaultTablePath() {
   const char *rdbase = std::getenv("RDBASE");
   std::string base = rdbase ? rdbase : "";
   return base +
-         "/External/NormalizedDescriptors/data/normalized_descriptor_cdfs.txt";
+         "/External/NormalizedDescriptors/data/normalized_descriptor_histograms.txt";
 }
 
-const CDFTableSet &getDefaultTables() {
+const HistogramTableSet &getDefaultTables() {
   // thread-safe one-time initialization
-  static const CDFTableSet tables = [] {
-    CDFTableSet res;
+  static const HistogramTableSet tables = [] {
+    HistogramTableSet res;
     res.loadFromFile(getDefaultTablePath());
     return res;
   }();

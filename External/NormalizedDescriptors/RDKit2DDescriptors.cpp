@@ -338,7 +338,7 @@ int getNormalizedDescriptorIndex(const std::string &name) {
 }
 
 std::vector<double> calcNormalizedDescriptors(const ROMol &mol,
-                                              const CDFTableSet &tables) {
+                                              const HistogramTableSet &tables) {
   return tables.normalizeDescriptors(calcDescriptorValues(mol));
 }
 
