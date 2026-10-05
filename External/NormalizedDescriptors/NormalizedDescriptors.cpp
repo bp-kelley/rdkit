@@ -69,36 +69,79 @@ double CDFTable::normalize(double value) const {
 }
 
 void CDFTableSet::addTable(const std::string &name, CDFTable table) {
-  d_tables[name] = std::move(table);
+  auto it = d_index.find(name);
+  if (it != d_index.end()) {
+    d_tables[it->second] = std::move(table);
+    return;
+  }
+  auto idx = d_tables.size();
+  d_tables.push_back(std::move(table));
+  d_names.push_back(name);
+  d_index[name] = idx;
+  auto descIdx = getNormalizedDescriptorIndex(name);
+  if (descIdx >= 0) {
+    if (d_descriptorTableIndex.empty()) {
+      d_descriptorTableIndex.resize(getNormalizedDescriptorNames().size(), -1);
+    }
+    d_descriptorTableIndex[descIdx] = static_cast<int>(idx);
+  }
 }
 
 bool CDFTableSet::hasTable(const std::string &name) const {
-  return d_tables.find(name) != d_tables.end();
+  return d_index.find(name) != d_index.end();
 }
 
 const CDFTable &CDFTableSet::getTable(const std::string &name) const {
-  auto it = d_tables.find(name);
-  if (it == d_tables.end()) {
+  auto it = d_index.find(name);
+  if (it == d_index.end()) {
     throw KeyErrorException(name);
   }
-  return it->second;
+  return d_tables[it->second];
 }
 
-std::vector<std::string> CDFTableSet::getNames() const {
-  std::vector<std::string> res;
-  res.reserve(d_tables.size());
-  for (const auto &[name, _] : d_tables) {
-    res.push_back(name);
+const CDFTable &CDFTableSet::getTable(size_t idx) const {
+  if (idx >= d_tables.size()) {
+    throw IndexErrorException(static_cast<int>(idx));
   }
-  return res;
+  return d_tables[idx];
+}
+
+int CDFTableSet::getTableIndex(const std::string &name) const {
+  auto it = d_index.find(name);
+  return it == d_index.end() ? -1 : static_cast<int>(it->second);
 }
 
 double CDFTableSet::normalize(const std::string &name, double value) const {
-  auto it = d_tables.find(name);
-  if (it == d_tables.end()) {
+  auto it = d_index.find(name);
+  if (it == d_index.end()) {
     return 0.0;
   }
-  return it->second.normalize(value);
+  return d_tables[it->second].normalize(value);
+}
+
+double CDFTableSet::normalize(size_t idx, double value) const {
+  return getTable(idx).normalize(value);
+}
+
+std::vector<double> CDFTableSet::normalizeDescriptors(
+    const std::vector<double> &values) const {
+  const auto nDescriptors = getNormalizedDescriptorNames().size();
+  if (values.size() != nDescriptors) {
+    throw ValueErrorException(
+        "normalizeDescriptors expects one value per descriptor in "
+        "getNormalizedDescriptorNames()");
+  }
+  std::vector<double> res(nDescriptors, 0.0);
+  if (d_descriptorTableIndex.empty()) {
+    return res;
+  }
+  for (size_t i = 0; i < nDescriptors; ++i) {
+    auto idx = d_descriptorTableIndex[i];
+    if (idx >= 0) {
+      res[i] = d_tables[idx].normalize(values[i]);
+    }
+  }
+  return res;
 }
 
 namespace {
@@ -165,14 +208,16 @@ void CDFTableSet::loadFromFile(const std::string &fileName) {
 void CDFTableSet::writeToStream(std::ostream &outStream) const {
   auto oldPrecision =
       outStream.precision(std::numeric_limits<double>::max_digits10);
-  for (const auto &[name, table] : d_tables) {
+  for (size_t i = 0; i < d_tables.size(); ++i) {
+    const auto &name = d_names[i];
+    const auto &table = d_tables[i];
     const auto &distribution = table.getDistribution();
     outStream << "descriptor " << name << " "
               << (distribution.empty() ? "tabulated" : distribution) << " "
               << table.getMin() << " " << table.getMax() << " "
               << table.getXs().size() << "\n";
-    for (size_t i = 0; i < table.getXs().size(); ++i) {
-      outStream << table.getXs()[i] << " " << table.getCDF()[i] << "\n";
+    for (size_t j = 0; j < table.getXs().size(); ++j) {
+      outStream << table.getXs()[j] << " " << table.getCDF()[j] << "\n";
     }
   }
   outStream.precision(oldPrecision);

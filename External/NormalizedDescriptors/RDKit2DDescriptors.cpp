@@ -324,14 +324,22 @@ std::vector<double> calcDescriptorValues(const ROMol &mol) {
   return res;
 }
 
+int getNormalizedDescriptorIndex(const std::string &name) {
+  static const std::unordered_map<std::string, int> positions = [] {
+    std::unordered_map<std::string, int> res;
+    const auto &names = allNames();
+    for (size_t i = 0; i < names.size(); ++i) {
+      res[names[i]] = static_cast<int>(i);
+    }
+    return res;
+  }();
+  auto it = positions.find(name);
+  return it == positions.end() ? -1 : it->second;
+}
+
 std::vector<double> calcNormalizedDescriptors(const ROMol &mol,
                                               const CDFTableSet &tables) {
-  auto res = calcDescriptorValues(mol);
-  const auto &names = allNames();
-  for (size_t i = 0; i < names.size(); ++i) {
-    res[i] = tables.normalize(names[i], res[i]);
-  }
-  return res;
+  return tables.normalizeDescriptors(calcDescriptorValues(mol));
 }
 
 std::vector<double> calcNormalizedDescriptors(const ROMol &mol) {

@@ -41,6 +41,13 @@ const auto &names = getNormalizedDescriptorNames();
 std::vector<double> vals = calcNormalizedDescriptors(mol);  // default tables
 std::vector<double> raw = calcDescriptorValues(mol);         // unnormalized
 double v = getDefaultTables().normalize("MolLogP", 2.5);
+
+// lookups by index skip the name lookup; normalizeDescriptors() uses table
+// indices cached when the tables are loaded
+const auto &tables = getDefaultTables();
+int idx = tables.getTableIndex("MolLogP");
+double v2 = tables.normalize(idx, 2.5);
+std::vector<double> normalized = tables.normalizeDescriptors(raw);
 ```
 
 Python:

@@ -88,12 +88,26 @@ descriptor bar tabulated -1 1 2
   std::istringstream inStream(text);
   tables.loadFromStream(inStream);
   REQUIRE(tables.size() == 2);
-  CHECK(tables.getNames() == std::vector<std::string>{"bar", "foo"});
+  CHECK(tables.getNames() == std::vector<std::string>{"foo", "bar"});
   CHECK(tables.hasTable("foo"));
   CHECK_THAT(tables.normalize("foo", 2.5), WithinAbs(0.25, 1e-12));
   CHECK_THAT(tables.normalize("bar", 0.0), WithinAbs(0.5, 1e-12));
   CHECK(tables.getTable("foo").getDistribution() == "norm");
 
+  SECTION("index-based access") {
+    CHECK(tables.getTableIndex("foo") == 0);
+    CHECK(tables.getTableIndex("bar") == 1);
+    CHECK(tables.getTableIndex("baz") == -1);
+    CHECK(&tables.getTable(1) == &tables.getTable("bar"));
+    CHECK_THAT(tables.normalize(0, 2.5), WithinAbs(0.25, 1e-12));
+    CHECK_THROWS_AS(tables.getTable(2), IndexErrorException);
+    CHECK_THROWS_AS(tables.normalize(2, 1.0), IndexErrorException);
+    // replacing a table keeps its index
+    tables.addTable("foo", CDFTable(0, 1, {0, 1}, {0, 1}));
+    CHECK(tables.getTableIndex("foo") == 0);
+    CHECK(tables.size() == 2);
+    CHECK_THAT(tables.normalize(0, 0.5), WithinAbs(0.5, 1e-12));
+  }
   SECTION("missing descriptors normalize to 0") {
     CHECK(!tables.hasTable("baz"));
     CHECK(tables.normalize("baz", 1.0) == 0.0);
@@ -208,9 +222,41 @@ TEST_CASE("calcNormalizedDescriptors matches rdkit.Chem.Descriptors") {
       CHECK_THAT(raw[i], WithinAbs(expected, tol));
       CHECK_THAT(normalized[i],
                  WithinAbs(tables.normalize(names[i], expected), 1e-4));
+      CHECK(normalized[i] ==
+            tables.normalize(tables.getTableIndex(names[i]), raw[i]));
       CHECK(normalized[i] >= 0.0);
       CHECK(normalized[i] <= 1.0);
     }
   }
   CHECK(nMols == 10);
+}
+
+TEST_CASE("normalizeDescriptors") {
+  const auto &names = getNormalizedDescriptorNames();
+  CHECK(getNormalizedDescriptorIndex("MaxAbsEStateIndex") == 0);
+  CHECK(getNormalizedDescriptorIndex("fr_urea") ==
+        static_cast<int>(names.size()) - 1);
+  CHECK(getNormalizedDescriptorIndex("RDKit2D_calculated") == -1);
+
+  std::vector<double> vals(names.size(), 1.0);
+  const auto &tables = getDefaultTables();
+  auto normalized = tables.normalizeDescriptors(vals);
+  REQUIRE(normalized.size() == names.size());
+  for (size_t i = 0; i < names.size(); ++i) {
+    CHECK(normalized[i] == tables.normalize(names[i], 1.0));
+  }
+  CHECK_THROWS_AS(tables.normalizeDescriptors({1.0}), ValueErrorException);
+
+  // a set with only some descriptors gives 0.0 for the others, and tables
+  // that aren't descriptors are ignored
+  CDFTableSet partial;
+  partial.addTable("not_a_descriptor", CDFTable(0, 1, {0, 1}, {1, 1}));
+  CHECK(partial.normalizeDescriptors(vals) ==
+        std::vector<double>(names.size(), 0.0));
+  partial.addTable("MolLogP", CDFTable(0, 2, {0, 2}, {0, 1}));
+  auto res = partial.normalizeDescriptors(vals);
+  auto logpIdx = getNormalizedDescriptorIndex("MolLogP");
+  for (size_t i = 0; i < names.size(); ++i) {
+    CHECK(res[i] == (static_cast<int>(i) == logpIdx ? 0.5 : 0.0));
+  }
 }

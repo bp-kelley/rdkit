@@ -44,7 +44,13 @@ class TestCase(unittest.TestCase):
     tables.LoadFromString("# comment\ndescriptor foo norm 0 10 3\n0 0\n5 0.5\n10 1\n")
     tables.AddTable("bar", rdnd.CDFTable(-1, 1, [-1, 1], [0.25, 0.75]))
     self.assertEqual(len(tables), 2)
-    self.assertEqual(tables.GetNames(), ["bar", "foo"])
+    self.assertEqual(tables.GetNames(), ["foo", "bar"])
+    self.assertEqual(tables.GetTableIndex("bar"), 1)
+    self.assertEqual(tables.GetTableIndex("baz"), -1)
+    self.assertEqual(tables.GetTable(1).GetCDF(), tables.GetTable("bar").GetCDF())
+    self.assertAlmostEqual(tables.Normalize(0, 2.5), 0.25)
+    with self.assertRaises(IndexError):
+      tables.GetTable(2)
     self.assertAlmostEqual(tables.Normalize("foo", 2.5), 0.25)
     self.assertAlmostEqual(tables.Normalize("bar", 0.0), 0.5)
     self.assertEqual(tables.Normalize("baz", 1.0), 0.0)
@@ -85,6 +91,9 @@ class TestCase(unittest.TestCase):
         self.assertAlmostEqual(val, ref, delta=1e-4 * max(1.0, abs(ref)), msg=f'{row[0]} {name}')
         self.assertAlmostEqual(nval, tables.Normalize(name, ref), delta=1e-4,
                                msg=f'{row[0]} {name}')
+      self.assertEqual(tables.NormalizeDescriptors(raw), normalized)
+    with self.assertRaises(ValueError):
+      tables.NormalizeDescriptors([1.0])
     # a table set without a descriptor gives 0.0 for it
     empty = rdnd.CalcNormalizedDescriptors(Chem.MolFromSmiles('CCO'), rdnd.CDFTableSet())
     self.assertEqual(set(empty), {0.0})

@@ -83,11 +83,21 @@ class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT CDFTableSet {
   CDFTableSet() = default;
 
   //! adds (or replaces) the table for descriptor \c name
+  /*!
+    A new table gets the next index (see getTableIndex()); replacing a table
+    keeps its index.
+  */
   void addTable(const std::string &name, CDFTable table);
   bool hasTable(const std::string &name) const;
   //! throws a KeyErrorException if \c name has no table
   const CDFTable &getTable(const std::string &name) const;
-  std::vector<std::string> getNames() const;
+  //! returns the table with index \c idx, throws an IndexErrorException if
+  //! \c idx is out of range
+  const CDFTable &getTable(size_t idx) const;
+  //! returns the index of the table for \c name, or -1 if there is none
+  int getTableIndex(const std::string &name) const;
+  //! returns the descriptor names, in index order
+  const std::vector<std::string> &getNames() const { return d_names; }
   size_t size() const { return d_tables.size(); }
 
   //! normalizes \c value with the table for \c name.
@@ -95,17 +105,33 @@ class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT CDFTableSet {
     Following descriptastorus, a descriptor without a table normalizes to 0.0.
   */
   double normalize(const std::string &name, double value) const;
+  //! normalizes \c value with the table with index \c idx, skipping the name
+  //! lookup. Throws an IndexErrorException if \c idx is out of range.
+  double normalize(size_t idx, double value) const;
+
+  //! normalizes values given in the order of getNormalizedDescriptorNames()
+  /*!
+    This uses table indices cached when the tables are added, so it does no
+    name lookups. Descriptors without a table normalize to 0.0. Throws a
+    ValueErrorException if \c values has the wrong size.
+  */
+  std::vector<double> normalizeDescriptors(
+      const std::vector<double> &values) const;
 
   //! reads tables from \c inStream, adding them to this set
   /*! throws a ValueErrorException on malformed input */
   void loadFromStream(std::istream &inStream);
   //! reads tables from the file \c fileName, adding them to this set
   void loadFromFile(const std::string &fileName);
-  //! writes the tables in this set to \c outStream (sorted by name)
+  //! writes the tables in this set to \c outStream, in index order
   void writeToStream(std::ostream &outStream) const;
 
  private:
-  std::map<std::string, CDFTable> d_tables;
+  std::vector<CDFTable> d_tables;
+  std::vector<std::string> d_names;
+  std::map<std::string, size_t> d_index;
+  // table index for each entry of getNormalizedDescriptorNames(), -1 if none
+  std::vector<int> d_descriptorTableIndex;
 };
 
 //! returns the path of the CDF tables fitted to descriptastorus'
@@ -125,6 +151,10 @@ RDKIT_NORMALIZEDDESCRIPTORS_EXPORT const CDFTableSet &getDefaultTables();
 */
 RDKIT_NORMALIZEDDESCRIPTORS_EXPORT const std::vector<std::string> &
 getNormalizedDescriptorNames();
+
+//! returns the position of \c name in getNormalizedDescriptorNames(), or -1
+RDKIT_NORMALIZEDDESCRIPTORS_EXPORT int getNormalizedDescriptorIndex(
+    const std::string &name);
 
 //! calculates the raw (unnormalized) values of the descriptors named by
 //! getNormalizedDescriptorNames(); a descriptor that cannot be calculated

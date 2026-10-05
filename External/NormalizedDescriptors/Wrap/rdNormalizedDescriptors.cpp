@@ -47,6 +47,17 @@ python::tuple getCDF(const CDFTable &table) {
   return python::tuple(res);
 }
 
+python::list normalizeDescriptorsHelper(const CDFTableSet &tables,
+                                        const python::object &values) {
+  std::vector<double> vals;
+  pythonObjectToVect<double>(values, vals);
+  python::list res;
+  for (auto v : tables.normalizeDescriptors(vals)) {
+    res.append(v);
+  }
+  return res;
+}
+
 python::list getNames(const CDFTableSet &tables) {
   python::list res;
   for (const auto &name : tables.getNames()) {
@@ -79,8 +90,8 @@ python::list calcNormalizedHelper(const RDKit::ROMol &mol,
   if (tables.is_none()) {
     return toList(calcNormalizedDescriptors(mol));
   }
-  const CDFTableSet &tableSet = python::extract<const CDFTableSet &>(tables);
-  return toList(calcNormalizedDescriptors(mol, tableSet));
+  python::extract<const CDFTableSet &> tableSet(tables);
+  return toList(calcNormalizedDescriptors(mol, tableSet()));
 }
 
 python::list calcDescriptorValuesHelper(const RDKit::ROMol &mol) {
@@ -140,13 +151,36 @@ BOOST_PYTHON_MODULE(rdNormalizedDescriptors) {
            "adds (or replaces) the table for a descriptor")
       .def("HasTable", &CDFTableSet::hasTable,
            (python::arg("self"), python::arg("name")))
-      .def("GetTable", &CDFTableSet::getTable,
+      .def("GetTable",
+           (const CDFTable &(CDFTableSet::*)(size_t) const) &
+               CDFTableSet::getTable,
+           (python::arg("self"), python::arg("idx")),
+           python::return_internal_reference<1>(),
+           "returns the table with an index, raises IndexError if out of "
+           "range")
+      .def("GetTable",
+           (const CDFTable &(CDFTableSet::*)(const std::string &) const) &
+               CDFTableSet::getTable,
            (python::arg("self"), python::arg("name")),
            python::return_internal_reference<1>(),
            "returns the table for a descriptor, raises KeyError if missing")
       .def("GetNames", getNames, python::arg("self"),
            "returns the sorted descriptor names")
-      .def("Normalize", &CDFTableSet::normalize,
+      .def("GetTableIndex", &CDFTableSet::getTableIndex,
+           (python::arg("self"), python::arg("name")),
+           "returns the index of the table for a descriptor, -1 if missing")
+      .def("Normalize",
+           (double(CDFTableSet::*)(size_t, double) const) &
+               CDFTableSet::normalize,
+           (python::arg("self"), python::arg("idx"), python::arg("value")),
+           "normalizes a value with the table with an index")
+      .def("NormalizeDescriptors", normalizeDescriptorsHelper,
+           (python::arg("self"), python::arg("values")),
+           "normalizes values given in the order of "
+           "GetNormalizedDescriptorNames(); missing tables give 0.0")
+      .def("Normalize",
+           (double(CDFTableSet::*)(const std::string &, double) const) &
+               CDFTableSet::normalize,
            (python::arg("self"), python::arg("name"), python::arg("value")),
            "normalizes a descriptor value, returns 0.0 for descriptors "
            "without a table")
