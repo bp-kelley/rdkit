@@ -7,23 +7,41 @@
 #  which is included in the file license.txt, found at the root
 #  of the RDKit source tree.
 #
-"""Fit and tabulate the CDFs used by the NormalizedDescriptors extension.
+"""Build the data tables used by the NormalizedDescriptors extension.
 
-The normalized descriptors follow descriptastorus' RDKit2DNormalized:
+descriptastorus has two separate ways of normalizing a descriptor value v,
+and this tool keeps them separate:
+
+1. Fitted distribution (RDKit2DNormalized):
 
     normalized(v) = clip(dist.cdf(clip(v, min, max), *shape, loc, scale), 0, 1)
 
-where `dist` is a scipy.stats continuous distribution fitted to the
-descriptor's values over a reference set of molecules. The C++ code does not
-link scipy, so this tool evaluates every fitted CDF on an adaptive grid and
-writes one text table that the C++ code linearly interpolates.
+   where `dist` is the scipy.stats distribution that best fits the
+   descriptor's values over a reference set of molecules. The C++ code does
+   not link scipy, so every fitted CDF is evaluated on an adaptive grid and
+   written to a table the C++ code linearly interpolates (within 1e-5 of
+   scipy). Nothing about the data itself goes into this table, only the
+   fitted function.
+
+2. Histogram (RDKit2DHistogramNormalized): no fitting at all. The raw
+   descriptor values are binned with numpy.histogram (min(1000, number of
+   distinct values) equal-width bins) exactly as descriptastorus'
+   data/d_descriptors/make_histdists.py does, giving (left edge, cumulative
+   fraction) pairs, and v is looked up the way descriptastorus does it:
+
+    p = bisect.bisect(bins, (v,))       # number of edges < v
+    normalized(v) = bins[p][1] if p < len(bins) else 1.0
+
+   No interpolation.
 
 Files (paths relative to External/NormalizedDescriptors):
 
-  data/normalized_descriptor_fits.json   fitted distributions, one per
-                                         descriptor (the source of truth)
-  data/normalized_descriptor_cdfs.txt    the interpolation table the C++
-                                         code reads (generated, don't edit)
+  data/normalized_descriptor_fits.json        method 1: fitted
+                                              distributions (source of truth)
+  data/normalized_descriptor_cdfs.txt         method 1: the interpolation
+                                              table the C++ code reads
+                                              (generated, don't edit)
+  data/normalized_descriptor_histograms.txt   method 2: histogram CDF bins
 
 Subcommands:
 
@@ -34,9 +52,13 @@ Subcommands:
                 descriptastorus' data/d_descriptors
   fit           fit a distribution to each sample file and store the best
                 fit in the fits file
-  missing       list RDKit descriptors that have no fit yet
+  missing       list RDKit descriptors that have no fit (or histogram) yet
   table         evaluate every fit on a dense grid and write the table
   check         compare the table's interpolation against scipy
+  import-hists  seed or update the histogram table from a descriptastorus
+                hists.py
+  histogram     bin each sample file and add it to the histogram table
+  check-hists   compare histogram table lookups against a hists.py
 
 Regenerating the table for the current fits:
 
@@ -50,12 +72,14 @@ Adding new descriptors (e.g. everything RDKit has that isn't fit yet):
   python fit_normalized_descriptors.py fit samples/d_*.gz
   python fit_normalized_descriptors.py table
   python fit_normalized_descriptors.py check --samples samples
+  python fit_normalized_descriptors.py histogram samples/d_*.gz
 
 Requires numpy and scipy; `compute` also needs the RDKit python wrappers.
 """
 
 import argparse
 import ast
+import bisect
 import gzip
 import json
 import math
@@ -72,6 +96,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.normpath(os.path.join(HERE, "..", "data"))
 DEFAULT_FITS = os.path.join(DATA_DIR, "normalized_descriptor_fits.json")
 DEFAULT_TABLE = os.path.join(DATA_DIR, "normalized_descriptor_cdfs.txt")
+DEFAULT_HISTS = os.path.join(DATA_DIR, "normalized_descriptor_histograms.txt")
 
 TABLE_FORMAT_VERSION = 1
 FITS_FORMAT_VERSION = 1
@@ -90,10 +115,8 @@ DEFAULT_FAMILIES = [
   # slow to fit, use --families to opt in: gausshyper, ncf
 ]
 
-# pseudo distribution: the sample's own CDF, stored as (x, cdf) knots and
-# used when no scipy family fits well (e.g. multimodal BCUT2D values)
-EMPIRICAL = "empirical"
-EMPIRICAL_KNOTS = 1000
+# descriptastorus make_histdists.py uses at most this many bins
+MAX_HIST_BINS = 1000
 
 
 def log(*args):
@@ -114,15 +137,6 @@ def scipy_dist(name):
 def make_cdf(fit):
   """The descriptastorus normalization for one fit, vectorized."""
   lo, hi = fit["min"], fit["max"]
-  if fit["dist"] == EMPIRICAL:
-    knots = np.asarray(fit["knots"], dtype=float)
-
-    def ecdf(x):
-      return np.interp(np.clip(np.asarray(x, dtype=float), lo, hi),
-                       knots[:, 0], knots[:, 1])
-
-    return ecdf
-
   dist = scipy_dist(fit["dist"])
   params = fit["params"]
   args, loc, scale = params[:-2], params[-2], params[-1]
@@ -297,9 +311,12 @@ def cmd_compute(args):
 
 
 def cmd_missing(args):
-  fits = load_fits(args.fits)
+  if args.histograms:
+    have = read_hist_table(args.table)
+  else:
+    have = load_fits(args.fits)["descriptors"]
   for n in rdkit_descriptor_functions():
-    if n not in fits["descriptors"]:
+    if n not in have:
       print(n)
 
 
@@ -336,17 +353,6 @@ def _fit_one(task):
       all_vals, np.clip(cdf, 0, 1)), time.time() - t0
   except Exception as e:  # many families fail on some data
     return family, None, math.inf, time.time() - t0
-
-
-def empirical_knots(vals, nknots=EMPIRICAL_KNOTS):
-  """(x, fraction of values <= x) at every distinct value, or at nknots
-  quantiles when there are more distinct values than that."""
-  vals = np.sort(vals)
-  xs = np.unique(vals)
-  if len(xs) > nknots:
-    xs = np.unique(np.quantile(vals, np.linspace(0, 1, nknots), method="lower"))
-  ys = np.searchsorted(vals, xs, side="right") / len(vals)
-  return [[float(x), float(y)] for x, y in zip(xs, ys)]
 
 
 def fit_sample(vals, families, nfit, timeout, pool, rng):
@@ -396,19 +402,14 @@ def cmd_fit(args):
       "mean": float(vals.mean()),
       "std": float(vals.std()),
     }
-    runners = ", ".join(f"{r[0]} {r[2]:.4g}" for r in results[:3])
-    if best[1] is None or best[2] > args.max_ks:
-      entry.update(dist=EMPIRICAL, params=[], knots=empirical_knots(vals))
-      entry["source"] = source or (
-        f"empirical CDF of {os.path.basename(path)} (n={len(vals)}); best "
-        f"scipy fit KS={best[2]:.4g} > {args.max_ks:g}")
-      log(f"{name}: empirical CDF (best scipy fits: {runners})")
-    else:
-      entry.update(dist=best[0], params=best[1])
-      entry["source"] = source or (
-        f"fit to {os.path.basename(path)} (n={len(vals)}, KS={best[2]:.4g}, "
-        f"scipy {scipy.__version__})")
-      log(f"{name}: {runners}")
+    if best[1] is None:
+      log(f"No family could be fit to {name}")
+      continue
+    entry.update(dist=best[0], params=best[1])
+    entry["source"] = source or (
+      f"fit to {os.path.basename(path)} (n={len(vals)}, KS={best[2]:.4g}, "
+      f"scipy {scipy.__version__})")
+    log(f"{name}: " + ", ".join(f"{r[0]} {r[2]:.4g}" for r in results[:3]))
     fits["descriptors"][name] = entry
     # save as we go, fitting everything can take a while
     save_fits(fits, args.fits)
@@ -466,13 +467,9 @@ def build_grid(cdf, lo, hi, dist, params, tol, max_points):
 def table_entries(fits, tol, max_points):
   for name, fit in fits["descriptors"].items():
     cdf = make_cdf(fit)
-    if fit["dist"] == EMPIRICAL:
-      knots = np.asarray(fit["knots"], dtype=float)
-      xs, ys = knots[:, 0], knots[:, 1]
-    else:
-      dist = scipy_dist(fit["dist"])
-      xs, ys = build_grid(cdf, fit["min"], fit["max"], dist, fit["params"],
-                          tol, max_points)
+    dist = scipy_dist(fit["dist"])
+    xs, ys = build_grid(cdf, fit["min"], fit["max"], dist, fit["params"], tol,
+                        max_points)
     if not np.all(np.isfinite(ys)):
       raise RuntimeError(f"{name}: CDF is not finite on [{fit['min']}, "
                          f"{fit['max']}]")
@@ -571,6 +568,140 @@ def cmd_check(args):
 
 
 # ---------------------------------------------------------------------------
+# histograms (method 2, no fitting)
+
+
+def make_histogram(vals):
+  """descriptastorus data/d_descriptors/make_histdists.py, unchanged:
+  (left bin edge, cumulative fraction of values up to and including that
+  bin) for min(1000, distinct values) equal-width bins."""
+  vals = np.asarray(vals, dtype=float)
+  vals = vals[np.isfinite(vals)]
+  n = min(MAX_HIST_BINS, len(set(vals)))
+  hist, xaxis = np.histogram(vals, bins=n)
+  total = hist.sum()
+  bins = []
+  last = 0.0
+  for value, x in zip(hist, xaxis):
+    last += value
+    bins.append((float(x), float(last / total)))
+  return bins
+
+
+def hist_lookup(bins, v):
+  """descriptastorus rdNormalizedDescriptors.histcdf, unchanged."""
+  p = bisect.bisect(bins, (v, ))
+  if p < len(bins):
+    return bins[p][1]
+  return 1.0
+
+
+def read_hist_table(path):
+  hists = {}
+  if not os.path.exists(path):
+    return hists
+  with open(path) as f:
+    it = (l for l in f if l.strip() and not l.startswith("#"))
+    for line in it:
+      tag, name, n = line.split()
+      assert tag == "histogram", line
+      bins = []
+      for _ in range(int(n)):
+        x, c = next(it).split()
+        bins.append((float(x), float(c)))
+      hists[name] = bins
+  return hists
+
+
+def write_hist_table(hists, path):
+  lines = [
+    "# NormalizedDescriptors histogram table, format version "
+    f"{TABLE_FORMAT_VERSION}",
+    "# Generated by tools/fit_normalized_descriptors.py; do not edit.",
+    "#",
+    "# Raw-data histograms (no fitted distribution), as descriptastorus'",
+    "# RDKit2DHistogramNormalized. For each descriptor, nbins lines of",
+    "# <left edge> <cumulative fraction>, edges ascending. normalized(v) is",
+    "# the fraction of the first bin whose edge is >= v, or 1.0 when v is",
+    "# greater than every edge (python: bins[bisect(bins, (v,))][1]).",
+    "# No interpolation and no clipping.",
+    "#",
+    "# histogram <name> <nbins>",
+    "# <edge> <cumulative fraction>   (nbins lines)",
+  ]
+  for name in sorted(hists):
+    bins = hists[name]
+    lines.append(f"histogram {name} {len(bins)}")
+    lines.extend(f"{x!r} {c!r}" for x, c in bins)
+  with open(path, "w") as f:
+    f.write("\n".join(lines))
+    f.write("\n")
+  log(f"Wrote {len(hists)} histograms to {path}")
+
+
+def read_hists_py(path):
+  """Read a descriptastorus hists.py without importing descriptastorus."""
+  ns = {"inf": math.inf, "nan": math.nan}
+  with open(path) as f:
+    exec(f.read(), ns)
+  return ns["hists"]
+
+
+def cmd_import_hists(args):
+  hists = read_hist_table(args.table)
+  src = read_hists_py(args.hists_py)
+  n = 0
+  for name, bins in src.items():
+    if name in hists and not args.replace:
+      continue
+    hists[name] = [(float(x), float(c)) for x, c in bins]
+    n += 1
+  log(f"Imported {n} of {len(src)} histograms from {args.hists_py}")
+  write_hist_table(hists, args.table)
+
+
+def cmd_histogram(args):
+  hists = read_hist_table(args.table)
+  for path in args.samples:
+    name = sample_name(path)
+    if name in hists and not args.replace:
+      log(f"Skipping {name}: already has a histogram (use --replace)")
+      continue
+    vals = read_sample(path)
+    if len(vals) == 0:
+      log(f"Skipping {name}: no finite values in {path}")
+      continue
+    hists[name] = make_histogram(vals)
+    log(f"{name}: {len(hists[name])} bins from {len(vals)} values")
+  write_hist_table(hists, args.table)
+
+
+def cmd_check_hists(args):
+  table = read_hist_table(args.table)
+  ref = read_hists_py(args.hists_py)
+  rng = np.random.default_rng(0)
+  bad = 0
+  for name, bins in ref.items():
+    if name not in table:
+      log(f"{name}: in {args.hists_py} but not the table")
+      bad += 1
+      continue
+    edges = np.array([b[0] for b in bins])
+    probes = np.concatenate([
+      edges, edges + 1e-9,
+      rng.uniform(edges[0] - 1, edges[-1] + 1, 2000)
+    ])
+    diff = max(
+      abs(hist_lookup(table[name], v) - hist_lookup(bins, v)) for v in probes)
+    if diff:
+      log(f"{name}: lookups differ by up to {diff}")
+      bad += 1
+  log(f"Checked {len(ref)} histograms, {bad} differ")
+  if bad:
+    sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
 
 
 def main(argv=None):
@@ -599,6 +730,10 @@ def main(argv=None):
   s.set_defaults(func=cmd_compute)
 
   s = sub.add_parser("missing", help="list RDKit descriptors without a fit")
+  s.add_argument("--histograms", action="store_true",
+                 help="list those without a histogram instead")
+  s.add_argument("--table", default=DEFAULT_HISTS,
+                 help="histogram table for --histograms")
   s.set_defaults(func=cmd_missing)
 
   s = sub.add_parser("fit", help="fit distributions to sample files")
@@ -613,9 +748,6 @@ def main(argv=None):
   s.add_argument("--timeout", type=float, default=300,
                  help="seconds allowed for all families on one descriptor "
                  "(default: %(default)s)")
-  s.add_argument("--max-ks", type=float, default=0.05,
-                 help="store the empirical CDF instead when the best scipy "
-                 "fit's KS distance is above this (default: %(default)s)")
   s.add_argument("--seed", type=int, default=42)
   s.add_argument("--replace", action="store_true",
                  help="refit descriptors already in the fits file")
@@ -642,6 +774,26 @@ def main(argv=None):
   s.add_argument("--tol", type=float, default=1.1e-5)
   s.add_argument("-v", "--verbose", action="store_true")
   s.set_defaults(func=cmd_check)
+
+  s = sub.add_parser("import-hists",
+                     help="import a descriptastorus hists.py (method 2)")
+  s.add_argument("hists_py")
+  s.add_argument("--table", default=DEFAULT_HISTS)
+  s.add_argument("--replace", action="store_true")
+  s.set_defaults(func=cmd_import_hists)
+
+  s = sub.add_parser("histogram",
+                     help="add raw-data histograms of sample files (method 2)")
+  s.add_argument("samples", nargs="+", help="d_<name>.gz sample files")
+  s.add_argument("--table", default=DEFAULT_HISTS)
+  s.add_argument("--replace", action="store_true")
+  s.set_defaults(func=cmd_histogram)
+
+  s = sub.add_parser("check-hists",
+                     help="check histogram table lookups against a hists.py")
+  s.add_argument("hists_py")
+  s.add_argument("--table", default=DEFAULT_HISTS)
+  s.set_defaults(func=cmd_check_hists)
 
   args = p.parse_args(argv)
   args.func(args)
