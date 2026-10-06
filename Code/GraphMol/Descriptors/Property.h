@@ -34,6 +34,7 @@
 #define RDKIT_PROPERTIES_H
 
 #include <GraphMol/RDKitBase.h>
+#include <limits>
 #include <string>
 #include <utility>
 #include <RDGeneral/BoostStartInclude.h>
@@ -72,19 +73,58 @@ struct RDKIT_DESCRIPTORS_EXPORT PropertyFunctor {
   const std::string getVersion() const { return propVersion; }
 };
 
+//! A property that is one element of a descriptor vector (e.g. one bin of
+//! PEOE_VSA, or one BCUT2D value).
+/*!
+  Used on its own it computes the whole vector and returns its element.
+  Properties::computeProperties() computes each vector once per molecule and
+  shares it between the properties that are elements of it.
+*/
+struct RDKIT_DESCRIPTORS_EXPORT VectorElementPropertyFunctor
+    : public PropertyFunctor {
+  using VectorFunc = std::vector<double> (*)(const ROMol &);
+  VectorFunc d_vectorFunc;
+  unsigned int d_index;
+
+  //! \c elementFunc must return element \c index of \c vectorFunc; it is
+  //! the plain function used for property queries.
+  VectorElementPropertyFunctor(std::string name, std::string version,
+                               VectorFunc vectorFunc, unsigned int index,
+                               double (*elementFunc)(const ROMol &))
+      : PropertyFunctor(std::move(name), std::move(version), elementFunc),
+        d_vectorFunc(vectorFunc),
+        d_index(index) {}
+};
+
 //! Holds a collection of properties for computation purposes
 class RDKIT_DESCRIPTORS_EXPORT Properties {
  protected:
   std::vector<boost::shared_ptr<PropertyFunctor>> m_properties;
+  double d_failureValue = std::numeric_limits<double>::quiet_NaN();
+
+  //! computes the properties for \c mol, giving \c failureValue to those
+  //! that fail
+  std::vector<double> computeValues(const RDKit::ROMol &mol,
+                                    double failureValue) const;
 
  public:
   Properties();
   Properties(const std::vector<std::string> &propNames);
+  virtual ~Properties() = default;
 
   std::vector<std::string> getPropertyNames() const;
-  std::vector<double> computeProperties(const RDKit::ROMol &mol,
-                                        bool annotate = false) const;
+  //! computes the properties for \c mol
+  /*!
+    A property whose calculation throws a std::exception gets the failure
+    value (see setFailureValue()) instead.
+  */
+  virtual std::vector<double> computeProperties(const RDKit::ROMol &mol,
+                                                bool annotate = false) const;
   void annotateProperties(RDKit::ROMol &mol) const;
+
+  //! sets the value given to a property that fails to compute (default NaN)
+  void setFailureValue(double val) { d_failureValue = val; }
+  double getFailureValue() const { return d_failureValue; }
 
   //! Register a property function - takes ownership
   static int registerProperty(PropertyFunctor *ptr);

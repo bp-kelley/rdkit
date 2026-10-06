@@ -1524,6 +1524,12 @@ for name, value in zip(properties.GetPropertyNames(), properties.ComputeProperti
            &RDKit::Descriptors::Properties::annotateProperties, "mol"_a,
            "Annotate the molecule with the computed properties.  These "
            "properties will be available as SDData or from mol.GetProp(prop)")
+      .def("SetFailureValue", &RDKit::Descriptors::Properties::setFailureValue,
+           "value"_a,
+           "Set the value given to properties that fail to compute "
+           "(default nan)")
+      .def("GetFailureValue", &RDKit::Descriptors::Properties::getFailureValue,
+           "Return the value given to properties that fail to compute")
       .def_static("GetAvailableProperties",
                   &RDKit::Descriptors::Properties::getAvailableProperties,
                   "Return all available property names that can be computed")

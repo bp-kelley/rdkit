@@ -21,6 +21,7 @@
 #include <GraphMol/Descriptors/PMI.h>
 #include <GraphMol/Descriptors/DCLV.h>
 #include <GraphMol/Descriptors/BCUT.h>
+#include <GraphMol/Descriptors/Property.h>
 #ifdef RDK_BUILD_DESCRIPTORS3D
 #include <GraphMol/Descriptors/GETAWAY.h>
 #endif
@@ -738,3 +739,47 @@ TEST_CASE("Github #7264: GETAWAY descriptors are non-deterministic") {
   }
 }
 #endif
+
+TEST_CASE("Property registry") {
+  using namespace RDKit::Descriptors;
+  auto mol = "c1ccccc1C(=O)NCCCl"_smiles;
+  REQUIRE(mol);
+  SECTION("chi2 properties use the chi2 functions") {
+    Properties props({"chi2v", "chi2n"});
+    auto res = props.computeProperties(*mol);
+    CHECK(res[0] == calcChi2v(*mol));
+    CHECK(res[1] == calcChi2n(*mol));
+  }
+  SECTION("vector descriptors are registered element by element") {
+    Properties props(
+        {"PEOE_VSA1", "PEOE_VSA14", "SlogP_VSA2", "fr_amide", "BCUT2D_MRLOW"});
+    auto res = props.computeProperties(*mol);
+    auto peoe = calcPEOE_VSA(*mol);
+    CHECK(res[0] == peoe[0]);
+    CHECK(res[1] == peoe[13]);
+    CHECK(res[2] == calcSlogP_VSA(*mol)[1]);
+    CHECK(res[3] == calcFragmentDescriptor(*mol, "fr_amide"));
+    CHECK(res[4] == BCUT2D(*mol)[7]);
+    // on their own too
+    CHECK((*Properties::getProperty("PEOE_VSA14"))(*mol) == peoe[13]);
+    std::unique_ptr<PROP_RANGE_QUERY> query(
+        makePropertyRangeQuery("fr_amide", 0.5, 1.5));
+    CHECK(query->Match(*mol));
+  }
+  SECTION("failures give the failure value") {
+    struct Failing : public PropertyFunctor {
+      Failing() : PropertyFunctor("_testAlwaysFails", "1.0.0") {}
+      double operator()(const RDKit::ROMol &) const override {
+        throw ValueErrorException("failed");
+      }
+    };
+    Properties::registerProperty(new Failing());
+    Properties props({"_testAlwaysFails", "NumHeavyAtoms"});
+    CHECK(std::isnan(props.getFailureValue()));
+    auto res = props.computeProperties(*mol);
+    CHECK(std::isnan(res[0]));
+    CHECK(res[1] == 12.0);
+    props.setFailureValue(-1.0);
+    CHECK(props.computeProperties(*mol)[0] == -1.0);
+  }
+}
