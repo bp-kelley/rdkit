@@ -15,13 +15,15 @@
 #ifndef RDKIT_NORMALIZEDDESCRIPTORS_H
 #define RDKIT_NORMALIZEDDESCRIPTORS_H
 
+#include <GraphMol/Descriptors/Property.h>
+
 #include <iosfwd>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace RDKit {
-class ROMol;
 namespace NormalizedDescriptors {
 
 //! A cumulative histogram of a descriptor over a reference set of molecules.
@@ -102,15 +104,6 @@ class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT HistogramTableSet {
   //! lookup. Throws an IndexErrorException if \c idx is out of range.
   double normalize(size_t idx, double value) const;
 
-  //! normalizes values given in the order of getNormalizedDescriptorNames()
-  /*!
-    This uses table indices cached when the tables are added, so it does no
-    name lookups. Descriptors without a table normalize to 0.0. Throws a
-    ValueErrorException if \c values has the wrong size.
-  */
-  std::vector<double> normalizeDescriptors(
-      const std::vector<double> &values) const;
-
   //! reads tables from \c inStream, adding them to this set
   /*! throws a ValueErrorException on malformed input */
   void loadFromStream(std::istream &inStream);
@@ -123,8 +116,6 @@ class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT HistogramTableSet {
   std::vector<HistogramTable> d_tables;
   std::vector<std::string> d_names;
   std::map<std::string, size_t> d_index;
-  // table index for each entry of getNormalizedDescriptorNames(), -1 if none
-  std::vector<int> d_descriptorTableIndex;
 };
 
 //! returns the path of the histogram tables built from the reference
@@ -136,6 +127,61 @@ RDKIT_NORMALIZEDDESCRIPTORS_EXPORT std::string getDefaultTablePath();
 //! getDefaultTablePath() on first use
 RDKIT_NORMALIZEDDESCRIPTORS_EXPORT const HistogramTableSet &getDefaultTables();
 
+//! Computes descriptors with the RDKit property registry
+//! (Descriptors::Properties) and normalizes them with histogram tables.
+/*!
+  By default it computes the descriptors of getNormalizedDescriptorNames(),
+  the descriptors in rdkit.Chem.Descriptors._descList in the same order, and
+  normalizes them with getDefaultTables().
+
+  Descriptors are named as in rdkit.Chem.Descriptors._descList. Where the
+  property registry already had the descriptor under another name (e.g.
+  "exactmw" for "ExactMolWt") that property is used, and its table is looked
+  up by the _descList name.
+
+  computeProperties() returns normalized values. A descriptor that fails to
+  compute, or that has no table, gets the failure value, which is 0.0 by
+  default as in descriptastorus (see setFailureValue()).
+*/
+class RDKIT_NORMALIZEDDESCRIPTORS_EXPORT NormalizedProperties
+    : public Descriptors::Properties {
+ public:
+  //! the descriptors of getNormalizedDescriptorNames(), with the default
+  //! tables
+  NormalizedProperties();
+  //! the descriptors of getNormalizedDescriptorNames(), with \c tables
+  explicit NormalizedProperties(const HistogramTableSet &tables);
+  //! the descriptors \c names, with \c tables. Throws a KeyErrorException
+  //! for a name that is neither a _descList name nor a registered property.
+  NormalizedProperties(const std::vector<std::string> &names,
+                       const HistogramTableSet &tables);
+  //! as above, sharing \c tables instead of copying them
+  NormalizedProperties(const std::vector<std::string> &names,
+                       std::shared_ptr<const HistogramTableSet> tables);
+
+  //! returns the normalized descriptor values for \c mol; with
+  //! \c annotate, also sets them as properties on \c mol, named by
+  //! getDescriptorNames()
+  std::vector<double> computeProperties(const ROMol &mol,
+                                        bool annotate = false) const override;
+  //! returns the raw (unnormalized) descriptor values for \c mol; a
+  //! descriptor that fails to compute is NaN
+  std::vector<double> computeRawProperties(const ROMol &mol) const;
+
+  //! the descriptor names (_descList names where there is one), in the order
+  //! values are returned
+  const std::vector<std::string> &getDescriptorNames() const {
+    return d_descriptorNames;
+  }
+  const HistogramTableSet &getTables() const { return *d_tables; }
+
+ private:
+  std::vector<std::string> d_descriptorNames;
+  std::shared_ptr<const HistogramTableSet> d_tables;
+  // table index for each descriptor, -1 if it has none
+  std::vector<int> d_tableIndex;
+};
+
 //! returns the names of the descriptors calculated by
 //! calcNormalizedDescriptors(), in the order they are returned.
 /*!
@@ -145,8 +191,10 @@ RDKIT_NORMALIZEDDESCRIPTORS_EXPORT const HistogramTableSet &getDefaultTables();
 RDKIT_NORMALIZEDDESCRIPTORS_EXPORT const std::vector<std::string> &
 getNormalizedDescriptorNames();
 
-//! returns the position of \c name in getNormalizedDescriptorNames(), or -1
-RDKIT_NORMALIZEDDESCRIPTORS_EXPORT int getNormalizedDescriptorIndex(
+//! returns the name of the registered property (Descriptors::Properties)
+//! that computes the descriptor \c name, e.g. "exactmw" for "ExactMolWt";
+//! names without an alias are returned unchanged
+RDKIT_NORMALIZEDDESCRIPTORS_EXPORT std::string getPropertyName(
     const std::string &name);
 
 //! calculates the raw (unnormalized) values of the descriptors named by

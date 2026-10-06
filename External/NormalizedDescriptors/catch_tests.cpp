@@ -10,6 +10,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -19,6 +20,7 @@
 
 #include <GraphMol/ROMol.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
+#include <GraphMol/Descriptors/Property.h>
 #include <RDGeneral/Exceptions.h>
 #include "NormalizedDescriptors.h"
 
@@ -199,6 +201,8 @@ TEST_CASE("calcNormalizedDescriptors matches rdkit.Chem.Descriptors") {
   }
 
   const auto &tables = getDefaultTables();
+  NormalizedProperties props;
+  REQUIRE(props.getDescriptorNames() == names);
   unsigned int nMols = 0;
   while (std::getline(inStream, line)) {
     auto fields = splitTabs(line);
@@ -210,13 +214,14 @@ TEST_CASE("calcNormalizedDescriptors matches rdkit.Chem.Descriptors") {
     auto normalized = calcNormalizedDescriptors(*mol);
     REQUIRE(raw.size() == names.size());
     REQUIRE(normalized.size() == names.size());
+    CHECK(props.computeProperties(*mol) == normalized);
+    CHECK(calcNormalizedDescriptors(*mol, tables) == normalized);
     for (size_t i = 0; i < names.size(); ++i) {
       INFO(fields[0] << " " << names[i]);
       double expected = std::stod(fields[i + 1]);
       double tol = 1e-4 * std::max(1.0, std::fabs(expected));
       CHECK_THAT(raw[i], WithinAbs(expected, tol));
-      CHECK(normalized[i] ==
-            tables.normalize(tables.getTableIndex(names[i]), raw[i]));
+      CHECK(normalized[i] == tables.normalize(names[i], raw[i]));
       CHECK(normalized[i] >= 0.0);
       CHECK(normalized[i] <= 1.0);
     }
@@ -224,32 +229,80 @@ TEST_CASE("calcNormalizedDescriptors matches rdkit.Chem.Descriptors") {
   CHECK(nMols == 10);
 }
 
-TEST_CASE("normalizeDescriptors") {
+TEST_CASE("NormalizedProperties") {
   const auto &names = getNormalizedDescriptorNames();
-  CHECK(getNormalizedDescriptorIndex("MaxAbsEStateIndex") == 0);
-  CHECK(getNormalizedDescriptorIndex("fr_urea") ==
-        static_cast<int>(names.size()) - 1);
-  CHECK(getNormalizedDescriptorIndex("RDKit2D_calculated") == -1);
+  std::unique_ptr<RDKit::ROMol> mol(RDKit::SmilesToMol("c1ccccc1C(=O)O"));
+  REQUIRE(mol);
 
-  std::vector<double> vals(names.size(), 1.0);
-  const auto &tables = getDefaultTables();
-  auto normalized = tables.normalizeDescriptors(vals);
-  REQUIRE(normalized.size() == names.size());
-  for (size_t i = 0; i < names.size(); ++i) {
-    CHECK(normalized[i] == tables.normalize(names[i], 1.0));
+  SECTION("descriptors come from the property registry") {
+    CHECK(getPropertyName("ExactMolWt") == "exactmw");
+    CHECK(getPropertyName("qed") == "qed");
+    NormalizedProperties props;
+    auto propNames = props.getPropertyNames();
+    REQUIRE(propNames.size() == names.size());
+    for (size_t i = 0; i < names.size(); ++i) {
+      CHECK(propNames[i] == getPropertyName(names[i]));
+    }
+    // each one is registered on its own, so it can be used on its own
+    auto available = RDKit::Descriptors::Properties::getAvailableProperties();
+    auto raw = props.computeRawProperties(*mol);
+    for (size_t i = 0; i < names.size(); ++i) {
+      INFO(names[i]);
+      CHECK(std::find(available.begin(), available.end(), propNames[i]) !=
+            available.end());
+      auto single =
+          (*RDKit::Descriptors::Properties::getProperty(propNames[i]))(*mol);
+      CHECK_THAT(single, WithinAbs(raw[i], 1e-12));
+    }
   }
-  CHECK_THROWS_AS(tables.normalizeDescriptors({1.0}), ValueErrorException);
+  SECTION("a subset, with other tables") {
+    HistogramTableSet tables;
+    tables.addTable("ExactMolWt", HistogramTable({0, 200}, {0.25, 0.5}));
+    NormalizedProperties props({"ExactMolWt", "NumHDonors"}, tables);
+    CHECK(props.getDescriptorNames() ==
+          std::vector<std::string>{"ExactMolWt", "NumHDonors"});
+    CHECK(props.getPropertyNames() ==
+          std::vector<std::string>{"exactmw", "NumHBD"});
+    auto raw = props.computeRawProperties(*mol);
+    CHECK_THAT(raw[0], WithinAbs(122.0368, 1e-4));
+    CHECK(raw[1] == 1.0);
+    // NumHDonors has no table, so it gets the failure value
+    CHECK(props.computeProperties(*mol) == std::vector<double>{0.5, 0.0});
+    props.setFailureValue(-1.0);
+    CHECK(props.computeProperties(*mol) == std::vector<double>{0.5, -1.0});
+    props.computeProperties(*mol, true);
+    CHECK(mol->getProp<double>("ExactMolWt") == 0.5);
+    CHECK(mol->getProp<double>("NumHDonors") == -1.0);
+  }
+  SECTION("unknown names") {
+    CHECK_THROWS_AS(
+        NormalizedProperties({"NotADescriptor"}, getDefaultTables()),
+        KeyErrorException);
+  }
+}
 
-  // a set with only some descriptors gives 0.0 for the others, and tables
-  // that aren't descriptors are ignored
-  HistogramTableSet partial;
-  partial.addTable("not_a_descriptor", HistogramTable({0, 1}, {1, 1}));
-  CHECK(partial.normalizeDescriptors(vals) ==
-        std::vector<double>(names.size(), 0.0));
-  partial.addTable("MolLogP", HistogramTable({0, 2}, {0.25, 0.5}));
-  auto res = partial.normalizeDescriptors(vals);
-  auto logpIdx = getNormalizedDescriptorIndex("MolLogP");
-  for (size_t i = 0; i < names.size(); ++i) {
-    CHECK(res[i] == (static_cast<int>(i) == logpIdx ? 0.5 : 0.0));
-  }
+TEST_CASE("Properties failures") {
+  struct Failing : public RDKit::Descriptors::PropertyFunctor {
+    Failing() : PropertyFunctor("AlwaysFails", "1.0.0") {}
+    double operator()(const RDKit::ROMol &) const override {
+      throw ValueErrorException("failed");
+    }
+  };
+  RDKit::Descriptors::Properties::registerProperty(new Failing());
+  std::unique_ptr<RDKit::ROMol> mol(RDKit::SmilesToMol("CCO"));
+  REQUIRE(mol);
+  RDKit::Descriptors::Properties props({"AlwaysFails", "NumHeavyAtoms"});
+  auto res = props.computeProperties(*mol);
+  CHECK(std::isnan(props.getFailureValue()));
+  CHECK(std::isnan(res[0]));
+  CHECK(res[1] == 3.0);
+  props.setFailureValue(-1.0);
+  res = props.computeProperties(*mol);
+  CHECK(res[0] == -1.0);
+
+  NormalizedProperties nprops({"AlwaysFails", "NumHDonors"},
+                              getDefaultTables());
+  auto raw = nprops.computeRawProperties(*mol);
+  CHECK(std::isnan(raw[0]));
+  CHECK(nprops.computeProperties(*mol)[0] == 0.0);
 }

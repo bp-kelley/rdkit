@@ -61,13 +61,6 @@ void HistogramTableSet::addTable(const std::string &name,
   d_tables.push_back(std::move(table));
   d_names.push_back(name);
   d_index[name] = idx;
-  auto descIdx = getNormalizedDescriptorIndex(name);
-  if (descIdx >= 0) {
-    if (d_descriptorTableIndex.empty()) {
-      d_descriptorTableIndex.resize(getNormalizedDescriptorNames().size(), -1);
-    }
-    d_descriptorTableIndex[descIdx] = static_cast<int>(idx);
-  }
 }
 
 bool HistogramTableSet::hasTable(const std::string &name) const {
@@ -106,27 +99,6 @@ double HistogramTableSet::normalize(const std::string &name,
 
 double HistogramTableSet::normalize(size_t idx, double value) const {
   return getTable(idx).normalize(value);
-}
-
-std::vector<double> HistogramTableSet::normalizeDescriptors(
-    const std::vector<double> &values) const {
-  const auto nDescriptors = getNormalizedDescriptorNames().size();
-  if (values.size() != nDescriptors) {
-    throw ValueErrorException(
-        "normalizeDescriptors expects one value per descriptor in "
-        "getNormalizedDescriptorNames()");
-  }
-  std::vector<double> res(nDescriptors, 0.0);
-  if (d_descriptorTableIndex.empty()) {
-    return res;
-  }
-  for (size_t i = 0; i < nDescriptors; ++i) {
-    auto idx = d_descriptorTableIndex[i];
-    if (idx >= 0) {
-      res[i] = d_tables[idx].normalize(values[i]);
-    }
-  }
-  return res;
 }
 
 namespace {
@@ -209,15 +181,17 @@ std::string getDefaultTablePath() {
          "/External/NormalizedDescriptors/data/normalized_descriptor_histograms.txt";
 }
 
-const HistogramTableSet &getDefaultTables() {
+std::shared_ptr<const HistogramTableSet> defaultTablesPtr() {
   // thread-safe one-time initialization
-  static const HistogramTableSet tables = [] {
-    HistogramTableSet res;
-    res.loadFromFile(getDefaultTablePath());
-    return res;
+  static const auto tables = [] {
+    auto res = std::make_shared<HistogramTableSet>();
+    res->loadFromFile(getDefaultTablePath());
+    return std::shared_ptr<const HistogramTableSet>(std::move(res));
   }();
   return tables;
 }
+
+const HistogramTableSet &getDefaultTables() { return *defaultTablesPtr(); }
 
 }  // namespace NormalizedDescriptors
 }  // namespace RDKit

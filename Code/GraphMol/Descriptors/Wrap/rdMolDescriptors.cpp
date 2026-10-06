@@ -1648,13 +1648,21 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
             python::arg("annotateMol") = false),
            "Return a list of computed properties, if annotateMol==True, "
            "annotate the molecule with "
-           "the computed properties.")
+           "the computed properties. Properties that fail to compute get "
+           "the failure value (see SetFailureValue).")
       .def("AnnotateProperties",
            &RDKit::Descriptors::Properties::annotateProperties,
            (python::arg("self"), python::arg("mol")),
            "Annotate the molecule with the computed properties.  These "
            "properties will be available "
            "as SDData or from mol.GetProp(prop)")
+      .def("SetFailureValue", &RDKit::Descriptors::Properties::setFailureValue,
+           (python::arg("self"), python::arg("value")),
+           "Set the value given to properties that fail to compute "
+           "(default nan)")
+      .def("GetFailureValue", &RDKit::Descriptors::Properties::getFailureValue,
+           python::args("self"),
+           "Return the value given to properties that fail to compute")
       .def("GetAvailableProperties",
            &RDKit::Descriptors::Properties::getAvailableProperties,
            "Return all available property names that can be computed")

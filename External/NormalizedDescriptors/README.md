@@ -27,10 +27,21 @@ need to be rebuilt with a current one.
 
 ## Usage
 
-`calcNormalizedDescriptors` computes the 217 descriptors in
-`rdkit.Chem.Descriptors._descList` (same names, same order, given by
-`getNormalizedDescriptorNames`) and normalizes them. As in descriptastorus, a
-descriptor that cannot be computed or has no table gives `0.0`.
+The descriptors are computed with RDKit's property registry
+(`Descriptors::Properties`, `Code/GraphMol/Descriptors/Property.h`), where every
+descriptor in `rdkit.Chem.Descriptors._descList` is registered. Those not
+already registered are registered under their `_descList` names; the ones
+the registry already had keep their names (e.g. `exactmw` for `ExactMolWt`, see
+`getPropertyName`). Vector descriptors (BCUT2D, the VSA bins, the fragment
+counts) are registered one element at a time, and
+`Properties::computeProperties` computes each vector once per molecule.
+
+`NormalizedProperties` is a `Properties` whose `computeProperties` returns the
+normalized values. By default it computes the 217 descriptors of
+`getNormalizedDescriptorNames()` (the `_descList` names, in that order) with the
+default tables. A descriptor that fails to compute or has no table gets the
+failure value, `0.0` by default as in descriptastorus (`setFailureValue`
+changes it). Plain `Properties` give `NaN` for a property that fails.
 
 C++:
 
@@ -38,17 +49,14 @@ C++:
 #include <GraphMol/NormalizedDescriptors/NormalizedDescriptors.h>
 
 using namespace RDKit::NormalizedDescriptors;
-const auto &names = getNormalizedDescriptorNames();
-std::vector<double> vals = calcNormalizedDescriptors(mol);  // default tables
-std::vector<double> raw = calcDescriptorValues(mol);         // unnormalized
-double v = getDefaultTables().normalize("MolLogP", 2.5);
+NormalizedProperties props;  // reuse it; construction looks up the registry
+const auto &names = props.getDescriptorNames();
+std::vector<double> vals = props.computeProperties(mol);   // normalized
+std::vector<double> raw = props.computeRawProperties(mol); // NaN on failure
 
-// lookups by index skip the name lookup; normalizeDescriptors() uses table
-// indices cached when the tables are loaded
-const auto &tables = getDefaultTables();
-int idx = tables.getTableIndex("MolLogP");
-double v2 = tables.normalize(idx, 2.5);
-std::vector<double> normalized = tables.normalizeDescriptors(raw);
+// convenience functions with the default descriptors and tables
+std::vector<double> vals2 = calcNormalizedDescriptors(mol);
+double v = getDefaultTables().normalize("MolLogP", 2.5);
 ```
 
 Python:
@@ -56,8 +64,10 @@ Python:
 ```python
 from rdkit import Chem
 from rdkit.Chem import rdNormalizedDescriptors as rdnd
-names = rdnd.GetNormalizedDescriptorNames()
-vals = rdnd.CalcNormalizedDescriptors(Chem.MolFromSmiles('c1ccccc1O'))
+props = rdnd.NormalizedProperties()
+mol = Chem.MolFromSmiles('c1ccccc1O')
+vals = props.ComputeProperties(mol)
+names = props.GetDescriptorNames()
 rdnd.NormalizeDescriptor('MolLogP', 2.5)
 ```
 

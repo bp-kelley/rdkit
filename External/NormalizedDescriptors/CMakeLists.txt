@@ -3,7 +3,7 @@ if(NOT RDK_BUILD_NORMALIZED_DESCRIPTORS)
 endif()
 
 rdkit_library(NormalizedDescriptors NormalizedDescriptors.cpp
-  RDKit2DDescriptors.cpp SHARED
+  NormalizedProperties.cpp SHARED
   LINK_LIBRARIES Descriptors GraphMol RDGeneral)
 target_compile_definitions(NormalizedDescriptors PRIVATE RDKIT_NORMALIZEDDESCRIPTORS_BUILD)
 

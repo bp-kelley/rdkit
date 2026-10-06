@@ -37,6 +37,10 @@
 #include <GraphMol/Descriptors/MolDescriptors.h>
 #include <GraphMol/Descriptors/Crippen.h>
 #include <GraphMol/Descriptors/MolSurf.h>
+#include <GraphMol/Descriptors/BCUT.h>
+
+#include <map>
+#include <utility>
 
 #ifdef RDK_BUILD_THREADSAFE_SSS
 #include <mutex>
@@ -46,6 +50,48 @@ namespace RDKit {
 namespace Descriptors {
 
 namespace {
+void registerFunc(const char *name, const std::string &version,
+                  double (*func)(const ROMol &)) {
+  Properties::registerProperty(new PropertyFunctor(name, version, func));
+}
+
+std::vector<std::string> numberedNames(const std::string &prefix,
+                                       unsigned int count) {
+  std::vector<std::string> res;
+  for (unsigned int i = 1; i <= count; ++i) {
+    res.push_back(prefix + std::to_string(i));
+  }
+  return res;
+}
+
+#ifdef RDK_HAS_EIGEN3
+std::vector<double> bcut2D(const ROMol &m) { return BCUT2D(m); }
+#endif
+std::vector<double> peoeVSA(const ROMol &m) { return calcPEOE_VSA(m); }
+std::vector<double> smrVSA(const ROMol &m) { return calcSMR_VSA(m); }
+std::vector<double> slogpVSA(const ROMol &m) { return calcSlogP_VSA(m); }
+std::vector<double> estateVSA(const ROMol &m) { return calcEState_VSA(m); }
+std::vector<double> vsaEState(const ROMol &m) { return calcVSA_EState(m); }
+std::vector<double> fragments(const ROMol &m) {
+  auto counts = calcFragmentDescriptors(m);
+  return std::vector<double>(counts.begin(), counts.end());
+}
+constexpr size_t numFragments = 85;
+
+template <VectorElementPropertyFunctor::VectorFunc F, size_t I>
+double vectorElement(const ROMol &m) {
+  return F(m).at(I);
+}
+
+// registers element I of F as names[I], for each I
+template <VectorElementPropertyFunctor::VectorFunc F, size_t... I>
+void registerVector(const std::vector<std::string> &names,
+                    const std::string &version, std::index_sequence<I...>) {
+  (Properties::registerProperty(new VectorElementPropertyFunctor(
+       names[I], version, F, I, &vectorElement<F, I>)),
+   ...);
+}
+
 void _registerDescriptors() {
   REGISTER_DESCRIPTOR(exactmw, calcExactMW);
   REGISTER_DESCRIPTOR(amw, calcAMW);
@@ -78,12 +124,12 @@ void _registerDescriptors() {
   REGISTER_DESCRIPTOR(CrippenMR, calcMR);
   REGISTER_DESCRIPTOR(chi0v, calcChi0v);
   REGISTER_DESCRIPTOR(chi1v, calcChi1v);
-  REGISTER_DESCRIPTOR(chi2v, calcChi3v);
+  REGISTER_DESCRIPTOR(chi2v, calcChi2v);
   REGISTER_DESCRIPTOR(chi3v, calcChi3v);
   REGISTER_DESCRIPTOR(chi4v, calcChi4v);
   REGISTER_DESCRIPTOR(chi0n, calcChi0n);
   REGISTER_DESCRIPTOR(chi1n, calcChi1n);
-  REGISTER_DESCRIPTOR(chi2n, calcChi3n);
+  REGISTER_DESCRIPTOR(chi2n, calcChi2n);
   REGISTER_DESCRIPTOR(chi3n, calcChi3n);
   REGISTER_DESCRIPTOR(chi4n, calcChi4n);
   REGISTER_DESCRIPTOR(hallKierAlpha, calcHallKierAlpha);
@@ -91,7 +137,72 @@ void _registerDescriptors() {
   REGISTER_DESCRIPTOR(kappa2, calcKappa2);
   REGISTER_DESCRIPTOR(kappa3, calcKappa3);
   REGISTER_DESCRIPTOR(Phi, calcPhi);
-};
+
+  // the rest of the descriptors in rdkit.Chem.Descriptors._descList, under
+  // the names used there
+  registerFunc("MaxAbsEStateIndex", MaxAbsEStateIndexVersion,
+               calcMaxAbsEStateIndex);
+  registerFunc("MaxEStateIndex", MaxEStateIndexVersion, calcMaxEStateIndex);
+  registerFunc("MinAbsEStateIndex", MinAbsEStateIndexVersion,
+               calcMinAbsEStateIndex);
+  registerFunc("MinEStateIndex", MinEStateIndexVersion, calcMinEStateIndex);
+  registerFunc("qed", QEDVersion, [](const ROMol &m) { return calcQED(m); });
+  registerFunc("SPS", SPSVersion, [](const ROMol &m) { return calcSPS(m); });
+  registerFunc("HeavyAtomMolWt", HeavyAtomMolWtVersion, calcHeavyAtomMolWt);
+  registerFunc("NumValenceElectrons", NumValenceElectronsVersion,
+               [](const ROMol &m) {
+                 return static_cast<double>(calcNumValenceElectrons(m));
+               });
+  registerFunc("NumRadicalElectrons", NumRadicalElectronsVersion,
+               [](const ROMol &m) {
+                 return static_cast<double>(calcNumRadicalElectrons(m));
+               });
+  registerFunc("MaxPartialCharge", MaxPartialChargeVersion,
+               calcMaxPartialCharge);
+  registerFunc("MinPartialCharge", MinPartialChargeVersion,
+               calcMinPartialCharge);
+  registerFunc("MaxAbsPartialCharge", MaxAbsPartialChargeVersion,
+               calcMaxAbsPartialCharge);
+  registerFunc("MinAbsPartialCharge", MinAbsPartialChargeVersion,
+               calcMinAbsPartialCharge);
+  registerFunc("FpDensityMorgan1", FpDensityMorganVersion,
+               [](const ROMol &m) { return calcFpDensityMorgan(m, 1); });
+  registerFunc("FpDensityMorgan2", FpDensityMorganVersion,
+               [](const ROMol &m) { return calcFpDensityMorgan(m, 2); });
+  registerFunc("FpDensityMorgan3", FpDensityMorganVersion,
+               [](const ROMol &m) { return calcFpDensityMorgan(m, 3); });
+#ifdef RDK_HAS_EIGEN3
+  registerVector<bcut2D>(
+      {"BCUT2D_MWHI", "BCUT2D_MWLOW", "BCUT2D_CHGHI", "BCUT2D_CHGLO",
+       "BCUT2D_LOGPHI", "BCUT2D_LOGPLOW", "BCUT2D_MRHI", "BCUT2D_MRLOW"},
+      BCUT2DVersion, std::make_index_sequence<8>());
+#endif
+  registerFunc("AvgIpc", avgIpcVersion, calcAvgIpc);
+  registerFunc("BalabanJ", balabanJVersion, calcBalabanJ);
+  registerFunc("BertzCT", bertzCTVersion,
+               [](const ROMol &m) { return calcBertzCT(m); });
+  registerFunc("Chi0", chi0Version, calcChi0);
+  registerFunc("Chi1", chi1Version, calcChi1);
+  registerFunc("Ipc", ipcVersion, [](const ROMol &m) { return calcIpc(m); });
+  registerVector<peoeVSA>(numberedNames("PEOE_VSA", 14), PEOE_VSAVersion,
+                          std::make_index_sequence<14>());
+  registerVector<smrVSA>(numberedNames("SMR_VSA", 10), SMR_VSAVersion,
+                         std::make_index_sequence<10>());
+  registerVector<slogpVSA>(numberedNames("SlogP_VSA", 12), SlogP_VSAVersion,
+                           std::make_index_sequence<12>());
+  registerVector<estateVSA>(numberedNames("EState_VSA", 11), EState_VSAVersion,
+                            std::make_index_sequence<11>());
+  registerVector<vsaEState>(numberedNames("VSA_EState", 10), VSA_EStateVersion,
+                            std::make_index_sequence<10>());
+  REGISTER_DESCRIPTOR(NumAliphaticCarbocycles, calcNumAliphaticCarbocycles);
+  REGISTER_DESCRIPTOR(NumAromaticCarbocycles, calcNumAromaticCarbocycles);
+  REGISTER_DESCRIPTOR(NumSaturatedCarbocycles, calcNumSaturatedCarbocycles);
+  CHECK_INVARIANT(getFragmentDescriptorNames().size() == numFragments,
+                  "unexpected number of fragment descriptors");
+  registerVector<fragments>(getFragmentDescriptorNames(),
+                            FragmentDescriptorsVersion,
+                            std::make_index_sequence<numFragments>());
+}
 }  // namespace
 
 void registerDescriptors() {
@@ -166,23 +277,69 @@ std::vector<std::string> Properties::getPropertyNames() const {
   return names;
 }
 
-std::vector<double> Properties::computeProperties(const RDKit::ROMol &mol,
-                                                  bool annotate) const {
+namespace {
+// computes properties, sharing each descriptor vector between the properties
+// that are elements of it
+class PropertyCalculator {
+ public:
+  PropertyCalculator(const ROMol &mol, double failureValue)
+      : d_mol(mol), d_failureValue(failureValue) {}
+
+  double operator()(const PropertyFunctor &prop) {
+    auto vecProp = dynamic_cast<const VectorElementPropertyFunctor *>(&prop);
+    if (!vecProp) {
+      try {
+        return prop(d_mol);
+      } catch (const std::exception &) {
+        return d_failureValue;
+      }
+    }
+    auto it = d_vectors.find(vecProp->d_vectorFunc);
+    if (it == d_vectors.end()) {
+      std::vector<double> vals;
+      try {
+        vals = vecProp->d_vectorFunc(d_mol);
+      } catch (const std::exception &) {
+        // leave it empty so that each element fails
+      }
+      it = d_vectors.emplace(vecProp->d_vectorFunc, std::move(vals)).first;
+    }
+    return vecProp->d_index < it->second.size() ? it->second[vecProp->d_index]
+                                                : d_failureValue;
+  }
+
+ private:
+  const ROMol &d_mol;
+  double d_failureValue;
+  std::map<VectorElementPropertyFunctor::VectorFunc, std::vector<double>>
+      d_vectors;
+};
+}  // namespace
+
+std::vector<double> Properties::computeValues(const RDKit::ROMol &mol,
+                                              double failureValue) const {
+  PropertyCalculator calc(mol, failureValue);
   std::vector<double> res;
   res.reserve(m_properties.size());
-  for (auto prop : m_properties) {
-    res.push_back((*prop)(mol));
-    if (annotate) {
-      mol.setProp<double>(prop->getName(), (*prop)(mol));
+  for (const auto &prop : m_properties) {
+    res.push_back(calc(*prop));
+  }
+  return res;
+}
+
+std::vector<double> Properties::computeProperties(const RDKit::ROMol &mol,
+                                                  bool annotate) const {
+  auto res = computeValues(mol, d_failureValue);
+  if (annotate) {
+    for (size_t i = 0; i < m_properties.size(); ++i) {
+      mol.setProp<double>(m_properties[i]->getName(), res[i]);
     }
   }
   return res;
 }
 
 void Properties::annotateProperties(RDKit::ROMol &mol) const {
-  for (auto prop : m_properties) {
-    mol.setProp<double>(prop->getName(), (*prop)(mol));
-  }
+  computeProperties(mol, true);
 }
 
 PROP_RANGE_QUERY *makePropertyRangeQuery(const std::string &name, double min,

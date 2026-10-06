@@ -15,6 +15,9 @@
 #include <vector>
 
 #include <GraphMol/ROMol.h>
+#include <GraphMol/Descriptors/Property.h>
+
+#include <memory>
 #include "../NormalizedDescriptors.h"
 
 namespace python = boost::python;
@@ -43,17 +46,6 @@ python::tuple getEdges(const HistogramTable &table) {
 
 python::tuple getFractions(const HistogramTable &table) {
   return toTuple(table.getFractions());
-}
-
-python::list normalizeDescriptorsHelper(const HistogramTableSet &tables,
-                                        const python::object &values) {
-  std::vector<double> vals;
-  pythonObjectToVect<double>(values, vals);
-  python::list res;
-  for (auto v : tables.normalizeDescriptors(vals)) {
-    res.append(v);
-  }
-  return res;
 }
 
 python::list getNames(const HistogramTableSet &tables) {
@@ -102,6 +94,36 @@ python::tuple getNormalizedDescriptorNamesHelper() {
     res.append(name);
   }
   return python::tuple(res);
+}
+
+NormalizedProperties *makeNormalizedProperties(python::object names,
+                                               python::object tables) {
+  std::shared_ptr<const HistogramTableSet> tableSet;
+  if (tables.is_none()) {
+    tableSet.reset(&getDefaultTables(), [](const HistogramTableSet *) {});
+  } else {
+    tableSet = std::make_shared<const HistogramTableSet>(
+        python::extract<const HistogramTableSet &>(tables)());
+  }
+  if (names.is_none()) {
+    return new NormalizedProperties(getNormalizedDescriptorNames(), tableSet);
+  }
+  std::vector<std::string> nameVect;
+  pythonObjectToVect<std::string>(names, nameVect);
+  return new NormalizedProperties(nameVect, tableSet);
+}
+
+python::tuple getDescriptorNames(const NormalizedProperties &props) {
+  python::list res;
+  for (const auto &name : props.getDescriptorNames()) {
+    res.append(name);
+  }
+  return python::tuple(res);
+}
+
+python::list computeRawHelper(const NormalizedProperties &props,
+                              const RDKit::ROMol &mol) {
+  return toList(props.computeRawProperties(mol));
 }
 
 double normalizeWithDefaults(const std::string &name, double value) {
@@ -169,10 +191,6 @@ BOOST_PYTHON_MODULE(rdNormalizedDescriptors) {
                HistogramTableSet::normalize,
            (python::arg("self"), python::arg("idx"), python::arg("value")),
            "normalizes a value with the table with an index")
-      .def("NormalizeDescriptors", normalizeDescriptorsHelper,
-           (python::arg("self"), python::arg("values")),
-           "normalizes values given in the order of "
-           "GetNormalizedDescriptorNames(); missing tables give 0.0")
       .def("Normalize",
            (double(HistogramTableSet::*)(const std::string &, double) const) &
                HistogramTableSet::normalize,
@@ -189,6 +207,35 @@ BOOST_PYTHON_MODULE(rdNormalizedDescriptors) {
            "returns the tables in the text format read by LoadFromString")
       .def("__len__", &HistogramTableSet::size, python::arg("self"));
 
+  // NormalizedProperties derives from rdMolDescriptors.Properties
+  python::import("rdkit.Chem.rdMolDescriptors");
+  python::class_<NormalizedProperties, boost::shared_ptr<NormalizedProperties>,
+                 python::bases<RDKit::Descriptors::Properties>,
+                 boost::noncopyable>(
+      "NormalizedProperties",
+      "Computes descriptors with the rdMolDescriptors.Properties registry and "
+      "normalizes them with histogram tables.\n"
+      "names defaults to GetNormalizedDescriptorNames() and tables to "
+      "GetDefaultTables(). ComputeProperties returns normalized values; a "
+      "descriptor that fails or has no table gets the failure value (0.0 by "
+      "default, see SetFailureValue).",
+      python::no_init)
+      .def("__init__",
+           python::make_constructor(makeNormalizedProperties,
+                                    python::default_call_policies(),
+                                    (python::arg("names") = python::object(),
+                                     python::arg("tables") = python::object())))
+      .def("GetDescriptorNames", getDescriptorNames, python::arg("self"),
+           "returns the descriptor names, in the order values are returned")
+      .def("ComputeRawProperties", computeRawHelper,
+           (python::arg("self"), python::arg("mol")),
+           "returns the unnormalized descriptor values; failures are nan")
+      .def("GetTables", &NormalizedProperties::getTables,
+           python::return_internal_reference<1>(), python::arg("self"));
+
+  python::def("GetPropertyName", getPropertyName, python::arg("name"),
+              "returns the name of the rdMolDescriptors property that computes "
+              "a descriptor, e.g. 'exactmw' for 'ExactMolWt'");
   python::def("GetDefaultTablePath", getDefaultTablePath,
               "returns the path of the default histogram tables");
   python::def("GetDefaultTables", getDefaultTables,

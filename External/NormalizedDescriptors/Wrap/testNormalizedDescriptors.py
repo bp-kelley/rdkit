@@ -14,6 +14,7 @@ import unittest
 
 from rdkit import Chem
 from rdkit import RDConfig
+from rdkit.Chem import rdMolDescriptors as rdMD
 from rdkit.Chem import rdNormalizedDescriptors as rdnd
 
 refFile = os.path.join(RDConfig.RDBaseDir, 'External', 'NormalizedDescriptors', 'test_data',
@@ -77,6 +78,7 @@ class TestCase(unittest.TestCase):
       rows = list(csv.reader(inf, delimiter='\t'))
     self.assertEqual(tuple(rows[0][1:]), names)
     tables = rdnd.GetDefaultTables()
+    props = rdnd.NormalizedProperties()
     for row in rows[1:]:
       mol = Chem.MolFromSmiles(row[0])
       raw = rdnd.CalcDescriptorValues(mol)
@@ -87,12 +89,41 @@ class TestCase(unittest.TestCase):
         ref = float(ref)
         self.assertAlmostEqual(val, ref, delta=1e-4 * max(1.0, abs(ref)), msg=f'{row[0]} {name}')
         self.assertEqual(nval, tables.Normalize(name, val), msg=f'{row[0]} {name}')
-      self.assertEqual(tables.NormalizeDescriptors(raw), normalized)
-    with self.assertRaises(ValueError):
-      tables.NormalizeDescriptors([1.0])
+      self.assertEqual(list(props.ComputeProperties(mol)), normalized)
+      self.assertEqual(list(props.ComputeRawProperties(mol)), raw)
     # a table set without a descriptor gives 0.0 for it
     empty = rdnd.CalcNormalizedDescriptors(Chem.MolFromSmiles('CCO'), rdnd.HistogramTableSet())
     self.assertEqual(set(empty), {0.0})
+
+  def testNormalizedProperties(self):
+    props = rdnd.NormalizedProperties()
+    self.assertIsInstance(props, rdMD.Properties)
+    self.assertEqual(props.GetDescriptorNames(), rdnd.GetNormalizedDescriptorNames())
+    self.assertEqual(rdnd.GetPropertyName('ExactMolWt'), 'exactmw')
+    self.assertEqual(list(props.GetPropertyNames()),
+                     [rdnd.GetPropertyName(n) for n in rdnd.GetNormalizedDescriptorNames()])
+    for name in props.GetPropertyNames():
+      self.assertIn(name, rdMD.Properties.GetAvailableProperties())
+
+    mol = Chem.MolFromSmiles('c1ccccc1C(=O)O')
+    tables = rdnd.HistogramTableSet()
+    tables.AddTable('ExactMolWt', rdnd.HistogramTable([0, 200], [0.25, 0.5]))
+    sub = rdnd.NormalizedProperties(['ExactMolWt', 'NumHDonors'], tables)
+    self.assertEqual(list(sub.GetPropertyNames()), ['exactmw', 'NumHBD'])
+    self.assertEqual(list(sub.ComputeProperties(mol)), [0.5, 0.0])
+    self.assertEqual(sub.GetFailureValue(), 0.0)
+    sub.SetFailureValue(-1.0)
+    self.assertEqual(list(sub.ComputeProperties(mol)), [0.5, -1.0])
+    sub.AnnotateProperties(mol)
+    self.assertEqual(mol.GetDoubleProp('ExactMolWt'), 0.5)
+    with self.assertRaises(KeyError):
+      rdnd.NormalizedProperties(['NotADescriptor'])
+
+  def testPropertiesFailureValue(self):
+    props = rdMD.Properties(['NumHeavyAtoms'])
+    self.assertTrue(math.isnan(props.GetFailureValue()))
+    props.SetFailureValue(-1.0)
+    self.assertEqual(props.GetFailureValue(), -1.0)
 
 
 if __name__ == '__main__':
