@@ -76,6 +76,12 @@ typedef std::vector<ContribPtr> ContribPtrVect;
        this is almost certainly inefficient.
 
 */
+//! The optimizer used by ForceField::minimize()
+enum class OptimizerType {
+  BFGS,  //!< BFGS with a dense inverse Hessian (the default)
+  LBFGS  //!< limited-memory BFGS, faster for larger systems
+};
+
 class RDKIT_FORCEFIELD_EXPORT ForceField {
  public:
   //! construct with a dimension
@@ -177,6 +183,11 @@ class RDKIT_FORCEFIELD_EXPORT ForceField {
   // ---------------------------
   // setters and getters
 
+  //! sets the optimizer used by minimize()
+  void setOptimizer(OptimizerType optimizer) { d_optimizer = optimizer; }
+  //! returns the optimizer used by minimize()
+  OptimizerType getOptimizer() const { return d_optimizer; }
+
   //! returns a reference to our points (a PointPtrVect)
   RDGeom::PointPtrVect &positions() { return d_positions; }
   const RDGeom::PointPtrVect &positions() const { return d_positions; }
@@ -249,6 +260,7 @@ class RDKIT_FORCEFIELD_EXPORT ForceField {
   //! used. This lets calcEnergy() avoid an O(N^2) reset on every call when
   //! none of the contribs use the distance cache.
   bool df_distMatNeedsReset{false};
+  OptimizerType d_optimizer{OptimizerType::BFGS};
   RDGeom::PointPtrVect d_positions;  //!< pointers to the points we're using
   ContribPtrVect d_contribs;         //!< contributions to the energy
   INT_VECT d_fixedPoints;

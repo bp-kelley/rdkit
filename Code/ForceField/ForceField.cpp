@@ -159,7 +159,8 @@ ForceField::ForceField(const ForceField &other)
     : d_dimension(other.d_dimension),
       df_init(false),
       d_numPoints(other.d_numPoints),
-      dp_distMat(nullptr) {
+      dp_distMat(nullptr),
+      d_optimizer(other.d_optimizer) {
   d_contribs.clear();
   for (const auto &contrib : other.d_contribs) {
     ForceFieldContrib *ncontrib = contrib->copy();
@@ -275,9 +276,16 @@ int ForceField::minimize(unsigned int snapshotFreq,
   ForceFieldsHelper::calcEnergy eCalc(this);
   ForceFieldsHelper::calcGradient gCalc(this);
 
-  int res = BFGSOpt::minimize(dim, points.data(), forceTol, numIters,
-                              finalForce, eCalc, gCalc, snapshotFreq,
-                              snapshotVect, energyTol, maxIts);
+  int res;
+  if (d_optimizer == OptimizerType::LBFGS) {
+    res = BFGSOpt::minimizeLBFGS(dim, points.data(), forceTol, numIters,
+                                 finalForce, eCalc, gCalc, snapshotFreq,
+                                 snapshotVect, energyTol, maxIts);
+  } else {
+    res = BFGSOpt::minimize(dim, points.data(), forceTol, numIters, finalForce,
+                            eCalc, gCalc, snapshotFreq, snapshotVect, energyTol,
+                            maxIts);
+  }
   this->gather(points.data());
 
   return res;

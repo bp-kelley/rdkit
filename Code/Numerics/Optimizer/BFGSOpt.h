@@ -438,5 +438,218 @@ int minimize(unsigned int dim, double *pos, double gradTol,
                   nullptr, funcTol, maxIts);
 }
 
+//! Default number of correction pairs kept by minimizeLBFGS
+const unsigned int LBFGS_DEFAULT_HISTORY = 10;
+
+//! Do a limited-memory BFGS (L-BFGS) minimization of a function.
+/*!
+   This uses the same line search and convergence tests as minimize(), but
+   instead of storing and updating a dense dim x dim inverse Hessian it keeps
+   the last \c historySize position/gradient changes and applies the inverse
+   Hessian approximation with the two-loop recursion (Nocedal & Wright,
+   Numerical Optimization, Algorithm 7.4). Each iteration costs
+   O(historySize * dim) instead of O(dim^2), which makes a big difference for
+   larger systems.
+
+   The optimization trajectory is not the same as the one from minimize(), so
+   results will differ.
+
+   \param dim     the dimensionality of the space.
+   \param pos   the starting position, as an array.
+   \param gradTol tolerance for gradient convergence
+   \param numIters used to return the number of iterations required
+   \param funcVal  used to return the final function value
+   \param func    the function to minimize
+   \param gradFunc  calculates the gradient of func
+   \param snapshotFreq     a snapshot of the minimization trajectory
+                           will be stored after as many steps as indicated
+                           through this parameter; defaults to 0 (no
+                           snapshots stored)
+   \param snapshotVect     pointer to a std::vector<Snapshot> object that will
+   receive the coordinates and energies every snapshotFreq steps; defaults to
+   NULL (no snapshots stored)
+   \param funcTol tolerance for changes in the function value for convergence.
+   \param maxIts   maximum number of iterations allowed
+   \param historySize  number of correction pairs to keep
+
+   \return a flag indicating success (or type of failure). Possible values are:
+    -  0: success
+    -  1: too many iterations were required
+*/
+template <typename EnergyFunctor, typename GradientFunctor>
+int minimizeLBFGS(unsigned int dim, double *pos, double gradTol,
+                  unsigned int &numIters, double &funcVal, EnergyFunctor func,
+                  GradientFunctor gradFunc, unsigned int snapshotFreq,
+                  RDKit::SnapshotVect *snapshotVect, double funcTol = TOLX,
+                  unsigned int maxIts = MAXITS,
+                  unsigned int historySize = LBFGS_DEFAULT_HISTORY) {
+  RDUNUSED_PARAM(funcTol);
+  PRECONDITION(pos, "bad input array");
+  PRECONDITION(gradTol > 0, "bad tolerance");
+  PRECONDITION(historySize > 0, "bad history size");
+
+  std::vector<double> grad(dim);
+  std::vector<double> prevGrad(dim);
+  std::vector<double> xi(dim);
+  // circular buffers holding the correction pairs
+  std::vector<double> sHist(static_cast<std::size_t>(historySize) * dim);
+  std::vector<double> yHist(static_cast<std::size_t>(historySize) * dim);
+  std::vector<double> rhoHist(historySize);
+  std::vector<double> alpha(historySize);
+  unsigned int histStart = 0;
+  unsigned int histCount = 0;
+  std::unique_ptr<double[]> newPos(new double[dim]);
+  snapshotFreq = std::min(snapshotFreq, maxIts);
+
+  double fp = func(pos);
+  // some gradient functors rescale the gradient they return (and return the
+  // scale factor). The correction pairs need gradients on a consistent scale,
+  // so we undo that scaling when building them.
+  double gradScale = gradFunc(pos, grad.data());
+  double prevGradScale = gradScale;
+
+  double sum = 0.0;
+  for (unsigned int i = 0; i < dim; i++) {
+    xi[i] = -grad[i];
+    sum += pos[i] * pos[i];
+  }
+  double maxStep = MAXSTEP * std::max(sqrt(sum), static_cast<double>(dim));
+
+  for (unsigned int iter = 1; iter <= maxIts; ++iter) {
+    numIters = iter;
+    int status = -1;
+
+    linearSearch(dim, pos, fp, grad.data(), xi.data(), newPos.get(), funcVal,
+                 func, maxStep, status);
+    if (status < 0 || (status == 1 && histCount)) {
+      // the L-BFGS direction was not a descent direction, or no acceptable
+      // step could be found along it (this can happen because of the
+      // gradient rescaling done by some callers). Throw away the history and
+      // retry with steepest descent.
+      histCount = 0;
+      for (unsigned int i = 0; i < dim; i++) {
+        xi[i] = -grad[i];
+      }
+      linearSearch(dim, pos, fp, grad.data(), xi.data(), newPos.get(), funcVal,
+                   func, maxStep, status);
+    }
+    CHECK_INVARIANT(status >= 0, "bad direction in linearSearch");
+
+    fp = funcVal;
+    double test = 0.0;
+    for (unsigned int i = 0; i < dim; i++) {
+      xi[i] = newPos[i] - pos[i];
+      pos[i] = newPos[i];
+      double temp = fabs(xi[i]) / std::max(fabs(pos[i]), 1.0);
+      if (temp > test) {
+        test = temp;
+      }
+      prevGrad[i] = grad[i];
+    }
+    prevGradScale = gradScale;
+    if (test < TOLX) {
+      if (snapshotVect && snapshotFreq) {
+        RDKit::Snapshot s(boost::shared_array<double>(newPos.release()), fp);
+        snapshotVect->push_back(s);
+      }
+      return 0;
+    }
+
+    gradScale = gradFunc(pos, grad.data());
+
+    test = 0.0;
+    double term = std::max(fabs(funcVal) * gradScale, 1.0);
+    for (unsigned int i = 0; i < dim; i++) {
+      double temp = fabs(grad[i]) * std::max(fabs(pos[i]), 1.0);
+      test = std::max(test, temp);
+    }
+    test /= term;
+    if (test < gradTol) {
+      if (snapshotVect && snapshotFreq) {
+        RDKit::Snapshot s(boost::shared_array<double>(newPos.release()), fp);
+        snapshotVect->push_back(s);
+      }
+      return 0;
+    }
+
+    // store the new correction pair if it satisfies the curvature condition
+    // (the same test minimize() uses before updating the inverse Hessian)
+    {
+      const unsigned int slot = (histStart + histCount) % historySize;
+      double *s = &sHist[static_cast<std::size_t>(slot) * dim];
+      double *y = &yHist[static_cast<std::size_t>(slot) * dim];
+      double sy = 0.0, yy = 0.0, ss = 0.0;
+      for (unsigned int i = 0; i < dim; i++) {
+        s[i] = xi[i];
+        y[i] = grad[i] / gradScale - prevGrad[i] / prevGradScale;
+        sy += s[i] * y[i];
+        yy += y[i] * y[i];
+        ss += s[i] * s[i];
+      }
+      if (sy > sqrt(EPS * yy * ss)) {
+        rhoHist[slot] = 1.0 / sy;
+        if (histCount < historySize) {
+          ++histCount;
+        } else {
+          histStart = (histStart + 1) % historySize;
+        }
+      }
+    }
+
+    // two-loop recursion: xi = -H * grad
+    for (unsigned int i = 0; i < dim; i++) {
+      xi[i] = histCount ? -grad[i] / gradScale : -grad[i];
+    }
+    for (unsigned int k = histCount; k > 0; --k) {
+      const unsigned int slot = (histStart + k - 1) % historySize;
+      const double *s = &sHist[static_cast<std::size_t>(slot) * dim];
+      const double *y = &yHist[static_cast<std::size_t>(slot) * dim];
+      double a = 0.0;
+      for (unsigned int i = 0; i < dim; i++) {
+        a += s[i] * xi[i];
+      }
+      a *= rhoHist[slot];
+      alpha[slot] = a;
+      for (unsigned int i = 0; i < dim; i++) {
+        xi[i] -= a * y[i];
+      }
+    }
+    if (histCount) {
+      // scale the initial inverse Hessian using the most recent pair
+      const unsigned int slot = (histStart + histCount - 1) % historySize;
+      const double *y = &yHist[static_cast<std::size_t>(slot) * dim];
+      double yy = 0.0;
+      for (unsigned int i = 0; i < dim; i++) {
+        yy += y[i] * y[i];
+      }
+      const double gamma = 1.0 / (rhoHist[slot] * yy);
+      for (unsigned int i = 0; i < dim; i++) {
+        xi[i] *= gamma;
+      }
+    }
+    for (unsigned int k = 0; k < histCount; ++k) {
+      const unsigned int slot = (histStart + k) % historySize;
+      const double *s = &sHist[static_cast<std::size_t>(slot) * dim];
+      const double *y = &yHist[static_cast<std::size_t>(slot) * dim];
+      double b = 0.0;
+      for (unsigned int i = 0; i < dim; i++) {
+        b += y[i] * xi[i];
+      }
+      b *= rhoHist[slot];
+      const double c = alpha[slot] - b;
+      for (unsigned int i = 0; i < dim; i++) {
+        xi[i] += c * s[i];
+      }
+    }
+
+    if (snapshotVect && snapshotFreq && !(iter % snapshotFreq)) {
+      RDKit::Snapshot s(boost::shared_array<double>(newPos.release()), fp);
+      snapshotVect->push_back(s);
+      newPos.reset(new double[dim]);
+    }
+  }
+  return 1;
+}
+
 }  // namespace BFGSOpt
 #endif  // RD_BFGSOPT_H
