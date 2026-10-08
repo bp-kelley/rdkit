@@ -699,6 +699,10 @@ BOOST_PYTHON_MODULE(rdDistGeom) {
       .def_readwrite("useLegacyImplementation",
                      &PyEmbedParameters::useLegacyImplementation,
                      "Whether to use the combined minimization approach")
+      .def_readwrite("useLBFGS", &PyEmbedParameters::useLBFGS,
+                     "Use the limited-memory BFGS optimizer for the embedding "
+                     "minimizations. This is faster, but produces different "
+                     "conformers than the default optimizer.")
       .def_readwrite(
           "boundsMatForceScaling", &PyEmbedParameters::boundsMatForceScaling,
           "scale the weights of the atom pair distance restraints relative to "
