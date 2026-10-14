@@ -416,6 +416,13 @@ bool _checkKTerms(RDGeom::Point3DPtrVect &positions,
 
 namespace EmbeddingOps {
 
+void setOptimizer(ForceFields::ForceField &field,
+                  const EmbedParameters &embedParams) {
+  if (embedParams.useLBFGS) {
+    field.setOptimizer(ForceFields::OptimizerType::LBFGS);
+  }
+}
+
 bool checkChiralCenters(const RDGeom::PointPtrVect *positions,
                         const detail::EmbedArgs &eargs,
                         const EmbedParameters &);
@@ -499,6 +506,7 @@ bool firstMinimization(RDGeom::PointPtrVect *positions,
       field->fixedPoints().push_back(v.first);
     }
   }
+  setOptimizer(*field, embedParams);
   field->initialize();
   if (field->calcEnergy() > ERROR_TOL) {
     int needMore = 1;
@@ -590,6 +598,7 @@ bool minimizeFourthDimension(RDGeom::PointPtrVect *positions,
     }
   }
 
+  setOptimizer(*field2, embedParams);
   field2->initialize();
   // std::cerr << "FIELD2 E: " << field2->calcEnergy() << std::endl;
   if (field2->calcEnergy() > ERROR_TOL) {
@@ -639,6 +648,7 @@ bool minimizeWithExpTorsions(RDGeom::PointPtrVect &positions,
   }
 
   // minimize!
+  setOptimizer(*field, embedParams);
   field->initialize();
   if (field->calcEnergy() > ERROR_TOL) {
     // while (needMore) {
@@ -710,6 +720,7 @@ bool minimizeAllInOne(RDGeom::PointPtrVect *positions,
       field->fixedPoints().push_back(v.first);
     }
   }
+  setOptimizer(*field, embedParams);
   field->initialize();
   if (field->calcEnergy() > ERROR_TOL) {
     field->minimize(eargs.hac, embedParams.optimizerForceTol);

@@ -193,3 +193,35 @@ TEST_CASE("testBFGSOptimizationNegativeEnergy") {
   REQUIRE_THAT(oLoc[0], Catch::Matchers::WithinAbs(3.0, 1e-3));
   REQUIRE_THAT(oLoc[1], Catch::Matchers::WithinAbs(-1.0, 1e-3));
 }
+
+TEST_CASE("testLBFGSOptimization") {
+  unsigned int dim = 2;
+  double oLoc[2];
+  double nVal;
+  unsigned int nIters;
+
+  oLoc[0] = 0;
+  oLoc[1] = 1.0;
+  BFGSOpt::minimizeLBFGS(dim, oLoc, 1e-4, nIters, nVal, circ_0_0, circ_0_0_grad,
+                         0, nullptr);
+  REQUIRE(nIters == 1);
+  REQUIRE_THAT(nVal, Catch::Matchers::WithinAbs(0.0, 1e-4));
+  REQUIRE_THAT(oLoc[0], Catch::Matchers::WithinAbs(0.0, 1e-4));
+  REQUIRE_THAT(oLoc[1], Catch::Matchers::WithinAbs(0.0, 1e-4));
+
+  oLoc[0] = 2.0;
+  oLoc[1] = 0.5;
+  BFGSOpt::minimizeLBFGS(dim, oLoc, 1e-4, nIters, nVal, func2, grad2, 0,
+                         nullptr, 1e-8);
+  REQUIRE_THAT(nVal, Catch::Matchers::WithinAbs(0.0, 1e-4));
+  REQUIRE_THAT(oLoc[0], Catch::Matchers::WithinAbs(1.0, 1e-3));
+  REQUIRE_THAT(oLoc[1], Catch::Matchers::WithinAbs(0.0, 1e-3));
+
+  oLoc[0] = 0.0;
+  oLoc[1] = 0.0;
+  BFGSOpt::minimizeLBFGS(dim, oLoc, 1e-4, nIters, nVal, circ_neg, circ_neg_grad,
+                         0, nullptr);
+  REQUIRE_THAT(nVal, Catch::Matchers::WithinAbs(-100.0, 1e-4));
+  REQUIRE_THAT(oLoc[0], Catch::Matchers::WithinAbs(3.0, 1e-3));
+  REQUIRE_THAT(oLoc[1], Catch::Matchers::WithinAbs(-1.0, 1e-3));
+}

@@ -147,6 +147,10 @@ enum class EmbedFF : std::uint8_t {
   enableSequentialRandomSeeds    handle the random number seeds so that
                                  conformer generation can be restarted
   embedFF Force Field to use to determine ideal 1-2 and 1-3 distances.
+  useLBFGS  use the limited-memory BFGS optimizer for the embedding
+            minimizations. This is faster, particularly for larger molecules,
+            but the conformers generated are different from those produced
+            by the default (dense BFGS) optimizer.
 */
 struct RDKIT_DISTGEOMHELPERS_EXPORT EmbedParameters {
   unsigned int maxIterations{0};
@@ -188,6 +192,7 @@ struct RDKIT_DISTGEOMHELPERS_EXPORT EmbedParameters {
   bool enableSequentialRandomSeeds{false};
   bool symmetrizeConjugatedTerminalGroupsForPruning{true};
   EmbedFF embedForceField{EmbedFF::UFF};
+  bool useLBFGS{false};
 };
 
 //! update parameters from a JSON string
