@@ -170,7 +170,7 @@ The POLLY table is what makes the difference measurable at scale.
 
 ## Why this no longer matches `mordred_references`, and what the values now are
 
-`test_data/mordred_references/InformationContent.yaml` holds **mordred's**
+`test_data/mordred_references/InformationContent.json` holds **mordred's**
 values. The default criterion is Basak's. So the default does not match that
 file and cannot be expected to: **94 of its 369 IC-family entries now differ**,
 against 25 before the criterion changed. That is the intended consequence of
@@ -238,7 +238,7 @@ This is measured, not hypothetical. For ellagic acid:
 
 Under the **same** RDKit, the C++ port and a Python transliteration of it agree
 bit for bit. Across RDKit releases, Python disagrees with itself. So the
-`mordred_references/InformationContent.yaml` values -- generated against the
+`mordred_references/InformationContent.json` values -- generated against the
 older release -- are not reproducible by *anything* running on the newer one,
 the mordred package included. The 20 entries that fail under `MORDRED` are
 exactly the ellagic acid values whose Kekule structure changed.
@@ -275,7 +275,7 @@ to 1e-6 under the same RDKit release.
 ## What `MORDRED` is for
 
 Reproducing the mordred package, not speed. It matches it on 894/894 values and
-passes all 344 entries of `test_data/mordred_references/InformationContent.yaml`
+passes all 344 entries of `test_data/mordred_references/InformationContent.json`
 — which is what that file describes, now that the default is Basak's criterion.
 
 ## Known limits of the default

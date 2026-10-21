@@ -33,7 +33,7 @@
 # POSSIBILITY OF SUCH DAMAGE. 
 from __future__ import annotations
 
-import math, os
+import json, math, os
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -43,11 +43,6 @@ import unittest
 from numpy.testing import assert_almost_equal
 from rdkit import Chem, RDConfig
 from rdkit.Chem import rdMolDescriptors as rdMD
-
-try:
-  import yaml
-except ImportError:  # pragma: nocover
-  yaml = None
 
 pytestmark = pytest.mark.skipif(
     not rdMD.HasOsmordredSupport(), reason="No osmordred support"
@@ -3903,11 +3898,7 @@ class TestOsmordred(unittest.TestCase):
         assert_almost_equal(actual, desired, decimal=decimal, err_msg=f"{desc} of {smi}")
 
 
-  @pytest.mark.skipif(yaml is None, reason="PyYAML is required for Mordred YAML reference tests")
-  def test_ported_yaml_references(self):
-    if not yaml:
-      return
-    
+  def test_ported_json_references(self):
     data_dir = Path(os.path.join(RDConfig.RDBaseDir, 'Code', 'GraphMol',
                                  'Descriptors', 'test_data', 'mordred_references'))
 
@@ -3964,8 +3955,8 @@ class TestOsmordred(unittest.TestCase):
 
       actuals_by_mol[name] = _descriptor_map(mol, opts)
 
-    yaml_paths = sorted(data_dir.rglob("*.yaml"))
-    assert yaml_paths, f"No YAML files found under {data_dir}"
+    json_paths = sorted(data_dir.rglob("*.json"))
+    assert json_paths, f"No JSON files found under {data_dir}"
     from collections import defaultdict
     
     checked = 0
@@ -3974,9 +3965,9 @@ class TestOsmordred(unittest.TestCase):
     passes = defaultdict(int)
     failures = defaultdict(int)
     
-    for yaml_path in yaml_paths:
-      with yaml_path.open("r", encoding="utf-8") as handle:
-        tests = yaml.safe_load(handle) or []
+    for json_path in json_paths:
+      with json_path.open("r", encoding="utf-8") as handle:
+        tests = json.load(handle)
 
       for test in tests:
         dnames = test["names"]
@@ -4010,22 +4001,22 @@ class TestOsmordred(unittest.TestCase):
             if isinstance(desired, float) and math.isnan(desired):
               # we report 0.0 for a few items where mordred reports NaN
               if actual != 0.0 and not math.isnan(actual):
-                failed.append(f"Expected NaN for {dname} of {mname} ({yaml_path}), got {actual}")
+                failed.append(f"Expected NaN for {dname} of {mname} ({json_path}), got {actual}")
                 failures[dname] += 1
                 continue
             elif digit is None:
               if actual != desired:
-                failed.append(f"{dname} of {mname} {actual=} {desired=} ({yaml_path})")
+                failed.append(f"{dname} of {mname} {actual=} {desired=} ({json_path})")
                 failures[dname] += 1
                 continue
             else:
               if abs(desired-actual) > 0.05:
-                failed.append(f"FAILED: {dname} of {mname} {actual=} {desired=} ({yaml_path})")
+                failed.append(f"FAILED: {dname} of {mname} {actual=} {desired=} ({json_path})")
                 failures[dname] += 1
                 continue
-              #print(f"PASSED: {dname} of {mname} {actual=} {desired=} ({yaml_path})")
+              #print(f"PASSED: {dname} of {mname} {actual=} {desired=} ({json_path})")
             passes[dname] += 1
-              #assert_almost_equal(actual, desired, decimal=digit, err_msg=f"{dname} of {mname} ({yaml_path})")
+              #assert_almost_equal(actual, desired, decimal=digit, err_msg=f"{dname} of {mname} ({json_path})")
 
     passed = 0
     for name in sorted(set(list(passes) + list(failures))):
@@ -4036,7 +4027,7 @@ class TestOsmordred(unittest.TestCase):
     print("*"*44)
     print("\n".join(sorted(skipped_missing)), file=open("missing-descriptors.txt",'w'))
     assert not failed, "\n".join(failed)
-    assert checked > 0, "No YAML reference entries overlapped with Osmordred descriptor names"
+    assert checked > 0, "No JSON reference entries overlapped with Osmordred descriptor names"
     assert checked >= len(skipped_missing), (
         f"More reference entries were skipped ({skipped_missing}) than checked ({checked})"
     )
