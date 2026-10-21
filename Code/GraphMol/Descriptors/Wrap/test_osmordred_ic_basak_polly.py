@@ -16,7 +16,7 @@ data of:
     Majumdar, Basak et al. (2019), "Finding Needles in a Haystack: Determining
     Key Molecular Descriptors...", Molecular Informatics, minf201800164.
 
-This matters because `mordred_references/InformationContent.yaml` encodes
+This matters because `mordred_references/InformationContent.json` encodes
 *Mordred's* criterion, and Mordred is not a faithful Basak implementation.
 Measured on this set (411 parseable molecules x 6 orders = 2466 values):
 

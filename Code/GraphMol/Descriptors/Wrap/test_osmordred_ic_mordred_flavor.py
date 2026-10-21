@@ -9,28 +9,24 @@
 #
 """ICKeyFlavor.MORDRED must reproduce the mordred package.
 
-`mordred_references/InformationContent.yaml` holds *mordred's* values.  Since
+`mordred_references/InformationContent.json` holds *mordred's* values.  Since
 the default equivalence criterion is Basak's, those entries no longer describe
 the default and cannot pass against it -- that is the intended behaviour, not a
 regression.  They do describe `ICKeyFlavor.MORDRED` exactly, so this test is
 where that file earns its keep.
 
 Measured: the MORDRED flavour reproduces the mordred package on 894/894 values
-and passes 344/344 entries of InformationContent.yaml.
+and passes 344/344 entries of InformationContent.json.
 """
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import re
 
 import pytest
-
-try:
-  import yaml
-except ImportError:  # pragma: nocover
-  yaml = None
 
 
 from rdkit import Chem, RDConfig, RDLogger
@@ -42,12 +38,12 @@ REF_DIR = os.path.join(
     RDConfig.RDBaseDir, "Code", "GraphMol", "Descriptors", "test_data",
     "mordred_references",
 )
-YAML_PATH = os.path.join(REF_DIR, "InformationContent.yaml")
+JSON_PATH = os.path.join(REF_DIR, "InformationContent.json")
 SMI_PATH = os.path.join(REF_DIR, "structures.smi")
 
 pytestmark = pytest.mark.skipif(
     not hasattr(rdMD, "InformationContentOptions")
-    or not os.path.exists(YAML_PATH),
+    or not os.path.exists(JSON_PATH),
     reason="needs RDK_BUILD_OSMORDRED with InformationContentOptions",
 )
 
@@ -72,8 +68,8 @@ def _structures():
 def _references():
     """{(family, order): {molecule: value}}"""
     refs = {}
-    with open(YAML_PATH) as handle:
-        blocks = yaml.safe_load(handle)
+    with open(JSON_PATH) as handle:
+        blocks = json.load(handle)
     for block in blocks:
         names = block["names"]
         if not isinstance(names, list):
@@ -171,8 +167,8 @@ def test_mordred_flavour_matches_the_mordred_package_live(payload):
     )
 
 
-def test_mordred_references_yaml_is_pinned_to_its_rdkit_release(payload):
-    """`InformationContent.yaml` was generated on RDKit 2025.09. On a newer
+def test_mordred_references_json_is_pinned_to_its_rdkit_release(payload):
+    """`InformationContent.json` was generated on RDKit 2025.09. On a newer
     release the ONLY entries allowed to differ are ones whose Kekule structure
     changed -- which for this set is ellagic acid. Anything else failing means
     a real divergence, not a version artifact."""
@@ -191,7 +187,7 @@ def test_mordred_references_yaml_is_pinned_to_its_rdkit_release(payload):
                 if abs(float(expected) - values[fi * block + order]) > TOL:
                     offenders.add(name)
     assert offenders <= {"EllagicAcid"}, (
-        f"molecules disagreeing with the 2025.09-era yaml beyond the known "
+        f"molecules disagreeing with the 2025.09-era json beyond the known "
         f"Kekule-dependent case: {sorted(offenders - {'EllagicAcid'})}"
     )
 
@@ -227,5 +223,4 @@ def test_basak_default_is_unchanged_by_this_flavour(payload):
 
 if __name__ == "__main__":
     import sys
-    if yaml:
-        sys.exit(pytest.main([__file__, "-v"]))
+    sys.exit(pytest.main([__file__, "-v"]))

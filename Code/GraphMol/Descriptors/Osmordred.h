@@ -86,7 +86,7 @@ enum class ICKeyFlavor {
 
   Verified to reproduce the mordred package exactly (0 mismatches over 894
   values) and to pass every entry of
-  test_data/mordred_references/InformationContent.yaml (0 of 344).
+  test_data/mordred_references/InformationContent.json (0 of 344).
 */
 
 //! How aromatic bonds are encoded in the equivalence key.
