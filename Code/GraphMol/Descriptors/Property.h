@@ -34,6 +34,7 @@
 #define RDKIT_PROPERTIES_H
 
 #include <GraphMol/RDKitBase.h>
+#include <limits>
 #include <string>
 #include <utility>
 #include <RDGeneral/BoostStartInclude.h>
@@ -44,7 +45,7 @@
 
 namespace RDKit {
 namespace Descriptors {
-//! What computePropertiesForMols() does when a property's calculation
+//! What computeProperties() does when a property's calculation
 //! throws a std::exception (std::bad_alloc is always rethrown)
 enum class PropertyFailureMode {
   THROW,         //!< rethrow to the caller once all workers have finished
@@ -79,27 +80,63 @@ struct RDKIT_DESCRIPTORS_EXPORT PropertyFunctor {
   //! Return the properties version
   const std::string getVersion() const { return propVersion; }
 
-  //! What computePropertiesForMols() does if this property throws a
-  //! std::exception. Only the batch path uses this; computeProperties() does
-  //! not catch exceptions. The answer must not change for the lifetime of the
-  //! functor.
+  //! What computeProperties() and computePropertiesForMols() do if this
+  //! property throws a std::exception. DEFAULT_NAN gives the Properties
+  //! object's failure value (see Properties::setFailureValue(), NaN by
+  //! default). The answer must not change for the lifetime of the functor.
   virtual PropertyFailureMode failureMode() const {
     return PropertyFailureMode::DEFAULT_NAN;
   }
+};
+
+//! A property that is one element of a descriptor vector (e.g. one bin of
+//! PEOE_VSA, or one BCUT2D value).
+/*!
+  Used on its own it computes the whole vector and returns its element.
+  Properties::computeProperties() computes each vector once per molecule and
+  shares it between the properties that are elements of it.
+*/
+struct RDKIT_DESCRIPTORS_EXPORT VectorElementPropertyFunctor
+    : public PropertyFunctor {
+  using VectorFunc = std::vector<double> (*)(const ROMol &);
+  VectorFunc d_vectorFunc;
+  unsigned int d_index;
+
+  //! \c elementFunc must return element \c index of \c vectorFunc; it is
+  //! the plain function used for property queries.
+  VectorElementPropertyFunctor(std::string name, std::string version,
+                               VectorFunc vectorFunc, unsigned int index,
+                               double (*elementFunc)(const ROMol &))
+      : PropertyFunctor(std::move(name), std::move(version), elementFunc),
+        d_vectorFunc(vectorFunc),
+        d_index(index) {}
 };
 
 //! Holds a collection of properties for computation purposes
 class RDKIT_DESCRIPTORS_EXPORT Properties {
  protected:
   std::vector<boost::shared_ptr<PropertyFunctor>> m_properties;
+  double d_failureValue = std::numeric_limits<double>::quiet_NaN();
+
+  //! computes the properties for \c mol, giving \c failureValue to those
+  //! that fail
+  std::vector<double> computeValues(const RDKit::ROMol &mol,
+                                    double failureValue) const;
 
  public:
   Properties();
   Properties(const std::vector<std::string> &propNames);
+  virtual ~Properties() = default;
 
   std::vector<std::string> getPropertyNames() const;
-  std::vector<double> computeProperties(const RDKit::ROMol &mol,
-                                        bool annotate = false) const;
+  //! computes the properties for \c mol
+  /*!
+    If a property's calculation throws a std::exception, its failureMode()
+    decides the result: 0.0, the failure value (see setFailureValue()), or
+    the exception is rethrown. std::bad_alloc is always rethrown.
+  */
+  virtual std::vector<double> computeProperties(const RDKit::ROMol &mol,
+                                                bool annotate = false) const;
   //! Computes the properties for each molecule in \c mols, optionally in
   //! parallel
   /*!
@@ -115,8 +152,7 @@ class RDKIT_DESCRIPTORS_EXPORT Properties {
 
     Notes:
       - if calculating a value throws a std::exception, the property's
-        failureMode() decides the result: the value is set to 0.0 or NaN, or
-        the exception is rethrown. std::bad_alloc is always rethrown.
+        failureMode() decides the result, as for computeProperties().
         Rethrown exceptions reach the caller once all worker threads have
         finished.
       - properties that must run on the calling thread (e.g. Python
@@ -134,6 +170,10 @@ class RDKIT_DESCRIPTORS_EXPORT Properties {
     return m_properties;
   }
   void annotateProperties(RDKit::ROMol &mol) const;
+
+  //! sets the value given to a property that fails to compute (default NaN)
+  void setFailureValue(double val) { d_failureValue = val; }
+  double getFailureValue() const { return d_failureValue; }
 
   //! Register a property function - takes ownership
   static int registerProperty(PropertyFunctor *ptr);
