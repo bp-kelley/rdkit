@@ -60,6 +60,7 @@ from rdkit import Chem
 
 # import rdkit.Chem.Descriptors as Desc
 from rdkit.Chem import rdmolops
+from rdkit.Chem import rdMolDescriptors
 from rdkit.Chem.ChemUtils.DescriptorUtilities import setDescriptorVersion
 from collections import defaultdict
 
@@ -69,7 +70,10 @@ def SPS(mol, normalize=True):
   """Calculates the SpacialScore descriptor. By default, the score is normalized by the number of heavy atoms (nSPS) resulting in a float value,
     otherwise (normalize=False) the absolute score is returned as an integer.
     """
-  return _SpacialScore(mol, normalize=normalize).score
+  if mol is None:
+    raise ValueError("No valid molecule object found.")
+  res = rdMolDescriptors.CalcSPS(mol, normalize=normalize)
+  return res if normalize else int(res)
 
 
 class _SpacialScore:
