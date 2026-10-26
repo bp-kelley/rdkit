@@ -24,7 +24,6 @@
 #include <DataStructs/BitOps.h>
 #include <functional>
 
-#include <functional>
 #include <limits>
 
 #ifdef RDK_BUILD_THREADSAFE_SSS
@@ -341,7 +340,9 @@ static inline int queryAtomIsInRingOfSize(Atom const *at, int lower, int upper,
                                           bool lowerOpen = false,
                                           bool upperOpen = false) {
   const auto ri = at->getOwningMol().getRingInfo();
-  for (const auto ringSize : ri->atomRingSizes(at->getIdx())) {
+  const auto atomRings = ri->atomRings();
+  for (const auto ringIdx : ri->atomMembers(at->getIdx())) {
+    const auto ringSize = static_cast<int>(atomRings[ringIdx].size());
     if ((ringSize > lower || (ringSize == lower && !lowerOpen)) &&
         (upper < 0 ||
          (ringSize < upper || (ringSize == upper && !upperOpen)))) {
@@ -836,9 +837,12 @@ class RDKIT_GRAPHMOL_EXPORT RecursiveStructureQuery
     res->setNegation(getNegation());
     res->d_description = d_description;
     res->d_serialNumber = d_serialNumber;
+    res->df_initialized = df_initialized;
     return res;
   }
   unsigned int getSerialNumber() const { return d_serialNumber; }
+  void setInitialized(bool initialized) { df_initialized = initialized; }
+  bool getInitialized() const { return df_initialized; }
 
 #ifdef RDK_BUILD_THREADSAFE_SSS
   std::mutex d_mutex;
@@ -846,6 +850,7 @@ class RDKIT_GRAPHMOL_EXPORT RecursiveStructureQuery
  private:
   boost::shared_ptr<const ROMol> dp_queryMol;
   unsigned int d_serialNumber{0};
+  bool df_initialized{false};
 };
 
 template <typename T>

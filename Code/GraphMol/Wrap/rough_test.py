@@ -5588,6 +5588,7 @@ M  END
 
     sg = m.GetStereoGroups()
     self.assertEqual(len(sg), 2)
+    self.assertEqual(list(sg), [sg[i] for i in range(len(sg))])
     group1 = sg[1]
     self.assertEqual(group1.GetGroupType(), Chem.StereoGroupType.STEREO_OR)
     stereo_atoms = group1.GetAtoms()
@@ -6737,6 +6738,7 @@ M  END
     mol = Chem.MolFromSmiles('C[C@H](F)C=CC')
     si = Chem.FindPotentialStereo(mol)
     self.assertEqual(len(si), 2)
+    self.assertEqual(list(si), [si[i] for i in range(len(si))])
     self.assertEqual(si[0].type, Chem.StereoType.Atom_Tetrahedral)
     self.assertEqual(si[0].specified, Chem.StereoSpecified.Specified)
     self.assertEqual(si[0].centeredOn, 1)
@@ -8505,6 +8507,27 @@ M  END
     self.assertFalse(mol.GetAtomWithIdx(3).HasQuery())
     Chem.CollapseAttachmentPoints(mol, markedOnly=False)
     self.assertEqual(mol.GetNumAtoms(), 2)
+
+  def testIsMarkedAttachmentPoint(self):
+    mol = Chem.MolFromSmiles("CC")
+    mol.GetAtomWithIdx(1).SetIntProp("molAttchpt", 1)
+    Chem.ExpandAttachmentPoints(mol)
+    attachment = mol.GetAtomWithIdx(2)
+    self.assertTrue(Chem.IsMarkedAttachmentPoint(attachment))
+
+    bond = mol.GetBondBetweenAtoms(1, 2)
+    bond.SetBondDir(Chem.BondDir.BEGINWEDGE)
+    self.assertTrue(Chem.IsMarkedAttachmentPoint(attachment))
+    self.assertFalse(Chem.IsMarkedAttachmentPoint(mol.GetAtomWithIdx(0)))
+
+    legacy = Chem.MolFromSmiles("*C |$_AP37;$|")
+    self.assertEqual(Chem.ATTACHMENT_POINT_LABEL_PREFIX, "_AP")
+    self.assertEqual(
+      Chem.GetAttachmentPointLabelNumber(legacy.GetAtomWithIdx(0)), 37)
+    self.assertTrue(Chem.IsMarkedAttachmentPoint(legacy.GetAtomWithIdx(0)))
+    Chem.CollapseAttachmentPoints(legacy)
+    self.assertEqual(legacy.GetNumAtoms(), 1)
+    self.assertEqual(legacy.GetAtomWithIdx(0).GetIntProp("molAttchpt"), 1)
 
   def testAddStereoAnnotations(self):
     mol = Chem.MolFromSmiles(

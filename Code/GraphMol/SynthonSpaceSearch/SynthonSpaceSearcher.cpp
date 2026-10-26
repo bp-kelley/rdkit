@@ -218,7 +218,7 @@ void checkPossibleHitsPart(
     std::unique_ptr<ROMol> prod;
     try {
       prod = molzip(*mol, mzparams);
-      MolOps::sanitizeMol(*dynamic_cast<RWMol *>(prod.get()));
+      MolOps::sanitizeMol(*static_cast<RWMol *>(prod.get()));
     } catch (std::exception &e) {
       std::cout << "Failed to zip " << MolToSmiles(*mol) << " for " << name
                 << " because " << std::endl
@@ -651,10 +651,6 @@ void SynthonSpaceSearcher::buildAllHits(
     return;
   }
 
-  std::uint64_t numPossHits = 0;
-  for (const auto &hitset : hitsets) {
-    numPossHits += hitset->numHits;
-  }
   if (!getParams().possibleHitsFile.empty()) {
     // The file will be appended to, so clear it out at the start.
     std::ofstream ofs(getParams().possibleHitsFile);
@@ -881,11 +877,8 @@ void SynthonSpaceSearcher::sortToTryByApproxSimilarity(
   std::vector<std::pair<const SynthonSpaceHitSet *, std::vector<size_t>>>
       newToTry;
   newToTry.reserve(tmp.size());
-  std::transform(
-      tmp.begin(), tmp.end(),
-      back_inserter(newToTry), [&](const auto &p) -> auto{
-        return toTry[p.first];
-      });
+  std::transform(tmp.begin(), tmp.end(), back_inserter(newToTry),
+                 [&](const auto &p) -> auto { return toTry[p.first]; });
   toTry = newToTry;
 }
 

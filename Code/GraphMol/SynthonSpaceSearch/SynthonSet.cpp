@@ -383,9 +383,10 @@ void SynthonSet::makeSynthonSearchMols() {
       std::vector<std::unique_ptr<ROMol>> molFrags;
       MolOps::getMolFrags(*fragMol, molFrags, false);
       int fragWeWant = findMolNumFrag(molFrags, synthSetNum);
-      unsigned int otf;
-      sanitizeMol(*static_cast<RWMol *>(molFrags[fragWeWant].get()), otf,
-                  MolOps::SANITIZE_SYMMRINGS);
+      if (!molFrags[fragWeWant]->getRingInfo()->isInitialized()) {
+        VECT_INT_VECT arings;
+        MolOps::symmetrizeSSSR(*molFrags[fragWeWant], arings);
+      }
       d_synthons[synthSetNum][j].second->setSearchMol(
           std::move(molFrags[fragWeWant]));
     }
@@ -781,7 +782,7 @@ std::unique_ptr<ROMol> SynthonSet::buildMolecule(
   combMol->setProp<std::string>(common_properties::_Name, molName);
   try {
     auto sampleMol = molzip(*combMol, mzparams);
-    MolOps::sanitizeMol(*dynamic_cast<RWMol *>(sampleMol.get()));
+    MolOps::sanitizeMol(*static_cast<RWMol *>(sampleMol.get()));
     return sampleMol;
   } catch (std::exception &e) {
     std::string msg("Error:: in reaction " + getId() +

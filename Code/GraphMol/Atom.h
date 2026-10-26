@@ -87,7 +87,7 @@ class RDKIT_GRAPHMOL_EXPORT Atom : public RDProps {
       std::numeric_limits<unsigned int>::max();
 
   // FIX: grn...
-  typedef Queries::Query<int, Atom const *, true> QUERYATOM_QUERY;
+  using QUERYATOM_QUERY = Queries::Query<int, Atom const *, true>;
 
   //! store hybridization
   enum HybridizationType : std::uint8_t {
@@ -273,7 +273,7 @@ class RDKIT_GRAPHMOL_EXPORT Atom : public RDProps {
   //! NOT CALLABLE
   virtual void setQuery(QUERYATOM_QUERY *what);
 
-  //! NOT CALLABLE
+  //! returns nullptr
   virtual QUERYATOM_QUERY *getQuery() const;
   //! NOT CALLABLE
   virtual void expandQuery(
