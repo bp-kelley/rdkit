@@ -137,7 +137,7 @@ _pyIpc.version = "1.0.0"
 
 def Ipc(mol, avg=False, dMat=None, forceDMat=False):
   if dMat is None:
-    return rdMolDescriptors.CalcIpc(mol, avg=avg)
+    return rdMolDescriptors.CalcIpc(mol, avg=bool(avg))
   return _pyIpc(mol, avg=avg, dMat=dMat, forceDMat=forceDMat)
 
 
@@ -748,7 +748,7 @@ _pyBertzCT.version = "2.0.0"
 
 def BertzCT(mol, cutoff=100, dMat=None, forceDMat=1):
   if dMat is None:
-    return rdMolDescriptors.CalcBertzCT(mol, cutoff)
+    return rdMolDescriptors.CalcBertzCT(mol, int(cutoff))
   return _pyBertzCT(mol, cutoff=cutoff, dMat=dMat, forceDMat=forceDMat)
 
 
