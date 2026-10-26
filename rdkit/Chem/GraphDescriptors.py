@@ -104,7 +104,7 @@ def _pyHallKierAlpha(m):
 # HallKierAlpha.version="1.0.2"
 
 
-def Ipc(mol, avg=False, dMat=None, forceDMat=False):
+def _pyIpc(mol, avg=False, dMat=None, forceDMat=False):
   """This returns the information content of the coefficients of the characteristic
     polynomial of the adjacency matrix of a hydrogen-suppressed graph of a molecule.
 
@@ -132,10 +132,20 @@ def Ipc(mol, avg=False, dMat=None, forceDMat=False):
     return sum(cPoly) * entropy.InfoEntropy(cPoly)
 
 
-Ipc.version = "1.0.0"
+_pyIpc.version = "1.0.0"
 
 
-def AvgIpc(mol, dMat=None, forceDMat=False):
+def Ipc(mol, avg=False, dMat=None, forceDMat=False):
+  if dMat is None:
+    return rdMolDescriptors.CalcIpc(mol, avg=avg)
+  return _pyIpc(mol, avg=avg, dMat=dMat, forceDMat=forceDMat)
+
+
+Ipc.__doc__ = _pyIpc.__doc__
+Ipc.version = rdMolDescriptors._CalcIpc_version
+
+
+def _pyAvgIpc(mol, dMat=None, forceDMat=False):
   """This returns the average information content of the coefficients of the characteristic
     polynomial of the adjacency matrix of a hydrogen-suppressed graph of a molecule.
 
@@ -145,7 +155,17 @@ def AvgIpc(mol, dMat=None, forceDMat=False):
   return Ipc(mol, avg=True, dMat=dMat, forceDMat=forceDMat)
 
 
-AvgIpc.version = "1.0.0"
+_pyAvgIpc.version = "1.0.0"
+
+
+def AvgIpc(mol, dMat=None, forceDMat=False):
+  if dMat is None:
+    return rdMolDescriptors.CalcAvgIpc(mol)
+  return _pyAvgIpc(mol, dMat=dMat, forceDMat=forceDMat)
+
+
+AvgIpc.__doc__ = _pyAvgIpc.__doc__
+AvgIpc.version = rdMolDescriptors._CalcAvgIpc_version
 
 
 def _pyKappa1(mol):
@@ -220,7 +240,7 @@ Kappa3 = lambda x: rdMolDescriptors.CalcKappa3(x)
 Kappa3.version = rdMolDescriptors._CalcKappa3_version
 
 
-def Chi0(mol):
+def _pyChi0(mol):
   """ From equations (1),(9) and (10) of Rev. Comp. Chem. vol 2, 367-422, (1991)
 
   """
@@ -232,10 +252,18 @@ def Chi0(mol):
   return res
 
 
-Chi0.version = "1.0.0"
+_pyChi0.version = "1.0.0"
 
 
-def Chi1(mol):
+def Chi0(mol):
+  return rdMolDescriptors.CalcChi0(mol)
+
+
+Chi0.__doc__ = _pyChi0.__doc__
+Chi0.version = rdMolDescriptors._CalcChi0_version
+
+
+def _pyChi1(mol):
   """ From equations (1),(11) and (12) of Rev. Comp. Chem. vol 2, 367-422, (1991)
 
   """
@@ -247,7 +275,15 @@ def Chi1(mol):
   return res
 
 
-Chi1.version = "1.0.0"
+_pyChi1.version = "1.0.0"
+
+
+def Chi1(mol):
+  return rdMolDescriptors.CalcChi1(mol)
+
+
+Chi1.__doc__ = _pyChi1.__doc__
+Chi1.version = rdMolDescriptors._CalcChi1_version
 
 
 def _nVal(atom):
@@ -450,7 +486,7 @@ ChiNn_ = lambda x, y: rdMolDescriptors.CalcChiNn(x, y)
 ChiNn_.version = rdMolDescriptors._CalcChiNn_version
 
 
-def BalabanJ(mol, dMat=None, forceDMat=False):
+def _pyBalabanJ(mol, dMat=None, forceDMat=False):
   """ Calculate Balaban's J value for a molecule
 
   **Arguments**
@@ -519,7 +555,17 @@ def BalabanJ(mol, dMat=None, forceDMat=False):
   return J
 
 
-BalabanJ.version = "1.0.0"
+_pyBalabanJ.version = "1.0.0"
+
+
+def BalabanJ(mol, dMat=None, forceDMat=False):
+  if dMat is None:
+    return rdMolDescriptors.CalcBalabanJ(mol)
+  return _pyBalabanJ(mol, dMat=dMat, forceDMat=forceDMat)
+
+
+BalabanJ.__doc__ = _pyBalabanJ.__doc__
+BalabanJ.version = rdMolDescriptors._CalcBalabanJ_version
 
 # ------------------------------------------------------------------------
 #
@@ -609,7 +655,7 @@ def _CreateBondDictEtc(mol, numAtoms):
   return bondDict, nList, vdList
 
 
-def BertzCT(mol, cutoff=100, dMat=None, forceDMat=1):
+def _pyBertzCT(mol, cutoff=100, dMat=None, forceDMat=1):
   """ A topological index meant to quantify "complexity" of molecules.
 
      Consists of a sum of two terms, one representing the complexity
@@ -697,7 +743,17 @@ def BertzCT(mol, cutoff=100, dMat=None, forceDMat=1):
   return _CalculateEntropies(connectionDict, atomTypeDict, numAtoms)
 
 
-BertzCT.version = "2.0.0"
+_pyBertzCT.version = "2.0.0"
+
+
+def BertzCT(mol, cutoff=100, dMat=None, forceDMat=1):
+  if dMat is None:
+    return rdMolDescriptors.CalcBertzCT(mol, cutoff)
+  return _pyBertzCT(mol, cutoff=cutoff, dMat=dMat, forceDMat=forceDMat)
+
+
+BertzCT.__doc__ = _pyBertzCT.__doc__
+BertzCT.version = rdMolDescriptors._CalcBertzCT_version
 # Recent Revisions:
 #  1.0.0 -> 2.0.0:
 #    - force distance matrix updates properly (Fixed as part of Issue 125)
