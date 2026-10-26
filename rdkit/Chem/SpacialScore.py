@@ -72,7 +72,7 @@ def SPS(mol, normalize=True):
     """
   if mol is None:
     raise ValueError("No valid molecule object found.")
-  res = rdMolDescriptors.CalcSPS(mol, normalize=normalize)
+  res = rdMolDescriptors.CalcSPS(mol, normalize=bool(normalize))
   return res if normalize else int(res)
 
 
