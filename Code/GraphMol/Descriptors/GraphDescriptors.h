@@ -71,12 +71,9 @@ const std::string bertzCTVersion = "2.0.0";
   \param avg  if set, the information content divided by the total
               population (AvgIpc) is returned
 
-  <b>Note</b> like the python implementation, this uses the Le
-  Verrier-Faddeev-Frame method in double precision. For large molecules
-  (roughly 80+ heavy atoms) the polynomial coefficients become too large to
-  be represented exactly and the results are numerically unstable; in those
-  cases values may differ from the python implementation, which is equally
-  affected.
+  The characteristic polynomial is expanded from the eigenvalues of the
+  adjacency matrix, as in the python implementation, so large molecules give
+  stable values.
 */
 RDKIT_DESCRIPTORS_EXPORT double calcIpc(const ROMol &mol, bool avg = false);
 const std::string ipcVersion = "1.0.0";

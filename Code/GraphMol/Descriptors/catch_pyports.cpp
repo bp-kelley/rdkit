@@ -21,6 +21,7 @@
 #include <fstream>
 #include <functional>
 #include <map>
+#include <memory>
 #include <sstream>
 
 using namespace RDKit;
@@ -229,4 +230,37 @@ TEST_CASE("fragment descriptors") {
     CHECK_THROWS_AS(calcFragmentDescriptor(*m, "fr_not_there"),
                     KeyErrorException);
   }
+}
+
+TEST_CASE("AvgIpc is stable for long chains") {
+  // AvgIpc is the entropy of n+1 coefficients, so it is bounded by
+  // log2(n+1), and it can't decrease as a chain grows. The old
+  // Le Verrier-Faddeev recursion broke both near n=110.
+  double prev = 0.0;
+  for (unsigned int n = 20; n <= 200; n += 20) {
+    INFO("n=" << n);
+    std::unique_ptr<ROMol> m(SmilesToMol(std::string(n, 'C')));
+    REQUIRE(m);
+    auto v = calcAvgIpc(*m);
+    CHECK(v > prev);
+    CHECK(v < std::log2(n + 1.0));
+    prev = v;
+  }
+  // the polynomial of a path graph is known exactly:
+  // sum_k (-1)^k binom(n-k, k) x^(n-2k)
+  std::unique_ptr<ROMol> m(SmilesToMol("CCCCCCCC"));
+  REQUIRE(m);
+  std::vector<double> coeffs{1, 0, 7, 0, 15, 0, 10, 0, 1};
+  double total = 0.0;
+  double ent = 0.0;
+  for (auto c : coeffs) {
+    total += c;
+  }
+  for (auto c : coeffs) {
+    if (c > 0) {
+      ent -= c / total * std::log2(c / total);
+    }
+  }
+  CHECK_THAT(calcAvgIpc(*m), Catch::Matchers::WithinAbs(ent, 1e-10));
+  CHECK_THAT(calcIpc(*m), Catch::Matchers::WithinAbs(total * ent, 1e-8));
 }
