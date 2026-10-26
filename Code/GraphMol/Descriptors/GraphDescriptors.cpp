@@ -18,6 +18,9 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#ifdef RDK_HAS_EIGEN3
+#include <Eigen/Eigenvalues>
+#endif
 
 namespace RDKit {
 namespace Descriptors {
@@ -235,51 +238,96 @@ double calcBertzCT(const ROMol &mol, unsigned int cutoff) {
   return atomTypeIE + connectionIE;
 }
 
+namespace {
+// eigenvalues of the symmetric matrix a (n x n, row major)
+std::vector<double> symmetricEigenvalues(std::vector<double> a,
+                                         unsigned int n) {
+  if (n == 0) {
+    return {};
+  }
+#ifdef RDK_HAS_EIGEN3
+  Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic,
+                           Eigen::RowMajor>>
+      m(a.data(), n, n);
+  Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> solver(
+      m, Eigen::EigenvaluesOnly);
+  const auto &ev = solver.eigenvalues();
+  return std::vector<double>(ev.data(), ev.data() + n);
+#else
+  // cyclic Jacobi rotations
+  for (unsigned int sweep = 0; sweep < 100; ++sweep) {
+    double off = 0.0;
+    for (unsigned int p = 0; p < n; ++p) {
+      for (unsigned int q = p + 1; q < n; ++q) {
+        off += a[p * n + q] * a[p * n + q];
+      }
+    }
+    if (off == 0.0) {
+      break;
+    }
+    for (unsigned int p = 0; p < n; ++p) {
+      for (unsigned int q = p + 1; q < n; ++q) {
+        double apq = a[p * n + q];
+        if (apq == 0.0) {
+          continue;
+        }
+        double theta = (a[q * n + q] - a[p * n + p]) / (2.0 * apq);
+        double t = (theta >= 0 ? 1.0 : -1.0) /
+                   (std::fabs(theta) + std::sqrt(theta * theta + 1.0));
+        double c = 1.0 / std::sqrt(t * t + 1.0);
+        double sn = t * c;
+        for (unsigned int k = 0; k < n; ++k) {
+          double akp = a[k * n + p];
+          double akq = a[k * n + q];
+          a[k * n + p] = c * akp - sn * akq;
+          a[k * n + q] = sn * akp + c * akq;
+        }
+        for (unsigned int k = 0; k < n; ++k) {
+          double apk = a[p * n + k];
+          double aqk = a[q * n + k];
+          a[p * n + k] = c * apk - sn * aqk;
+          a[q * n + k] = sn * apk + c * aqk;
+        }
+        a[p * n + q] = a[q * n + p] = 0.0;
+      }
+    }
+  }
+  std::vector<double> res(n);
+  for (unsigned int i = 0; i < n; ++i) {
+    res[i] = a[i * n + i];
+  }
+  return res;
+#endif
+}
+}  // namespace
+
 double calcIpc(const ROMol &mol, bool avg) {
   const unsigned int nAts = mol.getNumAtoms();
-  // adjacency lists from the topological distance matrix (distance == 1)
-  std::vector<std::vector<unsigned int>> nbrs(nAts);
+  // adjacency matrix from the topological distance matrix (distance == 1)
+  std::vector<double> adj(nAts * nAts, 0.0);
   if (nAts) {
     const double *dMat = MolOps::getDistanceMat(mol, false, false, true);
-    for (unsigned int i = 0; i < nAts; ++i) {
-      for (unsigned int j = 0; j < nAts; ++j) {
-        if (dMat[i * nAts + j] == 1.0) {
-          nbrs[i].push_back(j);
-        }
+    for (unsigned int i = 0; i < nAts * nAts; ++i) {
+      if (dMat[i] == 1.0) {
+        adj[i] = 1.0;
       }
     }
   }
 
-  // characteristic polynomial using the Le Verrier-Faddeev-Frame method
-  // (Trinajstic, Chemical Graph Theory, 2nd Edition, pg 76)
-  std::vector<double> cPoly(nAts + 1, 0.0);
-  cPoly[0] = 1.0;
-  std::vector<double> An(nAts * nAts, 0.0);
-  for (unsigned int i = 0; i < nAts; ++i) {
-    for (auto j : nbrs[i]) {
-      An[i * nAts + j] = 1.0;
-    }
-  }
-  std::vector<double> Bn(nAts * nAts, 0.0);
-  for (unsigned int n = 1; n <= nAts; ++n) {
-    double trace = 0.0;
-    for (unsigned int i = 0; i < nAts; ++i) {
-      trace += An[i * nAts + i];
-    }
-    cPoly[n] = 1. / n * trace;
-    Bn = An;
-    for (unsigned int i = 0; i < nAts; ++i) {
-      Bn[i * nAts + i] -= cPoly[n];
-    }
-    // An = A . Bn
-    for (unsigned int i = 0; i < nAts; ++i) {
-      for (unsigned int j = 0; j < nAts; ++j) {
-        double accum = 0.0;
-        for (auto k : nbrs[i]) {
-          accum += Bn[k * nAts + j];
-        }
-        An[i * nAts + j] = accum;
-      }
+  // The characteristic polynomial is expanded from the eigenvalues, with the
+  // roots multiplied in order of increasing magnitude, as in
+  // rdkit.Chem.Graphs.CharacteristicPolynomial. The Le Verrier-Faddeev-Frame
+  // recursion used before loses all precision beyond about 80 atoms.
+  auto roots = symmetricEigenvalues(std::move(adj), nAts);
+  std::sort(roots.begin(), roots.end(), [](double x, double y) {
+    return std::fabs(x) < std::fabs(y);
+  });
+  std::vector<double> cPoly{1.0};
+  cPoly.reserve(nAts + 1);
+  for (auto r : roots) {
+    cPoly.push_back(0.0);
+    for (size_t i = cPoly.size() - 1; i > 0; --i) {
+      cPoly[i] -= r * cPoly[i - 1];
     }
   }
   for (auto &v : cPoly) {
