@@ -114,6 +114,11 @@ class TestCase(unittest.TestCase):
     self.assertEqual(sub.GetFailureValue(), 0.0)
     sub.SetFailureValue(-1.0)
     self.assertEqual(list(sub.ComputeProperties(mol)), [0.5, -1.0])
+    rows = sub.ComputeProperties([mol, None, mol], numThreads=2)
+    self.assertEqual(rows.shape, (3, 2))
+    self.assertEqual(list(rows[0]), [0.5, -1.0])
+    self.assertEqual(list(rows[2]), [0.5, -1.0])
+    self.assertTrue(all(v != v for v in rows[1]))
     sub.AnnotateProperties(mol)
     self.assertEqual(mol.GetDoubleProp('ExactMolWt'), 0.5)
     with self.assertRaises(KeyError):

@@ -38,11 +38,19 @@
 #include <GraphMol/Descriptors/Crippen.h>
 #include <GraphMol/Descriptors/MolSurf.h>
 #include <GraphMol/Descriptors/BCUT.h>
+#include <RDGeneral/RDThreads.h>
 
+#include <algorithm>
+#include <exception>
+#include <atomic>
+#include <limits>
 #include <map>
+#include <new>
+#include <unordered_map>
 #include <utility>
 
 #ifdef RDK_BUILD_THREADSAFE_SSS
+#include <future>
 #include <mutex>
 #endif
 
@@ -278,6 +286,19 @@ std::vector<std::string> Properties::getPropertyNames() const {
 }
 
 namespace {
+// what a property gives when its calculation throws, per its failureMode()
+double failedValue(const PropertyFunctor &prop, double failureValue) {
+  switch (prop.failureMode()) {
+    case PropertyFailureMode::THROW:
+      throw;
+    case PropertyFailureMode::DEFAULT_ZERO:
+      return 0.0;
+    case PropertyFailureMode::DEFAULT_NAN:
+      break;
+  }
+  return failureValue;
+}
+
 // computes properties, sharing each descriptor vector between the properties
 // that are elements of it
 class PropertyCalculator {
@@ -290,29 +311,50 @@ class PropertyCalculator {
     if (!vecProp) {
       try {
         return prop(d_mol);
+      } catch (const std::bad_alloc &) {
+        throw;
       } catch (const std::exception &) {
-        return d_failureValue;
+        return failedValue(prop, d_failureValue);
       }
     }
     auto it = d_vectors.find(vecProp->d_vectorFunc);
     if (it == d_vectors.end()) {
-      std::vector<double> vals;
+      VectorResult vr;
       try {
-        vals = vecProp->d_vectorFunc(d_mol);
+        vr.vals = vecProp->d_vectorFunc(d_mol);
+      } catch (const std::bad_alloc &) {
+        throw;
       } catch (const std::exception &) {
-        // leave it empty so that each element fails
+        vr.error = std::current_exception();
       }
-      it = d_vectors.emplace(vecProp->d_vectorFunc, std::move(vals)).first;
+      it = d_vectors.emplace(vecProp->d_vectorFunc, std::move(vr)).first;
     }
-    return vecProp->d_index < it->second.size() ? it->second[vecProp->d_index]
-                                                : d_failureValue;
+    const auto &vr = it->second;
+    if (vr.error) {
+      try {
+        std::rethrow_exception(vr.error);
+      } catch (const std::exception &) {
+        return failedValue(prop, d_failureValue);
+      }
+    }
+    if (vecProp->d_index >= vr.vals.size()) {
+      try {
+        throw ValueErrorException("vector property index out of range");
+      } catch (const std::exception &) {
+        return failedValue(prop, d_failureValue);
+      }
+    }
+    return vr.vals[vecProp->d_index];
   }
 
  private:
+  struct VectorResult {
+    std::vector<double> vals;
+    std::exception_ptr error;
+  };
   const ROMol &d_mol;
   double d_failureValue;
-  std::map<VectorElementPropertyFunctor::VectorFunc, std::vector<double>>
-      d_vectors;
+  std::map<VectorElementPropertyFunctor::VectorFunc, VectorResult> d_vectors;
 };
 }  // namespace
 
@@ -334,6 +376,72 @@ std::vector<double> Properties::computeProperties(const RDKit::ROMol &mol,
     for (size_t i = 0; i < m_properties.size(); ++i) {
       mol.setProp<double>(m_properties[i]->getName(), res[i]);
     }
+  }
+  return res;
+}
+
+std::vector<std::vector<double>> Properties::computePropertiesForMols(
+    const std::vector<const RDKit::ROMol *> &mols, int numThreads) const {
+  const auto nan = std::numeric_limits<double>::quiet_NaN();
+  std::vector<std::vector<double>> res(
+      mols.size(), std::vector<double>(m_properties.size(), nan));
+
+  // Each distinct molecule is computed exactly once: property calculators
+  // may cache results on the molecule (or initialize its ring info), so the
+  // same molecule must never be processed by more than one thread.
+  std::vector<size_t> todo;
+  std::vector<std::pair<size_t, size_t>> repeats;  // (repeat, first)
+  {
+    std::unordered_map<const ROMol *, size_t> firstSeen;
+    firstSeen.reserve(mols.size());
+    for (size_t i = 0; i < mols.size(); ++i) {
+      if (!mols[i]) {
+        continue;
+      }
+      auto [it, inserted] = firstSeen.emplace(mols[i], i);
+      if (inserted) {
+        todo.push_back(i);
+      } else {
+        repeats.emplace_back(i, it->second);
+      }
+    }
+  }
+
+  // Workers pull the next unprocessed entry of `todo` from a shared atomic
+  // index, so uneven molecule costs balance across threads.
+  std::atomic<size_t> nextIdx{0};
+  auto worker = [&]() {
+    for (size_t t = nextIdx.fetch_add(1); t < todo.size();
+         t = nextIdx.fetch_add(1)) {
+      // virtual, so that subclasses (e.g. normalizers) apply here too
+      res[todo[t]] = computeProperties(*mols[todo[t]]);
+    }
+  };
+
+  auto nThreads = std::min<size_t>(todo.size(), getNumThreadsToUse(numThreads));
+#ifdef RDK_BUILD_THREADSAFE_SSS
+  if (nThreads <= 1) {
+    worker();
+  } else {
+    // declared after res so that, if an exception unwinds the stack, the
+    // futures are destroyed (waiting for their tasks) before res is
+    std::vector<std::future<void>> tasks;
+    tasks.reserve(nThreads);
+    for (size_t ti = 0; ti < nThreads; ++ti) {
+      tasks.emplace_back(std::async(std::launch::async, worker));
+    }
+    for (auto &task : tasks) {
+      task.get();
+    }
+  }
+#else
+  // threads are compiled out: getNumThreadsToUse() is 1 here anyway
+  RDUNUSED_PARAM(nThreads);
+  worker();
+#endif
+
+  for (const auto &[repeat, first] : repeats) {
+    res[repeat] = res[first];
   }
   return res;
 }

@@ -9,7 +9,9 @@
 //
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
+#define PY_ARRAY_UNIQUE_SYMBOL rdmoldescriptors_array_API
 #include <RDBoost/Wrap.h>
+#include <RDBoost/import_array.h>
 #include <GraphMol/Atom.h>
 #include <GraphMol/GraphMol.h>
 
@@ -36,6 +38,7 @@
 #include <GraphMol/Descriptors/MolDescriptors3D.h>
 #endif
 
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -333,7 +336,7 @@ namespace {
 double kappaHelper(double (*fn)(const RDKit::ROMol &, std::vector<double> *),
                    const RDKit::ROMol &mol, python::object atomContribs) {
   std::vector<double> *lContribs = nullptr;
-  if (atomContribs != python::object()) {
+  if (!atomContribs.is_none()) {
     // make sure the optional argument actually was a list
     python::list typecheck = python::extract<python::list>(atomContribs);
 
@@ -392,7 +395,7 @@ MorganFingerprintHelper(const RDKit::ROMol &mol, unsigned int radius, int nBits,
     }
   }
   RDKit::MorganFingerprints::BitInfoMap *bitInfoMap = nullptr;
-  if (bitInfo != python::object()) {
+  if (!bitInfo.is_none()) {
     // make sure the optional argument actually was a dictionary
     python::dict typecheck = python::extract<python::dict>(bitInfo);
     bitInfoMap = new RDKit::MorganFingerprints::BitInfoMap();
@@ -526,7 +529,7 @@ GetMorganFingerprintBV(const RDKit::ROMol &mol, unsigned int radius,
   std::unique_ptr<std::vector<std::uint32_t>> froms =
       pythonObjectToVect(fromAtoms, mol.getNumAtoms());
   RDKit::MorganFingerprints::BitInfoMap *bitInfoMap = nullptr;
-  if (bitInfo != python::object()) {
+  if (!bitInfo.is_none()) {
     // make sure the optional argument actually was a dictionary
     python::dict typecheck = python::extract<python::dict>(bitInfo);
     bitInfoMap = new RDKit::MorganFingerprints::BitInfoMap();
@@ -616,7 +619,7 @@ python::list GetUSRDistributions(python::object coords, python::object points) {
   std::vector<RDGeom::Point3D> pts(4);
   std::vector<std::vector<double>> distances(4);
   RDKit::Descriptors::calcUSRDistributions(c, distances, pts);
-  if (points != python::object()) {
+  if (!points.is_none()) {
     // make sure the optional argument actually was a list
     python::list tmpPts = python::extract<python::list>(points);
     for (const auto &p : pts) {
@@ -734,7 +737,7 @@ python::list GetUSRCAT(const RDKit::ROMol &mol, python::object atomSelections,
   // check if there is an atom selection provided
   std::vector<std::vector<unsigned int>> atomIds;
   unsigned int sizeDescriptor = 60;
-  if (atomSelections != python::object()) {
+  if (!atomSelections.is_none()) {
     // make sure the optional argument actually was a list
     python::list typecheck = python::extract<python::list>(atomSelections);
     unsigned int numSel = python::len(atomSelections);
@@ -856,8 +859,8 @@ python::list CalcMQNs(const RDKit::ROMol &mol, bool force) {
 unsigned int numSpiroAtoms(const RDKit::ROMol &mol, python::object pyatoms) {
   std::vector<unsigned int> ats;
   unsigned int res = RDKit::Descriptors::calcNumSpiroAtoms(
-      mol, pyatoms != python::object() ? &ats : nullptr);
-  if (pyatoms != python::object()) {
+      mol, !pyatoms.is_none() ? &ats : nullptr);
+  if (!pyatoms.is_none()) {
     python::list pyres = python::extract<python::list>(pyatoms);
     for (const auto d : ats) {
       pyres.append(d);
@@ -869,8 +872,8 @@ unsigned int numBridgeheadAtoms(const RDKit::ROMol &mol,
                                 python::object pyatoms) {
   std::vector<unsigned int> ats;
   unsigned int res = RDKit::Descriptors::calcNumBridgeheadAtoms(
-      mol, pyatoms != python::object() ? &ats : nullptr);
-  if (pyatoms != python::object()) {
+      mol, !pyatoms.is_none() ? &ats : nullptr);
+  if (!pyatoms.is_none()) {
     python::list pyres = python::extract<python::list>(pyatoms);
     for (const auto d : ats) {
       pyres.append(d);
@@ -889,9 +892,25 @@ struct PythonPropertyFunctor : public RDKit::Descriptors::PropertyFunctor {
       : PropertyFunctor(name, version), self(self) {}
 
   double operator()(const RDKit::ROMol &mol) const override {
+    // make sure we hold the GIL, in case we're called from a C++ thread
+    PyGILStateHolder h;
     return python::call_method<double>(self, "__call__", boost::ref(mol));
   }
+
+  // exceptions from Python callbacks must reach the caller
+  RDKit::Descriptors::PropertyFailureMode failureMode() const override {
+    return RDKit::Descriptors::PropertyFailureMode::THROW;
+  }
 };
+
+// The Python callbacks need the GIL and their exceptions must be restored on
+// the calling thread, so batches containing them are not run on workers
+bool hasPythonProperties(const RDKit::Descriptors::Properties &props) {
+  const auto &functors = props.getProperties();
+  return std::any_of(functors.begin(), functors.end(), [](const auto &f) {
+    return dynamic_cast<const PythonPropertyFunctor *>(f.get()) != nullptr;
+  });
+}
 
 int registerPropertyHelper(python::object o) {
   // We increase the refcount to make sure the original Python object
@@ -903,6 +922,61 @@ int registerPropertyHelper(python::object o) {
   python::incref(o.ptr());
   python::extract<boost::shared_ptr<PythonPropertyFunctor>> ptr(o);
   return RDKit::Descriptors::Properties::registerProperty(ptr());
+}
+
+PyObject *computePropertiesForMolsHelper(
+    const RDKit::Descriptors::Properties &self, python::object pymols,
+    int numThreads) {
+  // Iterate with the iterator protocol. boost::python::stl_input_iterator
+  // would require __iter__, which rejects valid __getitem__-only sequences.
+  // A null iterator means the input is not iterable: the TypeError set by
+  // PyObject_GetIter is what gets raised.
+  python::handle<> iter(python::allow_null(PyObject_GetIter(pymols.ptr())));
+  if (!iter) {
+    python::throw_error_already_set();
+  }
+  // keep references to the python objects so that the molecules stay alive
+  // while we work without the GIL
+  std::vector<python::object> keepAlive;
+  std::vector<const RDKit::ROMol *> mols;
+  while (true) {
+    python::handle<> itemHandle(python::allow_null(PyIter_Next(iter.get())));
+    if (!itemHandle) {
+      if (PyErr_Occurred()) {
+        python::throw_error_already_set();
+      }
+      break;
+    }
+    python::object obj(itemHandle);
+    if (obj.is_none()) {
+      mols.push_back(nullptr);
+    } else {
+      mols.push_back(python::extract<const RDKit::ROMol *>(obj)());
+    }
+    keepAlive.push_back(obj);
+  }
+
+  std::vector<std::vector<double>> rows;
+  if (hasPythonProperties(self)) {
+    // Python callbacks need the GIL, so there's no benefit to threading
+    rows = self.computePropertiesForMols(mols, 1);
+  } else {
+    NOGIL gil;
+    rows = self.computePropertiesForMols(mols, numThreads);
+  }
+
+  npy_intp dims[2] = {static_cast<npy_intp>(mols.size()),
+                      static_cast<npy_intp>(self.getPropertyNames().size())};
+  auto *arr =
+      reinterpret_cast<PyArrayObject *>(PyArray_SimpleNew(2, dims, NPY_DOUBLE));
+  if (!arr) {
+    python::throw_error_already_set();
+  }
+  auto *data = static_cast<double *>(PyArray_DATA(arr));
+  for (const auto &row : rows) {
+    data = std::copy(row.begin(), row.end(), data);
+  }
+  return PyArray_Return(arr);
 }
 
 boost::shared_ptr<RDKit::Descriptors::DoubleCubicLatticeVolume>
@@ -944,9 +1018,9 @@ double getPartialVolumeHelper(
 }
 
 python::dict getSurfacePointsHelper(
-    RDKit::Descriptors::DoubleCubicLatticeVolume &self) {
+    RDKit::Descriptors::DoubleCubicLatticeVolume &self, bool allPoints) {
   const std::map<unsigned int, std::vector<RDGeom::Point3D>> &points =
-      self.getSurfacePoints();
+      self.getSurfacePoints(allPoints);
   python::dict surfacePoints;
 
   for (const auto &it : points) {
@@ -1058,6 +1132,7 @@ double CalcQEDHelper(const RDKit::ROMol &mol, python::object weights,
 }  // namespace
 
 BOOST_PYTHON_MODULE(rdMolDescriptors) {
+  rdkit_import_array();
   python::scope().attr("__doc__") =
       "Module containing functions to compute molecular descriptors";
 
@@ -1728,6 +1803,9 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
       "for name, value in zip(properties.GetPropertyNames(), "
       "properties.ComputeProperties(mol)):\n"
       "  print(name, value)\n\n"
+      "To compute properties for many molecules at once (returns a numpy "
+      "array with one row per molecule)\n"
+      "values = properties.ComputeProperties(mols, numThreads=4)\n\n"
       "";
 
   python::class_<RDKit::Descriptors::Properties,
@@ -1739,6 +1817,26 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
            &RDKit::Descriptors::Properties::getPropertyNames,
            python::args("self"),
            "Return the property names computed by this instance")
+      .def("ComputeProperties", computePropertiesForMolsHelper,
+           ((python::arg("self"), python::arg("mols")),
+            python::arg("numThreads") = 1),
+           R"DOC(Compute the properties for a sequence of molecules.
+
+  ARGUMENTS:
+    - mols: an iterable of molecules. None entries are allowed and produce
+      a row of NaNs.
+    - numThreads: the number of threads to use, only has an effect if the
+      RDKit was built with multi-thread support. If this is zero, the max
+      supported by the system will be used. If it is negative, that number
+      is subtracted from the max supported by the system.
+      Python-defined properties are always computed on the calling thread.
+
+  RETURNS:
+    a numpy array of floats with shape (len(mols), len(GetPropertyNames())).
+    Row i contains the values ComputeProperties(mols[i]) returns. Values that
+    cannot be computed are NaN; exceptions raised by Python-defined
+    properties are propagated.
+)DOC")
       .def("ComputeProperties",
            &RDKit::Descriptors::Properties::computeProperties,
            ((python::arg("self"), python::arg("mol")),
@@ -1847,8 +1945,10 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
           "GetPartialSurfaceArea", &getPartialSurfaceAreaHelper,
           (python::arg("atomIndices")),
           "Get the Partial Surface Area of the Molecule or Protein for specified subset of atoms")
-      .def("GetSurfacePoints", &getSurfacePointsHelper,
-           "Get the set of points representing the surface")
+      .def(
+          "GetSurfacePoints", &getSurfacePointsHelper,
+          (python::arg("self"), python::arg("allPoints") = false),
+          "Get the set of points representing the surface. If allPoints is True, returns all surface points; otherwise, returns the standard surface points.")
       .def("GetVolume",
            &RDKit::Descriptors::DoubleCubicLatticeVolume::getVolume,
            "Get the Total Volume of the Molecule or Protein")

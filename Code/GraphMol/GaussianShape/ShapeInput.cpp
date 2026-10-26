@@ -96,7 +96,7 @@ namespace {
 // is necessary for this and seemed to leave the molecule in an odd state
 // that didn't play well with extractAtoms.
 std::unique_ptr<RWMol> extractSubset(
-    const RWMol &mol, const std::vector<unsigned int> &atomsToKeep) {
+    const ROMol &mol, const std::vector<unsigned int> &atomsToKeep) {
   auto retMol = std::make_unique<RWMol>(mol);
   boost::dynamic_bitset<> keepAtoms(mol.getNumAtoms());
   for (const auto atk : atomsToKeep) {
@@ -144,7 +144,7 @@ ShapeInput::ShapeInput(const ROMol &mol, const int confId,
   d_smiles = MolToSmiles(*tmpMol);
   std::vector<unsigned int> atOrder;
   tmpMol->getProp(common_properties::_smilesAtomOutputOrder, atOrder);
-  tmpMol.reset(dynamic_cast<RWMol *>(MolOps::renumberAtoms(*tmpMol, atOrder)));
+  tmpMol.reset(static_cast<RWMol *>(MolOps::renumberAtoms(*tmpMol, atOrder)));
 
   if (!tmpMol->getRingInfo()->isInitialized()) {
     // Query molecules don't seem to have the ring info generated on creation.
@@ -1062,6 +1062,10 @@ double maxScore(const double v1, const double v2, const double c1,
   // is v1, and the opposite.
   auto maxPart = [](const double p1, const double p2,
                     const ShapeOverlayOptions &ovlyOpts) -> double {
+    // If either is 0, the maximum overlap must be 0.
+    if (p1 == 0.0 || p2 == 0.0) {
+      return 0.0;
+    }
     if (p1 < p2) {
       return p1 / (ovlyOpts.simBeta * (p2 - p1) + p1);
     }

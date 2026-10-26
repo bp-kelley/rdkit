@@ -147,9 +147,9 @@ if(NOT MSVC AND RDK_OPTIMIZE_POPCNT)
   endif()
 endif()
 
-# Detect clang, which masquerades as gcc.  CMake 2.6 doesn't know how to
-# detect it.
-string(REGEX MATCH "clang" CMAKE_COMPILER_IS_CLANG "${CMAKE_C_COMPILER}")
+# CMAKE_CXX_COMPILER_ID covers clang regardless of the executable's name
+# (e.g. FreeBSD's cc and c++ are clang, and package-installed compilers may
+# be named clang23/clang++23).
 # Detect emcc
 string(REGEX MATCH "Emscripten" CMAKE_COMPILER_IS_EMCC "${CMAKE_SYSTEM_NAME}")
 
@@ -171,7 +171,7 @@ if(RDK_SWIG_STATIC AND RDK_BUILD_SWIG_WRAPPERS)
     set(RDK_INSTALL_STATIC_LIBS ON CACHE BOOL "install the rdkit static libraries" FORCE)
   endif(NOT MSVC AND NOT RDK_INSTALL_STATIC_LIBS)
 endif()
-if ((MSVC AND (NOT RDK_INSTALL_DLLS_MSVC)) OR (WIN32 AND RDK_INSTALL_STATIC_LIBS) OR RDK_BUILD_MINIMAL_LIB)
+if ((MSVC AND (NOT RDK_INSTALL_DLLS_MSVC)) OR (WIN32 AND RDK_INSTALL_STATIC_LIBS) OR EMSCRIPTEN OR RDK_BUILD_MINIMAL_LIB)
   set(RDK_BUILD_STATIC_LIBS_ONLY ON)
 else()
   set(RDK_BUILD_STATIC_LIBS_ONLY OFF)
@@ -210,7 +210,7 @@ set(RDK_PYTHON_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/rdkit")
 set(RDKit_Year "2026")
 set(RDKit_Month "09")
 set(RDKit_Revision "1")
-set(RDKit_RevisionModifier "pre")
+set(RDKit_RevisionModifier "")
 set(RDKit_ABI "1")
 
 # we need an integer version of the month later, so remove the zero padding
@@ -222,17 +222,19 @@ set(RDKit_ExternalDir "${CMAKE_CURRENT_SOURCE_DIR}/External")
 set(RDKit_DataDir "${CMAKE_CURRENT_SOURCE_DIR}/Data")
 
 #include catch
-find_package(Catch2 3 QUIET)
-if(NOT Catch2_FOUND)
-  Include(FetchContent)
+if(RDK_BUILD_CPP_TESTS)
+  find_package(Catch2 3 QUIET)
+  if(NOT Catch2_FOUND)
+    Include(FetchContent)
 
-  FetchContent_Declare(
-    Catch2
-    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG        v3.4.0 # or a later release
-  )
+    FetchContent_Declare(
+      Catch2
+      GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+      GIT_TAG        v3.4.0 # or a later release
+    )
 
-  FetchContent_MakeAvailable(Catch2)
+    FetchContent_MakeAvailable(Catch2)
+  endif()
 endif()
 
 # make sure we have better_enums
@@ -320,8 +322,7 @@ endif()
 if(MINGW)
   target_compile_definitions(rdkit_base INTERFACE "-DBOOST_SYSTEM_NO_DEPRECATED")
 endif(MINGW)
-# fallback on match to "Clang" where CMAKE_C_COMPILER=/usr/bin/cc
-if (CMAKE_COMPILER_IS_CLANG OR CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_COMPILER_IS_EMCC)
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_COMPILER_IS_EMCC)
   if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15)
     target_compile_definitions(rdkit_base INTERFACE -DBOOST_SYSTEM_NO_DEPRECATED -DBOOST_NO_CXX98_FUNCTION_BASE -D_HAS_AUTO_PTR_ETC=0)
     target_compile_options(rdkit_base INTERFACE -Wno-deprecated-builtins -Wno-deprecated-non-prototype -Wno-unused-parameter)
@@ -444,7 +445,7 @@ if(RDK_BUILD_BOOST_PYTHON_WRAPPERS)
 
   #-------
   # pull in python:
-  find_package(Python COMPONENTS Interpreter Development.Module NumPy)
+  find_package(Python COMPONENTS Interpreter Development.Module Development.Embed NumPy)
   target_include_directories(rdkit_py_base INTERFACE ${Python_INCLUDE_DIRS})
   target_include_directories(rdkit_py_base INTERFACE ${Python_NumPy_INCLUDE_DIRS})
   target_compile_definitions(rdkit_py_base INTERFACE "-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION")
@@ -506,7 +507,7 @@ if(RDK_BUILD_BOOST_PYTHON_WRAPPERS)
 
   endif(RDK_INSTALL_INTREE)
 
-  if(NOT WIN32)
+  if(NOT WIN32 AND NOT EMSCRIPTEN)
     # See https://bugs.python.org/msg277944
     # The "command to create shared modules". Used as variable in the "Makefile (and similar) templates to build python modules"
     # for both in-python and third party modules. Initialized to hold the value which works for third party modules to link

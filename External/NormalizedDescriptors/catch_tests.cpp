@@ -274,6 +274,20 @@ TEST_CASE("NormalizedProperties") {
     CHECK(mol->getProp<double>("ExactMolWt") == 0.5);
     CHECK(mol->getProp<double>("NumHDonors") == -1.0);
   }
+  SECTION("batches are normalized too") {
+    std::unique_ptr<RDKit::ROMol> mol2(RDKit::SmilesToMol("CCO"));
+    REQUIRE(mol2);
+    NormalizedProperties props(getNormalizedDescriptorNames(),
+                               getDefaultTables());
+    std::vector<const RDKit::ROMol *> mols{mol.get(), nullptr, mol2.get()};
+    for (int numThreads : {1, 2}) {
+      auto rows = props.computePropertiesForMols(mols, numThreads);
+      REQUIRE(rows.size() == 3);
+      CHECK(rows[0] == props.computeProperties(*mol));
+      CHECK(std::isnan(rows[1][0]));
+      CHECK(rows[2] == props.computeProperties(*mol2));
+    }
+  }
   SECTION("unknown names") {
     CHECK_THROWS_AS(
         NormalizedProperties({"NotADescriptor"}, getDefaultTables()),
