@@ -151,7 +151,6 @@ class TestCase(unittest.TestCase):
     self.assertTrue(nFails < nFailsAllowed)
 
   def testDetails(self):
-    Crippen._Init()
     with open(self.detailName, 'r') as inTF:
       buf = inTF.read().replace('\r\n', '\n').encode('utf-8')
       inTF.close()
@@ -162,7 +161,6 @@ class TestCase(unittest.TestCase):
       self._doDetailFile(inF)
 
   def testDetails2(self):
-    Crippen._Init()
     with open(self.detailName2, 'r') as inTF:
       buf = inTF.read().replace('\r\n', '\n').encode('utf-8')
       inTF.close()

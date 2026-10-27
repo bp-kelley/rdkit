@@ -49,19 +49,15 @@ NOCountSmarts = Chem.MolFromSmarts('[#7,#8]')
 NumHDonors = lambda x: rdMolDescriptors.CalcNumHBD(x)
 NumHDonors.__doc__ = "Number of Hydrogen Bond Donors"
 NumHDonors.version = "1.0.0"
-_HDonors = lambda x, y=HDonorSmarts: x.GetSubstructMatches(y, uniquify=1)
 NumHAcceptors = lambda x: rdMolDescriptors.CalcNumHBA(x)
 NumHAcceptors.__doc__ = "Number of Hydrogen Bond Acceptors"
 NumHAcceptors.version = "2.0.0"
-_HAcceptors = lambda x, y=HAcceptorSmarts: x.GetSubstructMatches(y, uniquify=1)
 NumHeteroatoms = lambda x: rdMolDescriptors.CalcNumHeteroatoms(x)
 NumHeteroatoms.__doc__ = "Number of Heteroatoms"
 NumHeteroatoms.version = "1.0.0"
-_Heteroatoms = lambda x, y=HeteroatomSmarts: x.GetSubstructMatches(y, uniquify=1)
 NumRotatableBonds = lambda x: rdMolDescriptors.CalcNumRotatableBonds(x)
 NumRotatableBonds.__doc__ = "Number of Rotatable Bonds"
 NumRotatableBonds.version = "1.0.0"
-_RotatableBonds = lambda x, y=RotatableBondSmarts: x.GetSubstructMatches(y, uniquify=1)
 NOCount = lambda x: rdMolDescriptors.CalcNumLipinskiHBA(x)
 NOCount.__doc__ = "Number of Nitrogens and Oxygens"
 NOCount.version = "1.0.0"

@@ -168,46 +168,6 @@ class TestCase_descriptorRegression(unittest.TestCase):
     self.__testDesc(fName, 14, MolSurf.SlogP_VSA12)
 
 
-class TestCase_python(unittest.TestCase):
-  """ Test the Python implementation of the various descriptors """
-
-  def test_pyTPSA(self):
-    for data in TestCase.readNCI_200():
-      molPy = Chem.MolFromSmiles(data.smiles)
-      self.assertAlmostEqual(MolSurf.TPSA(data.mol), MolSurf._pyTPSA(molPy))
-
-  def test_pyLabuteASA(self):
-    for data in TestCase.readNCI_200():
-      molPy = Chem.MolFromSmiles(data.smiles)
-      self.assertAlmostEqual(MolSurf.LabuteASA(data.mol), MolSurf.pyLabuteASA(molPy))
-
-  def test_pyPEOE_VSA_(self):
-    for data in TestCase.readNCI_200():
-      molPy = Chem.MolFromSmiles(data.smiles)
-      for calcC, calcPy in zip(MolSurf.PEOE_VSA_(data.mol), MolSurf.pyPEOE_VSA_(molPy,
-                                                                                force=False)):
-        self.assertAlmostEqual(calcC, calcPy)
-
-  def test_pySlogP_VSA_(self):
-    for data in TestCase.readNCI_200():
-      molPy = Chem.MolFromSmiles(data.smiles)
-      for calcC, calcPy in zip(MolSurf.SlogP_VSA_(data.mol),
-                               MolSurf.pySlogP_VSA_(molPy, force=False)):
-        self.assertAlmostEqual(calcC, calcPy)
-
-  def test_pySMR_VSA_(self):
-    for data in TestCase.readNCI_200():
-      molPy = Chem.MolFromSmiles(data.smiles)
-      for calcC, calcPy in zip(MolSurf.SMR_VSA_(data.mol), MolSurf.pySMR_VSA_(molPy, force=False)):
-        self.assertAlmostEqual(calcC, calcPy)
-
-  def test_pyLabuteHelper(self):
-    for data in TestCase.readNCI_200():
-      molPy = Chem.MolFromSmiles(data.smiles)
-      for calcC, calcPy in zip(MolSurf._LabuteHelper(data.mol), MolSurf._pyLabuteHelper(molPy)):
-        self.assertAlmostEqual(calcC, calcPy)
-
-
 def readPSAtestData(filename):
   """ Read test data for PSA method from file """
   with open(filename, 'r') as f:
