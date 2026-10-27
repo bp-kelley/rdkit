@@ -1082,12 +1082,75 @@ python::tuple GetFragmentDescriptorSmartsHelper() {
   return python::tuple(res);
 }
 
-python::list CalcFragmentDescriptorsHelper(const RDKit::ROMol &mol) {
+python::tuple GetFragmentDescriptorDescriptionsHelper() {
   python::list res;
-  for (auto v : RDKit::Descriptors::calcFragmentDescriptors(mol)) {
+  for (const auto &descr :
+       RDKit::Descriptors::getFragmentDescriptorDescriptions()) {
+    res.append(descr);
+  }
+  return python::tuple(res);
+}
+
+unsigned int CalcFragmentDescriptorHelper(const RDKit::ROMol &mol,
+                                          const std::string &name,
+                                          bool countUnique) {
+  return RDKit::Descriptors::calcFragmentDescriptor(mol, name, countUnique);
+}
+
+python::list CalcFragmentDescriptorsHelper(const RDKit::ROMol &mol,
+                                            bool countUnique) {
+  python::list res;
+  for (auto v : RDKit::Descriptors::calcFragmentDescriptors(mol, countUnique)) {
     res.append(v);
   }
   return res;
+}
+
+// converts an optional python distance matrix (anything numpy can turn into
+// a 2D array of doubles) to a row-major vector. Returns false for None.
+bool pyObjectToDistMat(const RDKit::ROMol &mol, python::object dMat,
+                       std::vector<double> &res) {
+  if (dMat.is_none()) {
+    return false;
+  }
+  PyObject *arr = PyArray_FROMANY(dMat.ptr(), NPY_DOUBLE, 2, 2,
+                                  NPY_ARRAY_IN_ARRAY | NPY_ARRAY_FORCECAST);
+  if (!arr) {
+    python::throw_error_already_set();
+  }
+  python::handle<> holder(arr);
+  auto *pa = reinterpret_cast<PyArrayObject *>(arr);
+  const auto nAts = static_cast<npy_intp>(mol.getNumAtoms());
+  if (PyArray_DIM(pa, 0) != nAts || PyArray_DIM(pa, 1) != nAts) {
+    throw ValueErrorException(
+        "the distance matrix must have shape (nAtoms, nAtoms)");
+  }
+  const auto *data = static_cast<const double *>(PyArray_DATA(pa));
+  res.assign(data, data + nAts * nAts);
+  return true;
+}
+
+double CalcBalabanJHelper(const RDKit::ROMol &mol, python::object dMat) {
+  std::vector<double> dm;
+  return RDKit::Descriptors::calcBalabanJ(
+      mol, pyObjectToDistMat(mol, dMat, dm) ? dm.data() : nullptr);
+}
+
+double CalcBertzCTHelper(const RDKit::ROMol &mol, unsigned int cutoff,
+                         python::object dMat) {
+  std::vector<double> dm;
+  return RDKit::Descriptors::calcBertzCT(
+      mol, cutoff, pyObjectToDistMat(mol, dMat, dm) ? dm.data() : nullptr);
+}
+
+double CalcIpcHelper(const RDKit::ROMol &mol, bool avg, python::object dMat) {
+  std::vector<double> dm;
+  return RDKit::Descriptors::calcIpc(
+      mol, avg, pyObjectToDistMat(mol, dMat, dm) ? dm.data() : nullptr);
+}
+
+double CalcAvgIpcHelper(const RDKit::ROMol &mol, python::object dMat) {
+  return CalcIpcHelper(mol, true, dMat);
 }
 
 python::tuple QEDPropertiesToTuple(
@@ -2162,28 +2225,36 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
               "From equations (1),(11) and (12) of Rev. Comp. Chem. vol 2, "
               "367-422, (1991)");
   python::scope().attr("_CalcChi1_version") = RDKit::Descriptors::chi1Version;
-  python::def("CalcBalabanJ", RDKit::Descriptors::calcBalabanJ,
-              python::arg("mol"),
+  python::def("CalcBalabanJ", CalcBalabanJHelper,
+              (python::arg("mol"), python::arg("dMat") = python::object()),
               "Returns Balaban's J value (Chem. Phys. Lett. vol 89, 399-404, "
-              "(1982))");
+              "(1982)). dMat is an optional (nAtoms, nAtoms) distance matrix "
+              "to use instead of the bond-order weighted one");
   python::scope().attr("_CalcBalabanJ_version") =
       RDKit::Descriptors::balabanJVersion;
-  python::def("CalcBertzCT", RDKit::Descriptors::calcBertzCT,
-              (python::arg("mol"), python::arg("cutoff") = 100),
+  python::def("CalcBertzCT", CalcBertzCTHelper,
+              (python::arg("mol"), python::arg("cutoff") = 100,
+               python::arg("dMat") = python::object()),
               "Returns Bertz's complexity index (J. Am. Chem. Soc., vol 103, "
-              "3599-3601 (1981))");
+              "3599-3601 (1981)). dMat is an optional (nAtoms, nAtoms) "
+              "distance matrix used to assign the symmetry classes instead "
+              "of the bond-order weighted one");
   python::scope().attr("_CalcBertzCT_version") =
       RDKit::Descriptors::bertzCTVersion;
-  python::def("CalcIpc", RDKit::Descriptors::calcIpc,
-              (python::arg("mol"), python::arg("avg") = false),
+  python::def("CalcIpc", CalcIpcHelper,
+              (python::arg("mol"), python::arg("avg") = false,
+               python::arg("dMat") = python::object()),
               "Returns the information content of the coefficients of the "
               "characteristic polynomial of the adjacency matrix (Eq 6 of "
               "Bonchev & Trinajstic, J. Chem. Phys. vol 67, 4517-4533 "
-              "(1977)); with avg, divided by the total population");
+              "(1977)); with avg, divided by the total population. dMat is "
+              "an optional (nAtoms, nAtoms) distance matrix; the adjacency "
+              "matrix is taken from its entries equal to 1");
   python::scope().attr("_CalcIpc_version") = RDKit::Descriptors::ipcVersion;
-  python::def("CalcAvgIpc", RDKit::Descriptors::calcAvgIpc, python::arg("mol"),
+  python::def("CalcAvgIpc", CalcAvgIpcHelper,
+              (python::arg("mol"), python::arg("dMat") = python::object()),
               "Returns the average information content (Eq 7 of Bonchev & "
-              "Trinajstic)");
+              "Trinajstic). dMat is as for CalcIpc");
   python::scope().attr("_CalcAvgIpc_version") =
       RDKit::Descriptors::avgIpcVersion;
 
@@ -2237,15 +2308,21 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
   python::def("GetFragmentDescriptorSmarts", GetFragmentDescriptorSmartsHelper,
               "Returns the SMARTS of the fragment descriptors, in the order "
               "of GetFragmentDescriptorNames");
+  python::def("GetFragmentDescriptorDescriptions",
+              GetFragmentDescriptorDescriptionsHelper,
+              "Returns the descriptions of the fragment descriptors, in the "
+              "order of GetFragmentDescriptorNames");
   python::def("CalcFragmentDescriptors", CalcFragmentDescriptorsHelper,
-              python::arg("mol"),
-              "Returns the number of unique matches of each fragment "
-              "pattern, in the order of GetFragmentDescriptorNames");
-  python::def("CalcFragmentDescriptor",
-              RDKit::Descriptors::calcFragmentDescriptor,
-              (python::arg("mol"), python::arg("name")),
-              "Returns the number of unique matches of one fragment pattern, "
-              "e.g. 'fr_benzene'");
+              (python::arg("mol"), python::arg("countUnique") = true),
+              "Returns the number of matches of each fragment pattern, in "
+              "the order of GetFragmentDescriptorNames. Only unique matches "
+              "are counted unless countUnique is false");
+  python::def("CalcFragmentDescriptor", CalcFragmentDescriptorHelper,
+              (python::arg("mol"), python::arg("name"),
+               python::arg("countUnique") = true),
+              "Returns the number of matches of one fragment pattern, e.g. "
+              "'fr_benzene'. Only unique matches are counted unless "
+              "countUnique is false");
   python::scope().attr("_CalcFragmentDescriptors_version") =
       RDKit::Descriptors::FragmentDescriptorsVersion;
 

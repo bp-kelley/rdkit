@@ -1075,6 +1075,24 @@ double CalcQEDHelper(const RDKit::ROMol &mol,
   return RDKit::Descriptors::calcQED(vectToQEDProperties(*qedProperties), w);
 }
 
+using DistMatArray =
+    nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
+
+// returns the data of an optional (nAtoms, nAtoms) distance matrix, or
+// nullptr when none was given
+const double *distMatData(const RDKit::ROMol &mol,
+                          const std::optional<DistMatArray> &dMat) {
+  if (!dMat) {
+    return nullptr;
+  }
+  if (dMat->shape(0) != mol.getNumAtoms() ||
+      dMat->shape(1) != mol.getNumAtoms()) {
+    throw ValueErrorException(
+        "the distance matrix must have shape (nAtoms, nAtoms)");
+  }
+  return dMat->data();
+}
+
 }  // namespace
 
 NB_MODULE(rdMolDescriptors, m) {
@@ -1884,24 +1902,51 @@ query.Match( mol ))DOC",
         "From equations (1),(11) and (12) of Rev. Comp. Chem. vol 2, "
         "367-422, (1991)");
   m.attr("_CalcChi1_version") = RDKit::Descriptors::chi1Version;
-  m.def("CalcBalabanJ", RDKit::Descriptors::calcBalabanJ, "mol"_a,
-        "Returns Balaban's J value (Chem. Phys. Lett. vol 89, 399-404, "
-        "(1982))");
+  m.def(
+      "CalcBalabanJ",
+      [](const RDKit::ROMol &mol, const std::optional<DistMatArray> &dMat) {
+        return RDKit::Descriptors::calcBalabanJ(mol, distMatData(mol, dMat));
+      },
+      "mol"_a, "dMat"_a = nb::none(),
+      "Returns Balaban's J value (Chem. Phys. Lett. vol 89, 399-404, "
+      "(1982)). dMat is an optional (nAtoms, nAtoms) distance matrix to use "
+      "instead of the bond-order weighted one");
   m.attr("_CalcBalabanJ_version") = RDKit::Descriptors::balabanJVersion;
-  m.def("CalcBertzCT", RDKit::Descriptors::calcBertzCT, "mol"_a,
-        "cutoff"_a = 100,
-        "Returns Bertz's complexity index (J. Am. Chem. Soc., vol 103, "
-        "3599-3601 (1981))");
+  m.def(
+      "CalcBertzCT",
+      [](const RDKit::ROMol &mol, unsigned int cutoff,
+         const std::optional<DistMatArray> &dMat) {
+        return RDKit::Descriptors::calcBertzCT(mol, cutoff,
+                                               distMatData(mol, dMat));
+      },
+      "mol"_a, "cutoff"_a = 100, "dMat"_a = nb::none(),
+      "Returns Bertz's complexity index (J. Am. Chem. Soc., vol 103, "
+      "3599-3601 (1981)). dMat is an optional (nAtoms, nAtoms) distance "
+      "matrix used to assign the symmetry classes instead of the bond-order "
+      "weighted one");
   m.attr("_CalcBertzCT_version") = RDKit::Descriptors::bertzCTVersion;
-  m.def("CalcIpc", RDKit::Descriptors::calcIpc, "mol"_a, "avg"_a = false,
-        "Returns the information content of the coefficients of the "
-        "characteristic polynomial of the adjacency matrix (Eq 6 of Bonchev "
-        "& Trinajstic, J. Chem. Phys. vol 67, 4517-4533 (1977)); with avg, "
-        "divided by the total population");
+  m.def(
+      "CalcIpc",
+      [](const RDKit::ROMol &mol, bool avg,
+         const std::optional<DistMatArray> &dMat) {
+        return RDKit::Descriptors::calcIpc(mol, avg, distMatData(mol, dMat));
+      },
+      "mol"_a, "avg"_a = false, "dMat"_a = nb::none(),
+      "Returns the information content of the coefficients of the "
+      "characteristic polynomial of the adjacency matrix (Eq 6 of Bonchev "
+      "& Trinajstic, J. Chem. Phys. vol 67, 4517-4533 (1977)); with avg, "
+      "divided by the total population. dMat is an optional (nAtoms, "
+      "nAtoms) distance matrix; the adjacency matrix is taken from its "
+      "entries equal to 1");
   m.attr("_CalcIpc_version") = RDKit::Descriptors::ipcVersion;
-  m.def("CalcAvgIpc", RDKit::Descriptors::calcAvgIpc, "mol"_a,
-        "Returns the average information content (Eq 7 of Bonchev & "
-        "Trinajstic)");
+  m.def(
+      "CalcAvgIpc",
+      [](const RDKit::ROMol &mol, const std::optional<DistMatArray> &dMat) {
+        return RDKit::Descriptors::calcAvgIpc(mol, distMatData(mol, dMat));
+      },
+      "mol"_a, "dMat"_a = nb::none(),
+      "Returns the average information content (Eq 7 of Bonchev & "
+      "Trinajstic). dMat is as for CalcIpc");
   m.attr("_CalcAvgIpc_version") = RDKit::Descriptors::avgIpcVersion;
 
   m.def("CalcHeavyAtomMolWt", RDKit::Descriptors::calcHeavyAtomMolWt, "mol"_a,
@@ -1959,14 +2004,24 @@ query.Match( mol ))DOC",
       },
       "Returns the SMARTS of the fragment descriptors, in the order of "
       "GetFragmentDescriptorNames");
+  m.def(
+      "GetFragmentDescriptorDescriptions",
+      []() {
+        return nb::tuple(
+            nb::cast(RDKit::Descriptors::getFragmentDescriptorDescriptions()));
+      },
+      "Returns the descriptions of the fragment descriptors, in the order of "
+      "GetFragmentDescriptorNames");
   m.def("CalcFragmentDescriptors", RDKit::Descriptors::calcFragmentDescriptors,
-        "mol"_a,
-        "Returns the number of unique matches of each fragment pattern, in "
-        "the order of GetFragmentDescriptorNames");
+        "mol"_a, "countUnique"_a = true,
+        "Returns the number of matches of each fragment pattern, in the "
+        "order of GetFragmentDescriptorNames. Only unique matches are "
+        "counted unless countUnique is false");
   m.def("CalcFragmentDescriptor", RDKit::Descriptors::calcFragmentDescriptor,
-        "mol"_a, "name"_a,
-        "Returns the number of unique matches of one fragment pattern, e.g. "
-        "'fr_benzene'");
+        "mol"_a, "name"_a, "countUnique"_a = true,
+        "Returns the number of matches of one fragment pattern, e.g. "
+        "'fr_benzene'. Only unique matches are counted unless countUnique "
+        "is false");
   m.attr("_CalcFragmentDescriptors_version") =
       RDKit::Descriptors::FragmentDescriptorsVersion;
 

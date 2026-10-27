@@ -8,6 +8,10 @@
 #
 """ functions to match a bunch of fragment descriptors from a file
 
+The default fragment definitions ($RDBASE/Data/FragmentDescriptors.csv) are
+compiled into the C++ library, and the fr_* functions here call
+rdMolDescriptors.CalcFragmentDescriptor.
+
 No user-serviceable parts inside.  ;-)
 
 """
@@ -26,13 +30,32 @@ def _CountMatches(mol, patt, unique=True):
 fns = []
 
 
-_cxxFragmentNames = set(rdMolDescriptors.GetFragmentDescriptorNames())
+def _makeCxxFn(name, descr):
+
+  def fn(mol, countUnique=True):
+    return rdMolDescriptors.CalcFragmentDescriptor(mol, name, countUnique=bool(countUnique))
+
+  fn.__name__ = fn.__qualname__ = name
+  fn.__doc__ = descr
+  return fn
+
+
+def _LoadCxxPatterns():
+  for name, descr in zip(rdMolDescriptors.GetFragmentDescriptorNames(),
+                         rdMolDescriptors.GetFragmentDescriptorDescriptions()):
+    fns.append((name, _makeCxxFn(name, descr)))
 
 
 def _LoadPatterns(fileName=None):
-  useCxx = fileName is None
+  """ adds the patterns in a fragment definition file to fns
+
+  The default definitions are compiled into the C++ library, so they are not
+  read from a file.
+
+  """
   if fileName is None:
-    fileName = defaultPatternFileName
+    _LoadCxxPatterns()
+    return
   try:
     with open(fileName, 'r') as inF:
       for line in inF.readlines():
@@ -46,17 +69,11 @@ def _LoadPatterns(fileName=None):
             patt = Chem.MolFromSmarts(sma)
             if not patt or patt.GetNumAtoms() == 0:
               raise ImportError('Smarts %s could not be parsed' % (repr(sma)))
+            fn = lambda mol, countUnique=True, pattern=patt: _CountMatches(
+              mol, pattern, unique=countUnique)
+            fn.__doc__ = descr
             name = name.replace('=', '_')
             name = name.replace('-', '_')
-            if useCxx and name in _cxxFragmentNames:
-              # the default patterns are also available in C++
-              fn = lambda mol, countUnique=True, pattern=patt, name=name: (
-                rdMolDescriptors.CalcFragmentDescriptor(mol, name)
-                if countUnique else _CountMatches(mol, pattern, unique=False))
-            else:
-              fn = lambda mol, countUnique=True, pattern=patt: _CountMatches(
-                mol, pattern, unique=countUnique)
-            fn.__doc__ = descr
             fns.append((name, fn))
   except IOError:
     pass
