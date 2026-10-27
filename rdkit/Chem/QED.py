@@ -191,9 +191,8 @@ def qed(mol, w=WEIGHT_MEAN, qedProperties=None):
     if mol is None:
       raise ValueError('You need to provide a mol argument.')
     return rdmd.CalcQED(mol, w)
-  d = [ads(pi, adsParameters[name]) for name, pi in qedProperties._asdict().items()]
-  t = sum(wi * math.log(di) for wi, di in zip(w, d))
-  return math.exp(t / sum(w))
+  # mol is not used when the properties are provided
+  return rdmd.CalcQED(mol if mol is not None else Chem.Mol(), w, tuple(qedProperties))
 
 
 def weights_max(mol):
