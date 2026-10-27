@@ -14,6 +14,7 @@ No user-serviceable parts inside.  ;-)
 import os
 
 from rdkit import Chem, RDConfig
+from rdkit.Chem import rdMolDescriptors
 
 defaultPatternFileName = os.path.join(RDConfig.RDDataDir, 'FragmentDescriptors.csv')
 
@@ -25,7 +26,11 @@ def _CountMatches(mol, patt, unique=True):
 fns = []
 
 
+_cxxFragmentNames = set(rdMolDescriptors.GetFragmentDescriptorNames())
+
+
 def _LoadPatterns(fileName=None):
+  useCxx = fileName is None
   if fileName is None:
     fileName = defaultPatternFileName
   try:
@@ -41,11 +46,17 @@ def _LoadPatterns(fileName=None):
             patt = Chem.MolFromSmarts(sma)
             if not patt or patt.GetNumAtoms() == 0:
               raise ImportError('Smarts %s could not be parsed' % (repr(sma)))
-            fn = lambda mol, countUnique=True, pattern=patt: _CountMatches(
-              mol, pattern, unique=countUnique)
-            fn.__doc__ = descr
             name = name.replace('=', '_')
             name = name.replace('-', '_')
+            if useCxx and name in _cxxFragmentNames:
+              # the default patterns are also available in C++
+              fn = lambda mol, countUnique=True, pattern=patt, name=name: (
+                rdMolDescriptors.CalcFragmentDescriptor(mol, name)
+                if countUnique else _CountMatches(mol, pattern, unique=False))
+            else:
+              fn = lambda mol, countUnique=True, pattern=patt: _CountMatches(
+                mol, pattern, unique=countUnique)
+            fn.__doc__ = descr
             fns.append((name, fn))
   except IOError:
     pass
