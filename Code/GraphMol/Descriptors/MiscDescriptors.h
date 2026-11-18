@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2026 RDKit contributors
+//  Copyright (C) 2026 Glysade LLC and other RDKit contributors
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -10,8 +10,7 @@
 
 /*! \file MiscDescriptors.h
 
-  \brief C++ ports of simple descriptors from rdkit.Chem.Descriptors that
-  were previously only available from Python.
+  \brief C++ ports of simple descriptors from rdkit.Chem.Descriptors
 
 */
 #include <RDGeneral/export.h>
@@ -19,6 +18,7 @@
 #define RD_MISCDESCRIPTORS_H
 
 #include <string>
+#include <vector>
 
 namespace RDKit {
 class ROMol;
@@ -37,15 +37,30 @@ const std::string NumValenceElectronsVersion = "1.1.0";
 RDKIT_DESCRIPTORS_EXPORT unsigned int calcNumRadicalElectrons(const ROMol &mol);
 const std::string NumRadicalElectronsVersion = "1.1.0";
 
+struct PartialCharges {
+  std::vector<double> charges;
+  double maxPartialCharge{0.0};
+  double minPartialCharge{0.0};
+  double maxAbsPartialCharge{0.0};
+  double minAbsPartialCharge{0.0};
+};
+
 //! The largest Gasteiger partial charge in the molecule
 /*!
-  As in the python implementation, a molecule with no atoms returns -500
+  A molecule with no atoms returns 500 and -500 for max and min partial charges
+*/
+RDKIT_DESCRIPTORS_EXPORT PartialCharges calcPartialCharges(const ROMol &mol);
+const std::string PartialChargeVersion = "1.0.0";
+  
+//! The largest Gasteiger partial charge in the molecule
+/*!
+  a molecule with no atoms returns -500
 */
 RDKIT_DESCRIPTORS_EXPORT double calcMaxPartialCharge(const ROMol &mol);
 const std::string MaxPartialChargeVersion = "1.0.0";
 //! The smallest Gasteiger partial charge in the molecule
 /*!
-  As in the python implementation, a molecule with no atoms returns 500
+  a molecule with no atoms returns 500
 */
 RDKIT_DESCRIPTORS_EXPORT double calcMinPartialCharge(const ROMol &mol);
 const std::string MinPartialChargeVersion = "1.0.0";

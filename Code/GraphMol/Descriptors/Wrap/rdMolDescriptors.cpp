@@ -1143,6 +1143,7 @@ double CalcBertzCTHelper(const RDKit::ROMol &mol, unsigned int cutoff,
       mol, cutoff, pyObjectToDistMat(mol, dMat, dm) ? dm.data() : nullptr);
 }
 
+#ifdef RDK_HAS_EIGEN3  
 double CalcIpcHelper(const RDKit::ROMol &mol, bool avg, python::object dMat) {
   std::vector<double> dm;
   return RDKit::Descriptors::calcIpc(
@@ -1152,6 +1153,7 @@ double CalcIpcHelper(const RDKit::ROMol &mol, bool avg, python::object dMat) {
 double CalcAvgIpcHelper(const RDKit::ROMol &mol, python::object dMat) {
   return CalcIpcHelper(mol, true, dMat);
 }
+#endif
 
 python::tuple QEDPropertiesToTuple(
     const RDKit::Descriptors::QEDProperties &props) {
@@ -1905,13 +1907,21 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
             python::arg("annotateMol") = false),
            "Return a list of computed properties, if annotateMol==True, "
            "annotate the molecule with "
-           "the computed properties.")
+           "the computed properties. Properties that fail to compute get "
+           "the failure value (see SetFailureValue).")
       .def("AnnotateProperties",
            &RDKit::Descriptors::Properties::annotateProperties,
            (python::arg("self"), python::arg("mol")),
            "Annotate the molecule with the computed properties.  These "
            "properties will be available "
            "as SDData or from mol.GetProp(prop)")
+      .def("SetFailureValue", &RDKit::Descriptors::Properties::setFailureValue,
+           (python::arg("self"), python::arg("value")),
+           "Set the value given to properties that fail to compute "
+           "(default nan)")
+      .def("GetFailureValue", &RDKit::Descriptors::Properties::getFailureValue,
+           python::args("self"),
+           "Return the value given to properties that fail to compute")
       .def("GetAvailableProperties",
            &RDKit::Descriptors::Properties::getAvailableProperties,
            "Return all available property names that can be computed")
@@ -2178,7 +2188,24 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
 
 #endif
 
-  // descriptors ported from python
+  python::class_<RDKit::Descriptors::EStates>("EStates",
+			 "Holds the maximum and minimum EState and absolute EState indices [Hall, Mohney and Kier]",
+			 python::no_init)
+    .def_readonly("maxEState", &RDKit::Descriptors::EStates::maxEState,
+		  "Maximum EState index")
+    .def_readonly("minEState", &RDKit::Descriptors::EStates::minEState,
+		  "Minimum EState index")
+    .def_readonly("maxAbsEState", &RDKit::Descriptors::EStates::maxAbsEState,
+		  "Maximum Absolute EState index")
+    .def_readonly("minAbsEState", &RDKit::Descriptors::EStates::minAbsEState,
+		  "Minimum Absolute EState index")
+    ;
+
+  python::def("CalcEStates", RDKit::Descriptors::calcEStates,
+	      python::arg("mol"),
+              "Returns the maximum and minimum EState and absolute EState indices for the molecule (Hall, Mohney and Kier, "
+              "JCICS 31, 76-81 (1991))");
+
   python::def("CalcEStateIndices", CalcEStateIndicesHelper, python::arg("mol"),
               "Returns the EState indices of the atoms (Hall, Mohney and Kier, "
               "JCICS 31, 76-81 (1991))");
@@ -2241,6 +2268,7 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
               "of the bond-order weighted one");
   python::scope().attr("_CalcBertzCT_version") =
       RDKit::Descriptors::bertzCTVersion;
+#ifdef RDK_HAS_EIGEN3  
   python::def("CalcIpc", CalcIpcHelper,
               (python::arg("mol"), python::arg("avg") = false,
                python::arg("dMat") = python::object()),
@@ -2257,7 +2285,7 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
               "Trinajstic). dMat is as for CalcIpc");
   python::scope().attr("_CalcAvgIpc_version") =
       RDKit::Descriptors::avgIpcVersion;
-
+#endif
   python::def("CalcHeavyAtomMolWt", RDKit::Descriptors::calcHeavyAtomMolWt,
               python::arg("mol"),
               "Returns the average molecular weight ignoring hydrogens");
@@ -2273,6 +2301,26 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
               "Returns the number of radical electrons");
   python::scope().attr("_CalcNumRadicalElectrons_version") =
       RDKit::Descriptors::NumRadicalElectronsVersion;
+
+
+  python::class_<RDKit::Descriptors::PartialCharges>("PartialCharges",
+			 "Computes max and min of Gasteiger partial charges and absolute partial charges",
+			 python::no_init)
+    .def_readonly("maxPartialCharge", &RDKit::Descriptors::PartialCharges::maxPartialCharge,
+		  "Maximum partial charge")
+    .def_readonly("minPartialCharge", &RDKit::Descriptors::PartialCharges::minPartialCharge,
+		  "Minimum partial charge")
+    .def_readonly("maxAbsPartialCharge", &RDKit::Descriptors::PartialCharges::maxAbsPartialCharge,
+		  "Maximum Absolute partial charge")
+    .def_readonly("minAbsPartialCharge", &RDKit::Descriptors::PartialCharges::minAbsPartialCharge,
+		  "Minimum Absolute partial charge")
+    ;
+
+  python::def("CalcPartialCharges", RDKit::Descriptors::calcPartialCharges,
+              python::arg("mol"),
+              "Returns Computes max and min of Gasteiger partial charges and absolute partial charges"
+              "molecule with no atoms return -500 for max and 500 for minimum charges");
+  
   python::def("CalcMaxPartialCharge", RDKit::Descriptors::calcMaxPartialCharge,
               python::arg("mol"),
               "Returns the largest Gasteiger partial charge (-500 for a "
@@ -2384,7 +2432,8 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
   python::def("BCUT2D", BCUT_atomprops,
               (python::arg("mol"), python::arg("atom_propname")),
               docString.c_str());
-
+#endif
+  
   docString =
       "Adds the oxidation number/state to the atoms of a molecule as"
       " property OxidationNumber on each atom.  Use Pauling"
@@ -2392,5 +2441,5 @@ BOOST_PYTHON_MODULE(rdMolDescriptors) {
       "  This is experimental code, still under development.";
   python::def("CalcOxidationNumbers", RDKit::Descriptors::calcOxidationNumbers,
               (python::arg("mol")), docString.c_str());
-#endif
+
 }

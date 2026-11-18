@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2026 RDKit contributors
+//  Copyright (C) 2026 Glysade LLC and other RDKit contributors
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -11,11 +11,7 @@
 /*! \file GraphDescriptors.h
 
   \brief C++ ports of the topological descriptors from
-  rdkit.Chem.GraphDescriptors that were previously only available from
-  Python.
-
-  The implementations follow the Python code closely so that the values
-  match those returned by rdkit.Chem.Descriptors.
+  rdkit.Chem.GraphDescriptors 
 
 */
 #include <RDGeneral/export.h>
@@ -71,6 +67,7 @@ RDKIT_DESCRIPTORS_EXPORT double calcBertzCT(const ROMol &mol,
                                             const double *distMat = nullptr);
 const std::string bertzCTVersion = "2.0.0";
 
+#ifdef RDK_HAS_EIGEN3  
 //! Information content of the coefficients of the characteristic polynomial
 //! of the adjacency matrix of a hydrogen-suppressed graph of a molecule.
 /*!
@@ -96,6 +93,7 @@ const std::string ipcVersion = "1.0.0";
 RDKIT_DESCRIPTORS_EXPORT double calcAvgIpc(const ROMol &mol,
                                            const double *distMat = nullptr);
 const std::string avgIpcVersion = "1.0.0";
+#endif
 
 }  // namespace Descriptors
 }  // namespace RDKit

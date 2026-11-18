@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2026 RDKit contributors
+//  Copyright (C) 2026 Glysade LLC and other RDKit contributors
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -12,7 +12,7 @@
 
   \brief C++ port of rdkit.Chem.QED
 
-  QED stands for quantitative estimation of drug-likeness:
+  QED :  quantitative estimation of drug-likeness:
   Bickerton, G.R.; Paolini, G.V.; Besnard, J.; Muresan, S.; Hopkins, A.L.
   (2012) 'Quantifying the chemical beauty of drugs', Nature Chemistry, 4,
   90-98 [https://doi.org/10.1038/nchem.1243]
@@ -29,6 +29,8 @@ class ROMol;
 namespace Descriptors {
 
 //! the properties used by QED (also used to hold the weights)
+//!  this is why integer properties are recorded as doubles
+//!  here.
 struct RDKIT_DESCRIPTORS_EXPORT QEDProperties {
   double MW = 0.0;
   double ALOGP = 0.0;

@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2026 RDKit contributors
+//  Copyright (C) 2026 Glysade LLC and other RDKit contributors
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -25,6 +25,7 @@ namespace RDKit {
 class ROMol;
 namespace Descriptors {
 
+  
 //! returns the EState index for each atom in the molecule
 /*!
   Reference: Hall, Mohney and Kier. JCICS _31_ 76-81 (1991)
@@ -33,6 +34,22 @@ RDKIT_DESCRIPTORS_EXPORT std::vector<double> calcEStateIndices(
     const ROMol &mol);
 const std::string EStateIndicesVersion = "1.0.0";
 
+//! Holds the maximum and minimum EState and absolute EState index across all atoms  
+struct EStates {
+  std::vector<double> estates;
+  double maxEState{0.0};
+  double minEState{0.0};
+  double maxAbsEState{0.0};
+  double minAbsEState{0.0};
+};
+  
+//! returns the maximum and minimum EState and absolute EState index across all atoms
+/*!
+  Reference: Hall, Mohney and Kier. JCICS _31_ 76-81 (1991)
+*/  
+RDKIT_DESCRIPTORS_EXPORT EStates calcEStates(
+    const ROMol &mol);
+  
 //! the maximum EState index (0 for molecules with no atoms)
 RDKIT_DESCRIPTORS_EXPORT double calcMaxEStateIndex(const ROMol &mol);
 const std::string MaxEStateIndexVersion = "1.0.0";

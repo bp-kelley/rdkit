@@ -1666,6 +1666,12 @@ values = properties.ComputeProperties(mols, numThreads=4))DOC")
            &RDKit::Descriptors::Properties::annotateProperties, "mol"_a,
            "Annotate the molecule with the computed properties.  These "
            "properties will be available as SDData or from mol.GetProp(prop)")
+      .def("SetFailureValue", &RDKit::Descriptors::Properties::setFailureValue,
+           "value"_a,
+           "Set the value given to properties that fail to compute "
+           "(default nan)")
+      .def("GetFailureValue", &RDKit::Descriptors::Properties::getFailureValue,
+           "Return the value given to properties that fail to compute")
       .def_static("GetAvailableProperties",
                   &RDKit::Descriptors::Properties::getAvailableProperties,
                   "Return all available property names that can be computed")
@@ -1863,6 +1869,21 @@ query.Match( mol ))DOC",
         "Returns 2D Autocorrelation descriptors vector");
 #endif
 
+  nb::class_<RDKit::Descriptors::EStates>(m, "EStates",R"DOC(Holds the maximum and minimum EState and absolute EState indices [Hall, Mohney and Kier].)DOC")
+    .def(nb::init<>())
+    .def_ro("maxEState", &RDKit::Descriptors::EStates::maxEState,
+	    "Maximum EState index")
+    .def_ro("minEState", &RDKit::Descriptors::EStates::minEState,
+	    "Minimum EState index")
+    .def_ro("maxAbsEState", &RDKit::Descriptors::EStates::maxAbsEState,
+	    "Maximum Absolute EState index")
+    .def_ro("minAbsEState", &RDKit::Descriptors::EStates::minAbsEState,
+	    "Minimum Absolute EState index")
+    ;
+  m.def("CalcEStates", RDKit::Descriptors::calcEStates, "mol"_a,
+        "Returns the maximum and minimum EState and absolute EState indices for the molecule (Hall, Mohney and Kier, "
+        "JCICS 31, 76-81 (1991))");
+      
   // descriptors ported from python
   m.def("CalcEStateIndices", RDKit::Descriptors::calcEStateIndices, "mol"_a,
         "Returns the EState indices of the atoms (Hall, Mohney and Kier, "
@@ -1925,6 +1946,7 @@ query.Match( mol ))DOC",
       "matrix used to assign the symmetry classes instead of the bond-order "
       "weighted one");
   m.attr("_CalcBertzCT_version") = RDKit::Descriptors::bertzCTVersion;
+#ifdef RDK_HAS_EIGEN3
   m.def(
       "CalcIpc",
       [](const RDKit::ROMol &mol, bool avg,
@@ -1948,7 +1970,8 @@ query.Match( mol ))DOC",
       "Returns the average information content (Eq 7 of Bonchev & "
       "Trinajstic). dMat is as for CalcIpc");
   m.attr("_CalcAvgIpc_version") = RDKit::Descriptors::avgIpcVersion;
-
+#endif
+  
   m.def("CalcHeavyAtomMolWt", RDKit::Descriptors::calcHeavyAtomMolWt, "mol"_a,
         "Returns the average molecular weight ignoring hydrogens");
   m.attr("_CalcHeavyAtomMolWt_version") =
@@ -1961,6 +1984,26 @@ query.Match( mol ))DOC",
         "mol"_a, "Returns the number of radical electrons");
   m.attr("_CalcNumRadicalElectrons_version") =
       RDKit::Descriptors::NumRadicalElectronsVersion;
+
+  nb::class_<RDKit::Descriptors::PartialCharges>(m, "PartialCharges",
+						 "Computes max and min of Gasteiger partial charges and absolute partial charges")
+    .def(nb::init<>())
+    
+    .def_ro("maxPartialCharge", &RDKit::Descriptors::PartialCharges::maxPartialCharge,
+	    "Maximum partial charge")
+    .def_ro("minPartialCharge", &RDKit::Descriptors::PartialCharges::minPartialCharge,
+	    "Minimum partial charge")
+    .def_ro("maxAbsPartialCharge", &RDKit::Descriptors::PartialCharges::maxAbsPartialCharge,
+	    "Maximum Absolute partial charge")
+    .def_ro("minAbsPartialCharge", &RDKit::Descriptors::PartialCharges::minAbsPartialCharge,
+	    "Minimum Absolute partial charge")
+    ;
+
+  m.def("CalcPartialCharges", RDKit::Descriptors::calcPartialCharges,
+	"mol"_a,
+	"Returns Computes max and min of Gasteiger partial charges and absolute partial charges"
+	"molecule with no atoms return -500 for max and 500 for minimum charges");
+
   m.def("CalcMaxPartialCharge", RDKit::Descriptors::calcMaxPartialCharge,
         "mol"_a,
         "Returns the largest Gasteiger partial charge (-500 for a molecule "
@@ -2080,6 +2123,7 @@ size to the number of atoms in mol)DOC");
         R"DOC(Returns a 2D BCUT (eigen value high, eigen value low) given the
 molecule and the specified atom prop name
 atom_propname must exist on each atom and be convertible to a float)DOC");
+#endif
 
   m.def("CalcOxidationNumbers", RDKit::Descriptors::calcOxidationNumbers,
         "mol"_a,
@@ -2087,5 +2131,4 @@ atom_propname must exist on each atom and be convertible to a float)DOC");
         " property OxidationNumber on each atom.  Use Pauling"
         " electronegativities."
         "  This is experimental code, still under development.");
-#endif
 }

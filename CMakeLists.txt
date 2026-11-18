@@ -73,6 +73,7 @@ option(RDK_BUILD_YAEHMOP_SUPPORT "build support for the YAeHMOP wrapper" OFF)
 option(RDK_BUILD_XYZ2MOL_SUPPORT "build in support for the RDKit's implementation of xyz2mol (in the DetermineBonds library)" OFF )
 option(RDK_BUILD_STRUCTCHECKER_SUPPORT "build in support for the StructChecker alpha (not recommended, use the MolVS integration instead)" OFF )
 option(RDK_BUILD_PUBCHEMSHAPE_SUPPORT "build the rdkit wrapper around pubchem-align3d" ON )
+option(RDK_BUILD_NORMALIZED_DESCRIPTORS "build the CDF-normalized descriptors (port of descriptastorus RDKit2DNormalized)" ON )
 option(RDK_INSTALL_DEV_COMPONENT "install libraries and headers" ON)
 option(RDK_USE_BOOST_IOSTREAMS "use boost::iostreams" ON)
 option(RDK_USE_UNITY_BUILDS "build the RDKit libraries using CMake unity (jumbo) builds to reduce compile time" OFF)
@@ -206,10 +207,10 @@ set(RDK_PYTHON_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/rdkit")
 
 #-------
 # Config variables:
-set(RDKit_Year "2026")
-set(RDKit_Month "09")
+set(RDKit_Year "2027")
+set(RDKit_Month "03")
 set(RDKit_Revision "1")
-set(RDKit_RevisionModifier "")
+set(RDKit_RevisionModifier "pre")
 set(RDKit_ABI "1")
 
 # we need an integer version of the month later, so remove the zero padding
@@ -444,7 +445,7 @@ if(RDK_BUILD_BOOST_PYTHON_WRAPPERS)
 
   #-------
   # pull in python:
-  find_package(Python COMPONENTS Interpreter Development.Module Development.Embed NumPy)
+  find_package(Python COMPONENTS Interpreter Development.Module NumPy REQUIRED)
   target_include_directories(rdkit_py_base INTERFACE ${Python_INCLUDE_DIRS})
   target_include_directories(rdkit_py_base INTERFACE ${Python_NumPy_INCLUDE_DIRS})
   target_compile_definitions(rdkit_py_base INTERFACE "-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION")
@@ -457,9 +458,7 @@ if(RDK_BUILD_BOOST_PYTHON_WRAPPERS)
       OUTPUT_STRIP_TRAILING_WHITESPACE
   )
 
-  if(WIN32 OR "${Py_ENABLE_SHARED}" STREQUAL "1")
-    target_link_libraries(rdkit_py_base INTERFACE ${Python_LIBRARIES} )
-  endif()
+  target_link_libraries(rdkit_py_base INTERFACE Python::Module)
 
 
   find_package(Boost ${RDK_BOOST_VERSION} COMPONENTS "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}" "numpy${Python_VERSION_MAJOR}${Python_VERSION_MINOR}" REQUIRED CONFIG)

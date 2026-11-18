@@ -44,34 +44,37 @@ def _asDistMat(dMat):
   return numpy.ascontiguousarray(dMat, dtype=numpy.float64)
 
 
-def Ipc(mol, avg=False, dMat=None, forceDMat=False):
-  """This returns the information content of the coefficients of the characteristic
-    polynomial of the adjacency matrix of a hydrogen-suppressed graph of a molecule.
+HAS_IPC = hasattr(rdMolDescriptors, "CalcIpc")
 
-    'avg = True' returns the information content divided by the total population.
+if HAS_IPC:
+  def Ipc(mol, avg=False, dMat=None, forceDMat=False):
+    """This returns the information content of the coefficients of the characteristic
+      polynomial of the adjacency matrix of a hydrogen-suppressed graph of a molecule.
 
-    From Eq 6 of D. Bonchev & N. Trinajstic, J. Chem. Phys. vol 67, 4517-4533 (1977)
+      'avg = True' returns the information content divided by the total population.
 
-  """
-  if forceDMat or dMat is None:
-    return rdMolDescriptors.CalcIpc(mol, avg=bool(avg))
-  return rdMolDescriptors.CalcIpc(mol, avg=bool(avg), dMat=_asDistMat(dMat))
+      From Eq 6 of D. Bonchev & N. Trinajstic, J. Chem. Phys. vol 67, 4517-4533 (1977)
 
-
-Ipc.version = rdMolDescriptors._CalcIpc_version
-
-
-def AvgIpc(mol, dMat=None, forceDMat=False):
-  """This returns the average information content of the coefficients of the characteristic
-    polynomial of the adjacency matrix of a hydrogen-suppressed graph of a molecule.
-
-    From Eq 7 of D. Bonchev & N. Trinajstic, J. Chem. Phys. vol 67, 4517-4533 (1977)
-
-  """
-  return Ipc(mol, avg=True, dMat=dMat, forceDMat=forceDMat)
+    """
+    if forceDMat or dMat is None:
+      return rdMolDescriptors.CalcIpc(mol, avg=bool(avg))
+    return rdMolDescriptors.CalcIpc(mol, avg=bool(avg), dMat=_asDistMat(dMat))
 
 
-AvgIpc.version = rdMolDescriptors._CalcAvgIpc_version
+  Ipc.version = rdMolDescriptors._CalcIpc_version
+
+
+  def AvgIpc(mol, dMat=None, forceDMat=False):
+    """This returns the average information content of the coefficients of the characteristic
+      polynomial of the adjacency matrix of a hydrogen-suppressed graph of a molecule.
+
+      From Eq 7 of D. Bonchev & N. Trinajstic, J. Chem. Phys. vol 67, 4517-4533 (1977)
+
+    """
+    return Ipc(mol, avg=True, dMat=dMat, forceDMat=forceDMat)
+
+
+  AvgIpc.version = rdMolDescriptors._CalcAvgIpc_version
 
 HallKierAlpha = lambda x: rdMolDescriptors.CalcHallKierAlpha(x)
 HallKierAlpha.version = rdMolDescriptors._CalcHallKierAlpha_version
@@ -184,7 +187,7 @@ def BertzCT(mol, cutoff=100, dMat=None, forceDMat=1):
         old implementation, these two SMILES:
            CC2=CN=C1C3=C(C(C)=C(C=N3)C)C=CC1=C2C
            CC3=CN=C2C1=NC=C(C)C(C)=C1C=CC2=C3C
-        which correspond to differentk kekule forms, yield different
+        which correspond to different kekule forms, yield different
         values.
        The new implementation uses consistent (aromatic) bond orders
         for aromatic bonds.

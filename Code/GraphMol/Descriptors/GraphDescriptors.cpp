@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2026 RDKit contributors
+//  Copyright (C) 2026 Glysade LLC and other RDKit contributors
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -106,13 +106,13 @@ double calcBertzCT(const ROMol &mol, unsigned int cutoff,
     if (a1 > a2) {
       std::swap(a1, a2);
     }
-    double order;
+     double order;
     if (bond->getIsAromatic()) {
       order = 1.5;
     } else {
-      // the python code uses the integer value of the bond type enum
-      order = static_cast<double>(bond->getBondType());
+      order = bond->getBondTypeAsDouble();
     }
+//double order = bond->getIsAromatic() ? 1.5 : bond->getBondTypeAsDouble();
     bondOrders[std::make_pair(a1, a2)] = order;
     if (std::find(nList[a1].begin(), nList[a1].end(), a2) == nList[a1].end()) {
       nList[a1].push_back(a2);
@@ -222,6 +222,8 @@ double calcBertzCT(const ROMol &mol, unsigned int cutoff,
   return atomTypeIE + connectionIE;
 }
 
+#ifdef RDK_HAS_EIGEN3
+  
 namespace {
 // eigenvalues of the symmetric matrix a (n x n, row major)
 std::vector<double> symmetricEigenvalues(std::vector<double> a,
@@ -229,7 +231,6 @@ std::vector<double> symmetricEigenvalues(std::vector<double> a,
   if (n == 0) {
     return {};
   }
-#ifdef RDK_HAS_EIGEN3
   Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic,
                            Eigen::RowMajor>>
       m(a.data(), n, n);
@@ -237,51 +238,6 @@ std::vector<double> symmetricEigenvalues(std::vector<double> a,
       m, Eigen::EigenvaluesOnly);
   const auto &ev = solver.eigenvalues();
   return std::vector<double>(ev.data(), ev.data() + n);
-#else
-  // cyclic Jacobi rotations
-  for (unsigned int sweep = 0; sweep < 100; ++sweep) {
-    double off = 0.0;
-    for (unsigned int p = 0; p < n; ++p) {
-      for (unsigned int q = p + 1; q < n; ++q) {
-        off += a[p * n + q] * a[p * n + q];
-      }
-    }
-    if (off == 0.0) {
-      break;
-    }
-    for (unsigned int p = 0; p < n; ++p) {
-      for (unsigned int q = p + 1; q < n; ++q) {
-        double apq = a[p * n + q];
-        if (apq == 0.0) {
-          continue;
-        }
-        double theta = (a[q * n + q] - a[p * n + p]) / (2.0 * apq);
-        double t = (theta >= 0 ? 1.0 : -1.0) /
-                   (std::fabs(theta) + std::sqrt(theta * theta + 1.0));
-        double c = 1.0 / std::sqrt(t * t + 1.0);
-        double sn = t * c;
-        for (unsigned int k = 0; k < n; ++k) {
-          double akp = a[k * n + p];
-          double akq = a[k * n + q];
-          a[k * n + p] = c * akp - sn * akq;
-          a[k * n + q] = sn * akp + c * akq;
-        }
-        for (unsigned int k = 0; k < n; ++k) {
-          double apk = a[p * n + k];
-          double aqk = a[q * n + k];
-          a[p * n + k] = c * apk - sn * aqk;
-          a[q * n + k] = sn * apk + c * aqk;
-        }
-        a[p * n + q] = a[q * n + p] = 0.0;
-      }
-    }
-  }
-  std::vector<double> res(n);
-  for (unsigned int i = 0; i < n; ++i) {
-    res[i] = a[i * n + i];
-  }
-  return res;
-#endif
 }
 }  // namespace
 
@@ -331,6 +287,7 @@ double calcIpc(const ROMol &mol, bool avg, const double *distMat) {
 double calcAvgIpc(const ROMol &mol, const double *distMat) {
   return calcIpc(mol, true, distMat);
 }
+#endif
 
 }  // namespace Descriptors
 }  // namespace RDKit

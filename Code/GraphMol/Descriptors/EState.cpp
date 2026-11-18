@@ -1,5 +1,5 @@
 //
-//  Copyright (C) 2026 RDKit contributors
+//  Copyright (C) 2026 Glysade LLC and other RDKit contributors
 //
 //   @@ All Rights Reserved @@
 //  This file is part of the RDKit.
@@ -69,7 +69,10 @@ std::vector<double> calcEStateIndices(const ROMol &mol) {
       Is[at->getIdx()] = (4. / (N * N) * dv + 1) / d;
     }
   }
-  const double *dists = MolOps::getDistanceMat(mol, false, false, true);
+  const bool useBO = false;
+  const bool useAtomWts = false;
+  const bool force = true;
+  const double *dists = MolOps::getDistanceMat(mol, useBO, useAtomWts, force);
   std::vector<double> accum(nAtoms, 0.0);
   for (unsigned int i = 0; i < nAtoms; ++i) {
     for (unsigned int j = i + 1; j < nAtoms; ++j) {
@@ -87,6 +90,25 @@ std::vector<double> calcEStateIndices(const ROMol &mol) {
   return accum;
 }
 
+EStates calcEStates(const ROMol &mol) {
+  auto estates = calcEStateIndices(mol);
+
+  if(estates.empty()) {
+    return {};
+  }
+
+  EStates res { estates, estates[0], estates[0], std::fabs(estates[0]), std::fabs(estates[0]) };
+  
+  for(auto estate : estates) {
+    res.maxEState = std::max(res.maxEState, estate);
+    res.minEState = std::min(res.minEState, estate);
+    estate = std::fabs(estate);
+    res.maxAbsEState = std::max(res.maxAbsEState, estate);
+    res.minAbsEState = std::min(res.minAbsEState, estate);
+  }
+  return res;
+}
+  
 double calcMaxEStateIndex(const ROMol &mol) {
   auto vals = calcEStateIndices(mol);
   if (vals.empty()) {

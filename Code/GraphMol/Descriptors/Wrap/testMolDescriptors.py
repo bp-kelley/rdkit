@@ -570,11 +570,13 @@ class TestCase(unittest.TestCase):
     with self.assertRaises(TypeError):
       props.ComputeProperties(None)
 
-    # failures in C++ calculators become NaN instead of raising
+    # failures in C++ calculators become NaN instead of raising, for single
+    # molecules and batches alike
     m = Chem.MolFromSmiles('CCO', sanitize=False)
     hbdProps = rdMD.Properties(['NumHeavyAtoms', 'lipinskiHBD'])
-    with self.assertRaises(RuntimeError):
-      hbdProps.ComputeProperties(m)
+    single = hbdProps.ComputeProperties(m)
+    self.assertEqual(single[0], 3)
+    self.assertTrue(np.isnan(single[1]))
     res = hbdProps.ComputeProperties([m])
     self.assertEqual(res[0, 0], 3)
     self.assertTrue(np.isnan(res[0, 1]))
@@ -975,6 +977,13 @@ class TestCase(unittest.TestCase):
     self.assertAlmostEqual(rdMD.CalcMinEStateIndex(m), min(estate))
     self.assertAlmostEqual(rdMD.CalcMaxAbsEStateIndex(m), max(abs(x) for x in estate))
     self.assertAlmostEqual(rdMD.CalcMinAbsEStateIndex(m), min(abs(x) for x in estate))
+    
+    estateStruct = rdMD.CalcEStates(m)
+    self.assertAlmostEqual(estateStruct.maxEState, max(estate))
+    self.assertAlmostEqual(estateStruct.minEState, min(estate))
+    self.assertAlmostEqual(estateStruct.maxAbsEState, max(abs(x) for x in estate))
+    self.assertAlmostEqual(estateStruct.minAbsEState, min(abs(x) for x in estate))
+    
     self.assertEqual(len(rdMD.CalcEState_VSA(m)), 11)
     self.assertEqual(len(rdMD.CalcVSA_EState(m)), 10)
     self.assertEqual(len(rdMD.CalcEState_VSA(m, bins=[0.0, 1.0])), 3)
@@ -984,7 +993,8 @@ class TestCase(unittest.TestCase):
     self.assertAlmostEqual(rdMD.CalcChi1(Chem.MolFromSmiles('CC')), 1.0)
     self.assertGreater(rdMD.CalcBalabanJ(m), 0)
     self.assertGreater(rdMD.CalcBertzCT(m), rdMD.CalcBertzCT(m, cutoff=1) - 1e-8)
-    self.assertAlmostEqual(rdMD.CalcIpc(m, avg=True), rdMD.CalcAvgIpc(m))
+    if hasattr(rdMD, "CalcIpc"):
+      self.assertAlmostEqual(rdMD.CalcIpc(m, avg=True), rdMD.CalcAvgIpc(m))
 
     self.assertAlmostEqual(rdMD.CalcHeavyAtomMolWt(Chem.MolFromSmiles('CC')), 24.022, places=3)
     self.assertEqual(rdMD.CalcNumValenceElectrons(Chem.MolFromSmiles('CC')), 14)
