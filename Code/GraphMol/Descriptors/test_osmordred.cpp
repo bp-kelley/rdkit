@@ -1140,7 +1140,7 @@ TEST_CASE("OsmordredProperties") {
     REQUIRE(hg);
     const auto names = getOsmordredDescriptorNames();
     const auto idx = std::distance(
-        names.begin(), std::find(names.begin(), names.end(), "VdwVolumeABC"));
+        names.begin(), std::find(names.begin(), names.end(), "Vabc"));
     REQUIRE(idx < static_cast<long>(names.size()));
     for (const auto &row :
          {calcOsmordred(*hg), props.computeProperties(*hg),
