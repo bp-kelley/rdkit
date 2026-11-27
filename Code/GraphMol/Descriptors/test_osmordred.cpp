@@ -1134,6 +1134,24 @@ TEST_CASE("OsmordredProperties") {
     }
   }
 
+  SECTION("a failing block only blanks that block") {
+    // VdwVolumeABC has no volume for Hg and throws
+    auto hg = "C[Hg]C"_smiles;
+    REQUIRE(hg);
+    const auto names = getOsmordredDescriptorNames();
+    const auto idx = std::distance(
+        names.begin(), std::find(names.begin(), names.end(), "VdwVolumeABC"));
+    REQUIRE(idx < static_cast<long>(names.size()));
+    for (const auto &row :
+         {calcOsmordred(*hg), props.computeProperties(*hg),
+          calcOsmordred(std::vector<const ROMol *>{hg.get()}, 1)[0]}) {
+      REQUIRE(row.size() == ND);
+      CHECK(std::isnan(row[idx]));
+      CHECK(!allNaN(row));
+      CHECK(!std::isnan(row[0]));  // ABCIndex
+    }
+  }
+
   SECTION("logs are restored after a batch") {
     REQUIRE(rdErrorLog);
     const bool wasEnabled = rdErrorLog->df_enabled;

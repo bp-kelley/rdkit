@@ -88,6 +88,20 @@ bool OsmordredOptions::isValid() const {
 }
 namespace {
 
+//! thrown when OsmordredOptions::timeout is exceeded; aborts the molecule
+class OsmordredTimeout : public std::runtime_error {
+ public:
+  using std::runtime_error::runtime_error;
+};
+
+void appendValues(std::vector<double> &out, double v) { out.push_back(v); }
+void appendValues(std::vector<double> &out, const std::vector<double> &v) {
+  out.insert(out.end(), v.begin(), v.end());
+}
+void appendValues(std::vector<double> &out, const std::vector<int> &v) {
+  out.insert(out.end(), v.begin(), v.end());
+}
+
 // Fast aggregate: compute all descriptors in C++ in one pass.
 // Callers are responsible for silencing the logs (see calcOsmordred() and
 // OsmordredProperties::computePropertiesForMols()).
@@ -107,100 +121,93 @@ std::vector<double> calcOsmordred(const ROMol &mol,
 
   auto checkTimeout = [&]() {
     if (end_time && Clock::now() >= *end_time) {
-      std::cerr << "*" << std::endl;
       BOOST_LOG(rdErrorLog) << "Mordred calculation timed out" << std::endl;
-      throw ValueErrorException("Mordred calculation timed out");
+      throw OsmordredTimeout("Mordred calculation timed out");
     }
   };
 
-  // Collect results with minimal inserts
-  auto append = [&](const std::vector<double> &v) {
-    out.insert(out.end(), v.begin(), v.end());
-    checkTimeout();
-  };
-
-  // Collect results with minimal inserts
-  auto append1 = [&](double v) {
-    out.push_back(v);
-    checkTimeout();
-  };
-
-  auto appendInt = [&](const std::vector<int> &v) {
-    out.reserve(out.size() + v.size());
-    for (int x : v) {
-      out.push_back(static_cast<double>(x));
+  // Appends one block of n values. A block that throws, or that returns the
+  // wrong number of values, gives n NaNs: only that block is lost, and the
+  // remaining values keep their positions. Timeouts and std::bad_alloc still
+  // abort the whole molecule.
+  auto block = [&](size_t n, auto &&fn) {
+    const auto first = out.size();
+    try {
+      appendValues(out, fn());
+    } catch (const std::bad_alloc &) {
+      throw;
+    } catch (const std::exception &e) {
+      BOOST_LOG(rdWarningLog)
+          << "Osmordred descriptor block failed: " << e.what() << std::endl;
+      out.resize(first);
+    }
+    if (out.size() != first + n) {
+      out.resize(first);
+      out.insert(out.end(), n, std::numeric_limits<double>::quiet_NaN());
     }
     checkTimeout();
   };
 
-  append(calcABCIndex(mol));            // addNames("ABCIndex", 2);
-  appendInt(calcAcidBase(mol));         // addNames("AcidBase", 2);
-  append(calcAdjMatrixDescsL(mol));     // addNames("AdjacencyMatrix", 12);
-  appendInt(calcAromatic(mol));         // addNames("Aromatic", 2);
-  appendInt(calcAtomCounts(ctx));       // addNames("AtomCount", 17);
-  append(calcAutoCorrelation(ctx));     // addNames("Autocorrelation", 606);
-  append(calcBCUTs(mol));               // addNames("BCUT", 24);
-  append1(calcBalabanJUnweighted(mol));           // addNames("BalabanJ", 1);
-  append(calcBaryszMatrixDescsL(mol));  // addNames("BaryszMatrix", 104);
-  append1(calcBertzCT(mol));            // addNames("BertzCT", 1);
-  appendInt(calcBondCounts(ctx));       // addNames("BondCount", 9);
-  append(calcRNCG_RPCG(ctx));           // addNames("RNCGRPCG", 2);
-  append(calcCarbonTypes(mol));         // addNames("CarbonTypes", 11);
-  append(calcAllChiDescriptors(mol));   // addNames("Chi", 56);
-  append(calcConstitutional(ctx));      // addNames("Constitutional", 16);
-  append(calcDetourMatrixDescsL(mol));  // addNames("DetourMatrix", 14);
-  append(calcDistMatrixDescsL(mol));    // addNames("DistanceMatrix", 12);
-  append(calcEStateDescs(ctx, doExEstate));  // addNames("EState", 404);
-  append1(calcEccentricConnectivityIndex(
-      mol));  // addNames("EccentricConnectivityIndex", 1);
-  append(calcExtendedTopochemicalAtom(
-      mol));  // addNames("ExtendedTopochemicalAtom", 45);
-  append1(calcFragmentComplexity(mol));  // addNames("FragmentComplexity", 1);
-  append1(calcFramework(ctx));           // addNames("Framework", 1);
-  append(calcHydrogenBond(ctx));         // addNames("HydrogenBond", 2);
-  append1(calcLogS(mol));                // addNames("LogS", 1);
-  append(calcInformationContent(
-      mol, opts.icOptions));          // addNames("InformationContent",
-                                      // 42);
-  append(calcKappaShapeIndex(mol));   // addNames("KappaShapeIndex", 3);
-  appendInt(calcLipinskiGhose(ctx));  // addNames("Lipinski", 2);
-  append1(calcMcGowanVolume(ctx));    // addNames("McGowanVolume", 1);
-  append(calcMoeType(mol));           // addNames("MoeType", 54);
-  append(calcMolecularDistanceEdgeDescs(
-      mol));                        // addNames("MolecularDistanceEdge", 19);
-  append(calcMolecularId(mol));     // addNames("MolecularId", 12);
-  append(calcPathCount(mol));       // addNames("PathCount", 21);
-  append(calcPolarizability(ctx));  // addNames("Polarizability", 2);
-  appendInt(calcRingDescriptors(mol));      // addNames("RingCount", 138);
-  append(calcRotatableBond(mol));           // addNames("RotatableBond", 2);
-  append(calcSLogP(mol));                   // addNames("SLogP", 2);
-  append(calcTopoPSA(mol));                 // addNames("TopoPSA", 2);
-  append(calcTopologicalChargeDescs(mol));  // addNames("TopologicalCharge",
-                                            // 21);
-  append(calcTopologicalIndex(mol));        // addNames("TopologicalIndex", 4);
-  append1(calcVdwVolumeABC(ctx));           // addNames("VdwVolumeABC", 1);
-  append1(calcVertexAdjacencyInformation(
-      mol));                      // addNames("VertexAdjacencyInformation", 1);
-  append(calcWalkCounts(mol));    // addNames("WalkCount", 21);
-  append(calcWeight(ctx));        // addNames("Weight", 2);
-  append(calcWienerIndex(mol));   // addNames("WienerIndex", 2);
-  append(calcZagrebIndex(mol));   // addNames("ZagrebIndex", 4);
-  append1(calcPol(ctx));          // addNames("Pol", 1);
-  append1(calcMR(ctx));           // addNames("MR", 1);
-  append1(calcFlexibility(mol));  // addNames("Flexibility", 1);
-  append1(calcSchultz(mol));      // addNames("Schultz", 1);
-  append(calcAlphaKappaShapeIndex(mol));  // addNames("AlphaKappaShapeIndex",
-                                          // 3);
-  append(calcHEStateDescs(mol));          // addNames("HEState", 88);
-  append(calcBEStateDescs(ctx));          // addNames("BEState", 1460);
-  append(calcAbrahams(mol));              // addNames("Abrahams", 6);
-  append(calcANMat(mol));                 // addNames("ANMat", 25);
-  append(calcASMat(mol));                 // addNames("ASMat", 20);
-  append(calcAZMat(mol));                 // addNames("AZMat", 15);
-  append(calcDSMat(mol));                 // addNames("DSMat", 20);
-  append(calcDN2Mat(mol));                // addNames("DN2Mat", 20);
-  append(calcFrags(mol));                 // addNames("Frags", 215);
-  append(calcAddFeatures(mol));           // addNames("AddFeatures", 7);
+  block(2, [&] { return calcABCIndex(mol); });  // ABCIndex
+  block(2, [&] { return calcAcidBase(mol); });  // AcidBase
+  block(12, [&] { return calcAdjMatrixDescsL(mol); });  // AdjacencyMatrix
+  block(2, [&] { return calcAromatic(mol); });  // Aromatic
+  block(17, [&] { return calcAtomCounts(ctx); });  // AtomCount
+  block(606, [&] { return calcAutoCorrelation(ctx); });  // Autocorrelation
+  block(24, [&] { return calcBCUTs(mol); });  // BCUT
+  block(1, [&] { return calcBalabanJUnweighted(mol); });  // BalabanJ
+  block(104, [&] { return calcBaryszMatrixDescsL(mol); });  // BaryszMatrix
+  block(1, [&] { return calcBertzCT(mol); });  // BertzCT
+  block(9, [&] { return calcBondCounts(ctx); });  // BondCount
+  block(2, [&] { return calcRNCG_RPCG(ctx); });  // RNCGRPCG
+  block(11, [&] { return calcCarbonTypes(mol); });  // CarbonTypes
+  block(56, [&] { return calcAllChiDescriptors(mol); });  // Chi
+  block(16, [&] { return calcConstitutional(ctx); });  // Constitutional
+  block(14, [&] { return calcDetourMatrixDescsL(mol); });  // DetourMatrix
+  block(12, [&] { return calcDistMatrixDescsL(mol); });  // DistanceMatrix
+  block(404, [&] { return calcEStateDescs(ctx, doExEstate); });  // EState
+  block(1, [&] { return calcEccentricConnectivityIndex(mol); });  // EccentricConnectivityIndex
+  block(45, [&] { return calcExtendedTopochemicalAtom(mol); });  // ExtendedTopochemicalAtom
+  block(1, [&] { return calcFragmentComplexity(mol); });  // FragmentComplexity
+  block(1, [&] { return calcFramework(ctx); });  // Framework
+  block(2, [&] { return calcHydrogenBond(ctx); });  // HydrogenBond
+  block(1, [&] { return calcLogS(mol); });  // LogS
+  block(42, [&] { return calcInformationContent(mol, opts.icOptions); });  // InformationContent
+  block(3, [&] { return calcKappaShapeIndex(mol); });  // KappaShapeIndex
+  block(2, [&] { return calcLipinskiGhose(ctx); });  // Lipinski
+  block(1, [&] { return calcMcGowanVolume(ctx); });  // McGowanVolume
+  block(58, [&] { return calcMoeType(mol); });  // MoeType
+  block(19, [&] { return calcMolecularDistanceEdgeDescs(mol); });  // MolecularDistanceEdge
+  block(12, [&] { return calcMolecularId(mol); });  // MolecularId
+  block(21, [&] { return calcPathCount(mol); });  // PathCount
+  block(2, [&] { return calcPolarizability(ctx); });  // Polarizability
+  block(138, [&] { return calcRingDescriptors(mol); });  // RingCount
+  block(2, [&] { return calcRotatableBond(mol); });  // RotatableBond
+  block(2, [&] { return calcSLogP(mol); });  // SLogP
+  block(2, [&] { return calcTopoPSA(mol); });  // TopoPSA
+  block(21, [&] { return calcTopologicalChargeDescs(mol); });  // TopologicalCharge
+  block(4, [&] { return calcTopologicalIndex(mol); });  // TopologicalIndex
+  block(1, [&] { return calcVdwVolumeABC(ctx); });  // VdwVolumeABC
+  block(1, [&] { return calcVertexAdjacencyInformation(mol); });  // VertexAdjacencyInformation
+  block(21, [&] { return calcWalkCounts(mol); });  // WalkCount
+  block(2, [&] { return calcWeight(ctx); });  // Weight
+  block(2, [&] { return calcWienerIndex(mol); });  // WienerIndex
+  block(4, [&] { return calcZagrebIndex(mol); });  // ZagrebIndex
+  block(1, [&] { return calcPol(ctx); });  // Pol
+  block(1, [&] { return calcMR(ctx); });  // MR
+  block(1, [&] { return calcFlexibility(mol); });  // Flexibility
+  block(1, [&] { return calcSchultz(mol); });  // Schultz
+  block(3, [&] { return calcAlphaKappaShapeIndex(mol); });  // AlphaKappaShapeIndex
+  block(88, [&] { return calcHEStateDescs(mol); });  // HEState
+  block(1460, [&] { return calcBEStateDescs(ctx); });  // BEState
+  block(6, [&] { return calcAbrahams(mol); });  // Abrahams
+  block(25, [&] { return calcANMat(mol); });  // ANMat
+  block(20, [&] { return calcASMat(mol); });  // ASMat
+  block(15, [&] { return calcAZMat(mol); });  // AZMat
+  block(20, [&] { return calcDSMat(mol); });  // DSMat
+  block(20, [&] { return calcDN2Mat(mol); });  // DN2Mat
+  block(214, [&] { return calcFrags(mol); });  // Frags
+  block(7, [&] { return calcAddFeatures(mol); });  // AddFeatures
   return out;
 }
 }  // namespace
@@ -213,8 +220,9 @@ std::vector<double> nanRow() {
                              std::numeric_limits<double>::quiet_NaN());
 }
 
-// one molecule, all-or-nothing: a timeout (ValueErrorException) or a
-// std::runtime_error gives a row of NaN. Does not touch the log state.
+// one molecule: a failing descriptor block gives NaNs for that block only;
+// a timeout or any other std::runtime_error gives a row of NaN. Does not
+// touch the log state.
 std::vector<double> calcWithTimeout(const ROMol &mol,
                                     const OsmordredOptions &opts) {
   TimePoint end_time = Clock::now() + std::chrono::seconds(opts.timeout);
