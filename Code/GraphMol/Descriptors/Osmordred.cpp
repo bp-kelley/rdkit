@@ -148,66 +148,78 @@ std::vector<double> calcOsmordred(const ROMol &mol,
     checkTimeout();
   };
 
-  block(2, [&] { return calcABCIndex(mol); });  // ABCIndex
-  block(2, [&] { return calcAcidBase(mol); });  // AcidBase
-  block(12, [&] { return calcAdjMatrixDescsL(mol); });  // AdjacencyMatrix
-  block(2, [&] { return calcAromatic(mol); });  // Aromatic
-  block(17, [&] { return calcAtomCounts(ctx); });  // AtomCount
-  block(606, [&] { return calcAutoCorrelation(ctx); });  // Autocorrelation
-  block(24, [&] { return calcBCUTs(mol); });  // BCUT
-  block(1, [&] { return calcBalabanJUnweighted(mol); });  // BalabanJ
+  block(2, [&] { return calcABCIndex(mol); });              // ABCIndex
+  block(2, [&] { return calcAcidBase(mol); });              // AcidBase
+  block(12, [&] { return calcAdjMatrixDescsL(mol); });      // AdjacencyMatrix
+  block(2, [&] { return calcAromatic(mol); });              // Aromatic
+  block(17, [&] { return calcAtomCounts(ctx); });           // AtomCount
+  block(606, [&] { return calcAutoCorrelation(ctx); });     // Autocorrelation
+  block(24, [&] { return calcBCUTs(mol); });                // BCUT
+  block(1, [&] { return calcBalabanJUnweighted(mol); });    // BalabanJ
   block(104, [&] { return calcBaryszMatrixDescsL(mol); });  // BaryszMatrix
-  block(1, [&] { return calcBertzCT(mol); });  // BertzCT
-  block(9, [&] { return calcBondCounts(ctx); });  // BondCount
-  block(2, [&] { return calcRNCG_RPCG(ctx); });  // RNCGRPCG
-  block(11, [&] { return calcCarbonTypes(mol); });  // CarbonTypes
-  block(56, [&] { return calcAllChiDescriptors(mol); });  // Chi
-  block(16, [&] { return calcConstitutional(ctx); });  // Constitutional
-  block(14, [&] { return calcDetourMatrixDescsL(mol); });  // DetourMatrix
-  block(12, [&] { return calcDistMatrixDescsL(mol); });  // DistanceMatrix
+  block(1, [&] { return calcBertzCT(mol); });               // BertzCT
+  block(9, [&] { return calcBondCounts(ctx); });            // BondCount
+  block(2, [&] { return calcRNCG_RPCG(ctx); });             // RNCGRPCG
+  block(11, [&] { return calcCarbonTypes(mol); });          // CarbonTypes
+  block(56, [&] { return calcAllChiDescriptors(mol); });    // Chi
+  block(16, [&] { return calcConstitutional(ctx); });       // Constitutional
+  block(14, [&] { return calcDetourMatrixDescsL(mol); });   // DetourMatrix
+  block(12, [&] { return calcDistMatrixDescsL(mol); });     // DistanceMatrix
   block(404, [&] { return calcEStateDescs(ctx, doExEstate); });  // EState
-  block(1, [&] { return calcEccentricConnectivityIndex(mol); });  // EccentricConnectivityIndex
-  block(45, [&] { return calcExtendedTopochemicalAtom(mol); });  // ExtendedTopochemicalAtom
+  block(1, [&] {
+    return calcEccentricConnectivityIndex(mol);
+  });  // EccentricConnectivityIndex
+  block(45, [&] {
+    return calcExtendedTopochemicalAtom(mol);
+  });  // ExtendedTopochemicalAtom
   block(1, [&] { return calcFragmentComplexity(mol); });  // FragmentComplexity
-  block(1, [&] { return calcFramework(ctx); });  // Framework
-  block(2, [&] { return calcHydrogenBond(ctx); });  // HydrogenBond
-  block(1, [&] { return calcLogS(mol); });  // LogS
-  block(42, [&] { return calcInformationContent(mol, opts.icOptions); });  // InformationContent
+  block(1, [&] { return calcFramework(ctx); });           // Framework
+  block(2, [&] { return calcHydrogenBond(ctx); });        // HydrogenBond
+  block(1, [&] { return calcLogS(mol); });                // LogS
+  block(42, [&] {
+    return calcInformationContent(mol, opts.icOptions);
+  });                                                  // InformationContent
   block(3, [&] { return calcKappaShapeIndex(mol); });  // KappaShapeIndex
-  block(2, [&] { return calcLipinskiGhose(ctx); });  // Lipinski
-  block(1, [&] { return calcMcGowanVolume(ctx); });  // McGowanVolume
-  block(58, [&] { return calcMoeType(mol); });  // MoeType
-  block(19, [&] { return calcMolecularDistanceEdgeDescs(mol); });  // MolecularDistanceEdge
-  block(12, [&] { return calcMolecularId(mol); });  // MolecularId
-  block(21, [&] { return calcPathCount(mol); });  // PathCount
+  block(2, [&] { return calcLipinskiGhose(ctx); });    // Lipinski
+  block(1, [&] { return calcMcGowanVolume(ctx); });    // McGowanVolume
+  block(58, [&] { return calcMoeType(mol); });         // MoeType
+  block(19, [&] {
+    return calcMolecularDistanceEdgeDescs(mol);
+  });                                                 // MolecularDistanceEdge
+  block(12, [&] { return calcMolecularId(mol); });    // MolecularId
+  block(21, [&] { return calcPathCount(mol); });      // PathCount
   block(2, [&] { return calcPolarizability(ctx); });  // Polarizability
   block(138, [&] { return calcRingDescriptors(mol); });  // RingCount
-  block(2, [&] { return calcRotatableBond(mol); });  // RotatableBond
-  block(2, [&] { return calcSLogP(mol); });  // SLogP
-  block(2, [&] { return calcTopoPSA(mol); });  // TopoPSA
-  block(21, [&] { return calcTopologicalChargeDescs(mol); });  // TopologicalCharge
-  block(4, [&] { return calcTopologicalIndex(mol); });  // TopologicalIndex
-  block(1, [&] { return calcVdwVolumeABC(ctx); });  // VdwVolumeABC
-  block(1, [&] { return calcVertexAdjacencyInformation(mol); });  // VertexAdjacencyInformation
+  block(2, [&] { return calcRotatableBond(mol); });      // RotatableBond
+  block(2, [&] { return calcSLogP(mol); });              // SLogP
+  block(2, [&] { return calcTopoPSA(mol); });            // TopoPSA
+  block(21,
+        [&] { return calcTopologicalChargeDescs(mol); });  // TopologicalCharge
+  block(4, [&] { return calcTopologicalIndex(mol); });     // TopologicalIndex
+  block(1, [&] { return calcVdwVolumeABC(ctx); });         // VdwVolumeABC
+  block(1, [&] {
+    return calcVertexAdjacencyInformation(mol);
+  });                                              // VertexAdjacencyInformation
   block(21, [&] { return calcWalkCounts(mol); });  // WalkCount
-  block(2, [&] { return calcWeight(ctx); });  // Weight
+  block(2, [&] { return calcWeight(ctx); });       // Weight
   block(2, [&] { return calcWienerIndex(mol); });  // WienerIndex
   block(4, [&] { return calcZagrebIndex(mol); });  // ZagrebIndex
-  block(1, [&] { return calcPol(ctx); });  // Pol
-  block(1, [&] { return calcMR(ctx); });  // MR
+  block(1, [&] { return calcPol(ctx); });          // Pol
+  block(1, [&] { return calcMR(ctx); });           // MR
   block(1, [&] { return calcFlexibility(mol); });  // Flexibility
-  block(1, [&] { return calcSchultz(mol); });  // Schultz
-  block(3, [&] { return calcAlphaKappaShapeIndex(mol); });  // AlphaKappaShapeIndex
-  block(88, [&] { return calcHEStateDescs(mol); });  // HEState
-  block(1460, [&] { return calcBEStateDescs(ctx); });  // BEState
-  block(6, [&] { return calcAbrahams(mol); });  // Abrahams
-  block(25, [&] { return calcANMat(mol); });  // ANMat
-  block(20, [&] { return calcASMat(mol); });  // ASMat
-  block(15, [&] { return calcAZMat(mol); });  // AZMat
-  block(20, [&] { return calcDSMat(mol); });  // DSMat
-  block(20, [&] { return calcDN2Mat(mol); });  // DN2Mat
-  block(214, [&] { return calcFrags(mol); });  // Frags
-  block(7, [&] { return calcAddFeatures(mol); });  // AddFeatures
+  block(1, [&] { return calcSchultz(mol); });      // Schultz
+  block(3,
+        [&] { return calcAlphaKappaShapeIndex(mol); });  // AlphaKappaShapeIndex
+  block(88, [&] { return calcHEStateDescs(mol); });      // HEState
+  block(1460, [&] { return calcBEStateDescs(ctx); });    // BEState
+  block(6, [&] { return calcAbrahams(mol); });           // Abrahams
+  block(25, [&] { return calcANMat(mol); });             // ANMat
+  block(20, [&] { return calcASMat(mol); });             // ASMat
+  block(15, [&] { return calcAZMat(mol); });             // AZMat
+  block(20, [&] { return calcDSMat(mol); });             // DSMat
+  block(20, [&] { return calcDN2Mat(mol); });            // DN2Mat
+  block(214, [&] { return calcFrags(mol); });            // Frags
+  block(7, [&] { return calcAddFeatures(mol); });        // AddFeatures
   return out;
 }
 }  // namespace
