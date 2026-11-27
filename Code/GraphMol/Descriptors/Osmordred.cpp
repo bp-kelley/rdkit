@@ -30,17 +30,16 @@
 //
 
 #include "Osmordred.h"
-#include <atomic>
-#include <thread>
 #include "OsmordredHelpers.h"
 
 #include <boost/functional/hash.hpp>  // For custom hashing of pairs
-#include <RDGeneral/RDThreads.h>
+#include <RDGeneral/RDLog.h>
 #include <GraphMol/MolOps.h>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/Substruct/SubstructMatch.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
+#include <GraphMol/SanitException.h>
 
 #include <GraphMol/Descriptors/BCUT.h>
 #include <GraphMol/Descriptors/MolDescriptors.h>
@@ -64,8 +63,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include <future>
 #include <chrono>
+#include <limits>
+#include <memory>
+#include <new>
 
 namespace RDKit {
 namespace Descriptors {
@@ -87,13 +88,13 @@ bool OsmordredOptions::isValid() const {
 }
 namespace {
 
-// Fast aggregate: compute all descriptors in C++ in one pass
+// Fast aggregate: compute all descriptors in C++ in one pass.
+// Callers are responsible for silencing the logs (see calcOsmordred() and
+// OsmordredProperties::computePropertiesForMols()).
 std::vector<double> calcOsmordred(const ROMol &mol,
                                   const OsmordredOptions &opts,
                                   TimePoint *end_time) {
-  // Silence RDKit warnings locally
   PRECONDITION(opts.isValid(), "Invalid Osmordred Options");
-  RDLog::LogStateSetter guard;
 
   std::vector<double> out;
   out.reserve(4200);  // approximate capacity to avoid many reallocations
@@ -205,170 +206,107 @@ std::vector<double> calcOsmordred(const ROMol &mol,
 }  // namespace
 
 constexpr int NUM_OSMORDRED = 3588;
+
+namespace {
+std::vector<double> nanRow() {
+  return std::vector<double>(NUM_OSMORDRED,
+                             std::numeric_limits<double>::quiet_NaN());
+}
+
+// one molecule, all-or-nothing: a timeout (ValueErrorException) or a
+// std::runtime_error gives a row of NaN. Does not touch the log state.
+std::vector<double> calcWithTimeout(const ROMol &mol,
+                                    const OsmordredOptions &opts) {
+  TimePoint end_time = Clock::now() + std::chrono::seconds(opts.timeout);
+  try {
+    return calcOsmordred(mol, opts, &end_time);
+  } catch (const ValueErrorException &) {
+    return nanRow();
+  } catch (const std::runtime_error &) {
+    return nanRow();
+  }
+}
+}  // namespace
+
+OsmordredProperties::OsmordredProperties(const OsmordredOptions &opts)
+    // no PropertyFunctors: computeProperties() is overridden
+    : Properties(std::vector<std::string>()), d_opts(opts) {
+  PRECONDITION(d_opts.isValid(), "Invalid Osmordred Options");
+}
+
+std::vector<std::string> OsmordredProperties::getPropertyNames() const {
+  return getOsmordredDescriptorNames();
+}
+
+std::vector<double> OsmordredProperties::computeProperties(
+    const RDKit::ROMol &mol, bool annotate) const {
+  std::vector<double> res;
+  try {
+    res = calcWithTimeout(mol, d_opts);
+  } catch (const std::bad_alloc &) {
+    throw;
+  } catch (const std::exception &) {
+    res = nanRow();
+  }
+  if (annotate) {
+    const auto names = getPropertyNames();
+    CHECK_INVARIANT(names.size() == res.size(),
+                    "descriptor names and values differ in size");
+    for (size_t i = 0; i < names.size(); ++i) {
+      mol.setProp<double>(names[i], res[i]);
+    }
+  }
+  return res;
+}
+
+std::vector<std::vector<double>> OsmordredProperties::computePropertiesForMols(
+    const std::vector<const RDKit::ROMol *> &mols, int numThreads) const {
+  // RDLog state is global and LogStateSetter is not thread safe, so silence
+  // the logs once here, outside the worker threads, and restore them after.
+  RDLog::LogStateSetter guard;
+  return Properties::computePropertiesForMols(mols, numThreads);
+}
+
 // v2.0: Single molecule with timeout protection (all-or-nothing)
 // Returns NaN vector if computation exceeds timeout_seconds
 std::vector<double> calcOsmordred(const ROMol &mol,
                                   const OsmordredOptions &opts) {
   PRECONDITION(opts.isValid(), "Invalid Osmordred Options");
-  int actual_timeout = opts.timeout;
-
-  TimePoint end_time_storage =
-      Clock::now() + std::chrono::seconds(actual_timeout);
-
-  try {
-    return calcOsmordred(mol, opts, &end_time_storage);
-  } catch (const ValueErrorException &) {
-    return std::vector<double>(NUM_OSMORDRED,
-                               std::numeric_limits<double>::quiet_NaN());
-  } catch (const std::runtime_error &) {
-    return std::vector<double>(NUM_OSMORDRED,
-                               std::numeric_limits<double>::quiet_NaN());
-  }
+  RDLog::LogStateSetter guard;
+  return calcWithTimeout(mol, opts);
 }
 
 // v2.0: Batch version from SMILES: parses each SMILES -> NEW mol (tautomer
-// canonical LOST). For tautomer-canonical mols use
-// calcOsmordredBatchFromMols(mols) with mols from ToBinary.
+// canonical LOST). For tautomer-canonical mols use the ROMol overload.
+// SMILES that fail to parse give a row of NaN.
 std::vector<std::vector<double>> calcOsmordred(
     const std::vector<std::string> &smiles_list, int n_jobs,
     const OsmordredOptions &opts) {
-  PRECONDITION(opts.isValid(), "Invalid Osmordred Options");
-  size_t n = smiles_list.size();
-  std::vector<std::vector<double>> results(n);
-
-  unsigned int nThreads = getNumThreadsToUse(n_jobs);
-  const size_t nFeatures = getNumOsmordredDescriptors();
-  const std::vector<double> nanRow(nFeatures,
-                                   std::numeric_limits<double>::quiet_NaN());
-
-  if (nThreads <= 1 || n < 10) {
-    for (size_t i = 0; i < n; ++i) {
-      std::unique_ptr<RDKit::RWMol> mol;
-
+  OsmordredProperties props(opts);
+  std::vector<std::unique_ptr<RWMol>> owned(smiles_list.size());
+  std::vector<const ROMol *> mols(smiles_list.size(), nullptr);
+  {
+    RDLog::LogStateSetter guard;
+    for (size_t i = 0; i < smiles_list.size(); ++i) {
       try {
-        mol = v2::SmilesParse::MolFromSmiles(smiles_list[i]);
+        owned[i] = v2::SmilesParse::MolFromSmiles(smiles_list[i]);
       } catch (const SmilesParseException &) {
-        mol = nullptr;
+        owned[i].reset();
+      } catch (const MolSanitizeException &) {
+        owned[i].reset();
       }
-
-      if (mol == nullptr) {
-        results[i] = nanRow;
-      } else {
-        try {
-          results[i] = calcOsmordred(*mol, opts);
-        } catch (...) {
-          results[i] = nanRow;
-        }
-      }
+      mols[i] = owned[i].get();
     }
-    return results;
   }
-
-  // v3: bounded thread pool (nThreads workers + atomic work index), each
-  // running its molecule via std::async + wait_for -> bounded thread count
-  // (safe for large batches) AND a per-molecule timeout (hang protection).
-  // Replaces the previous one-std::async-per-molecule scheme (N threads, OOM
-  // risk at scale).
-  std::atomic<size_t> nextIdx(0);
-  auto worker = [&]() {
-    size_t i;
-    while ((i = nextIdx.fetch_add(1)) < n) {
-      std::unique_ptr<RDKit::RWMol> mol;
-      try {
-        mol = v2::SmilesParse::MolFromSmiles(smiles_list[i]);
-      } catch (const SmilesParseException &) {
-        mol = nullptr;
-      }
-      if (mol == nullptr) {
-        results[i] = nanRow;
-        continue;
-      }
-      auto fut = std::async(std::launch::async,
-                            [&mol, &nanRow, &opts]() -> std::vector<double> {
-                              try {
-                                return calcOsmordred(*mol, opts);
-                              } catch (const ValueErrorException &) {
-                                return nanRow;
-                              }
-                            });
-      // is this timeout per mol or per job?
-      results[i] = fut.get();
-    }
-  };
-  std::vector<std::thread> pool;
-  pool.reserve(nThreads);
-  for (unsigned int t = 0; t < nThreads; ++t) {
-    pool.emplace_back(worker);
-  }
-  for (auto &th : pool) {
-    th.join();
-  }
-  return results;
+  return props.computePropertiesForMols(mols, n_jobs);
 }
 
 // v2.0: Batch version from mol objects: PRESERVES tautomer canonical.
-// Python binding uses mol.ToBinary() -> MolPickler::molFromPickle -> these
-// mols.
+// Null molecules give a row of NaN.
 std::vector<std::vector<double>> calcOsmordred(
     const std::vector<const ROMol *> &mols, int n_jobs,
     const OsmordredOptions &opts) {
-  PRECONDITION(opts.isValid(), "Invalid Osmordred Options");
-
-  size_t n = mols.size();
-  std::vector<std::vector<double>> results(n);
-
-  unsigned int nThreads = getNumThreadsToUse(n_jobs);
-  const size_t nFeatures = getNumOsmordredDescriptors();
-  const std::vector<double> nanRow(nFeatures,
-                                   std::numeric_limits<double>::quiet_NaN());
-
-  if (nThreads <= 1 || n < 10) {
-    for (size_t i = 0; i < n; ++i) {
-      const ROMol *mol = mols[i];
-      try {
-        results[i] = mol ? calcOsmordred(*mol, opts) : nanRow;
-      } catch (...) {
-        results[i] = nanRow;
-      }
-    }
-    return results;
-  }
-
-  // v3: bounded thread pool (nThreads workers + atomic work index), each
-  // running its molecule via std::async + wait_for -> bounded thread count
-  // (safe for large batches) AND a per-molecule timeout (hang protection).
-  // Replaces the previous one-std::async-per-molecule scheme (N threads, OOM
-  // risk at scale).
-  std::atomic<size_t> nextIdx(0);
-  auto worker = [&]() {
-    size_t i;
-    while ((i = nextIdx.fetch_add(1)) < n) {
-      const ROMol *mol = mols[i];
-      if (!mol) {
-        results[i] = nanRow;
-        continue;
-      }
-      auto fut = std::async(std::launch::async,
-                            [mol, &nanRow, &opts]() -> std::vector<double> {
-                              try {
-                                return calcOsmordred(*mol, opts);
-                              } catch (const ValueErrorException &) {
-                                return nanRow;
-                              }
-                            });
-      // is this timeout per mol or per job?
-      results[i] = fut.get();
-    }
-  };
-  std::vector<std::thread> pool;
-  pool.reserve(nThreads);
-  for (unsigned int t = 0; t < nThreads; ++t) {
-    pool.emplace_back(worker);
-  }
-  for (auto &th : pool) {
-    th.join();
-  }
-  return results;
+  return OsmordredProperties(opts).computePropertiesForMols(mols, n_jobs);
 }
 
 // v2.0: Get descriptor names in the same order as calcOsmordred returns values

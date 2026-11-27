@@ -389,8 +389,10 @@ std::vector<double> Properties::computeProperties(const RDKit::ROMol &mol,
 std::vector<std::vector<double>> Properties::computePropertiesForMols(
     const std::vector<const RDKit::ROMol *> &mols, int numThreads) const {
   const auto nan = std::numeric_limits<double>::quiet_NaN();
+  // getPropertyNames(), not m_properties: subclasses may override
+  // computeProperties() without holding PropertyFunctors
   std::vector<std::vector<double>> res(
-      mols.size(), std::vector<double>(m_properties.size(), nan));
+      mols.size(), std::vector<double>(getPropertyNames().size(), nan));
 
   // Each distinct molecule is computed exactly once: property calculators
   // may cache results on the molecule (or initialize its ring info), so the

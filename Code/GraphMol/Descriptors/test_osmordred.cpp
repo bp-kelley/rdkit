@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <algorithm>
 #include <cstdlib>
 
 using namespace RDKit;
@@ -1034,6 +1035,100 @@ TEST_CASE("Osmordred full descriptor width on tiny/degenerate molecules (singula
   auto methane = "C"_smiles;  // degenerate 1x1
   REQUIRE(methane != nullptr);
   REQUIRE(calcOsmordred(*methane).size() == ND);
+}
+
+namespace {
+bool sameRow(const std::vector<double> &a, const std::vector<double> &b) {
+  if (a.size() != b.size()) {
+    return false;
+  }
+  for (size_t j = 0; j < a.size(); ++j) {
+    if (!(a[j] == b[j] || (std::isnan(a[j]) && std::isnan(b[j])))) {
+      return false;
+    }
+  }
+  return true;
+}
+bool allNaN(const std::vector<double> &a) {
+  return std::all_of(a.begin(), a.end(),
+                     [](double v) { return std::isnan(v); });
+}
+}  // namespace
+
+TEST_CASE("OsmordredProperties") {
+  const size_t ND = getNumOsmordredDescriptors();
+  OsmordredProperties props;
+  REQUIRE(props.getPropertyNames() == getOsmordredDescriptorNames());
+
+  auto ethanol = "CCO"_smiles;
+  auto benzene = "c1ccccc1"_smiles;
+  auto caffeine = "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"_smiles;
+  REQUIRE(ethanol);
+  REQUIRE(benzene);
+  REQUIRE(caffeine);
+
+  SECTION("single molecule matches calcOsmordred") {
+    auto row = props.computeProperties(*benzene);
+    REQUIRE(row.size() == ND);
+    REQUIRE(sameRow(row, calcOsmordred(*benzene)));
+  }
+
+  SECTION("annotate") {
+    ROMol mol(*ethanol);
+    auto row = props.computeProperties(mol, true);
+    const auto names = props.getPropertyNames();
+    REQUIRE(mol.getProp<double>(names[0]) == row[0]);
+    REQUIRE(mol.getProp<double>(names.back()) == row.back());
+  }
+
+  SECTION("batch, threaded, with nulls and repeats") {
+    std::vector<const ROMol *> mols;
+    for (int rep = 0; rep < 5; ++rep) {
+      mols.push_back(ethanol.get());
+      mols.push_back(nullptr);
+      mols.push_back(benzene.get());
+      mols.push_back(caffeine.get());
+    }
+    const auto expEthanol = calcOsmordred(*ethanol);
+    const auto expBenzene = calcOsmordred(*benzene);
+    const auto expCaffeine = calcOsmordred(*caffeine);
+    for (int nThreads : {1, 4}) {
+      auto rows = calcOsmordred(mols, nThreads);
+      REQUIRE(rows.size() == mols.size());
+      for (size_t i = 0; i < mols.size(); i += 4) {
+        REQUIRE(sameRow(rows[i], expEthanol));
+        REQUIRE(rows[i + 1].size() == ND);
+        REQUIRE(allNaN(rows[i + 1]));
+        REQUIRE(sameRow(rows[i + 2], expBenzene));
+        REQUIRE(sameRow(rows[i + 3], expCaffeine));
+      }
+      REQUIRE(sameRow(props.computePropertiesForMols(mols, nThreads)[3],
+                      expCaffeine));
+    }
+  }
+
+  SECTION("SMILES batch: bad SMILES and bad valences give NaN rows") {
+    std::vector<std::string> smis{"CCO", "not a smiles", "C(C)(C)(C)(C)C",
+                                  "c1ccccc1"};
+    for (int nThreads : {1, 2}) {
+      auto rows = calcOsmordred(smis, nThreads);
+      REQUIRE(rows.size() == smis.size());
+      REQUIRE(sameRow(rows[0], calcOsmordred(*ethanol)));
+      REQUIRE(rows[1].size() == ND);
+      REQUIRE(allNaN(rows[1]));
+      REQUIRE(rows[2].size() == ND);
+      REQUIRE(allNaN(rows[2]));
+      REQUIRE(sameRow(rows[3], calcOsmordred(*benzene)));
+    }
+  }
+
+  SECTION("logs are restored after a batch") {
+    REQUIRE(rdErrorLog);
+    const bool wasEnabled = rdErrorLog->df_enabled;
+    std::vector<const ROMol *> mols(12, caffeine.get());
+    calcOsmordred(mols, 4);
+    REQUIRE(rdErrorLog->df_enabled == wasEnabled);
+  }
 }
 
 #else

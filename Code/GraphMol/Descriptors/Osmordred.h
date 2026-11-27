@@ -34,6 +34,8 @@
 #define _OSMORDRED_H
 
 #include <GraphMol/ROMol.h>
+#include <GraphMol/Descriptors/Property.h>
+#include <string>
 #include <vector>
 
 namespace RDKit {
@@ -299,6 +301,40 @@ struct RDKIT_DESCRIPTORS_EXPORT OsmordredOptions {
   InformationContentOptions icOptions;
   int timeout = 60;      // !< Time to spend (in seconds) on a single molecule
   bool isValid() const;  // !< are the options valid for calculating descriptors
+};
+
+//! The full Osmordred descriptor set as a Descriptors::Properties
+/*!
+  Each molecule's row is the vector calcOsmordred(mol, opts) returns, in
+  getOsmordredDescriptorNames() order. Use computePropertiesForMols() to
+  compute many molecules in parallel; the batch calcOsmordred() overloads are
+  thin wrappers around it.
+
+  A molecule that fails, or that takes longer than OsmordredOptions::timeout,
+  gives a row of NaN; std::bad_alloc is rethrown.
+
+  This class does not hold PropertyFunctors: getProperties() is empty, and the
+  values come from the overridden computeProperties().
+*/
+class RDKIT_DESCRIPTORS_EXPORT OsmordredProperties : public Properties {
+ public:
+  explicit OsmordredProperties(
+      const OsmordredOptions &opts = OsmordredOptions());
+
+  std::vector<std::string> getPropertyNames() const override;
+  //! computes the full descriptor set for \c mol. Does not silence the RDKit
+  //! logs; the calcOsmordred() functions do.
+  std::vector<double> computeProperties(const RDKit::ROMol &mol,
+                                        bool annotate = false) const override;
+  //! Properties::computePropertiesForMols() with the RDKit logs silenced
+  //! for the duration of the call (once, outside the worker threads)
+  std::vector<std::vector<double>> computePropertiesForMols(
+      const std::vector<const RDKit::ROMol *> &mols, int numThreads = 1) const;
+
+  const OsmordredOptions &getOptions() const { return d_opts; }
+
+ private:
+  OsmordredOptions d_opts;
 };
 
 RDKIT_DESCRIPTORS_EXPORT std::vector<double> calcOsmordred(
