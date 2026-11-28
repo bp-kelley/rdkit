@@ -1561,6 +1561,9 @@ std::vector<double> calcAllChiDescriptors(const ROMol &mol) {
     results[48 + order] =
         path_xdv[order] / path_node_counts[order];  // Average path xdv
   }
+  // Xp-1d is identical to the standard Chi1 descriptor, so use that one.
+  results[25] = Descriptors::calcChi1(mol);
+  results[33] = results[25] / path_node_counts[1];
 
   return results;
 }

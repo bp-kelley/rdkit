@@ -23,6 +23,7 @@
 #include <utility>
 #include <limits>
 #include <memory>
+#include <set>
 #include <algorithm>
 #include <cstdlib>
 
@@ -1263,10 +1264,10 @@ TEST_CASE("osmordred property functors") {
 }
 
 // Compares every osmordred descriptor that duplicates a standard RDKit
-// descriptor, so the osmordred copies can be pruned. Prints one line per
-// pair; fails if any pair differs. Hidden from the default run while the
-// known differences remain; run it with: testOsmordred "[duplicates]"
-TEST_CASE("osmordred duplicates of standard descriptors", "[.][duplicates]") {
+// descriptor. The identical ones are computed with the standard functions,
+// so they must stay identical; the ones in knownDifferent use their own
+// definitions and are only reported. Run with: testOsmordred "[duplicates]"
+TEST_CASE("osmordred duplicates of standard descriptors", "[duplicates]") {
   using RDKit::Descriptors::Properties;
   // (osmordred name, standard Properties name)
   std::vector<std::pair<std::string, std::string>> pairs = {
@@ -1311,6 +1312,11 @@ TEST_CASE("osmordred duplicates of standard descriptors", "[.][duplicates]") {
                          prefix + std::to_string(i));
     }
   }
+
+  // osmordred descriptors whose definitions differ from the standard ones
+  const std::set<std::string> knownDifferent = {
+      "BertzCT", "Kier1",  "Kier2",  "Kier3", "KierAlpha3",
+      "Xp-0d",   "Xp-0dv", "Xp-1dv", "J"};
 
   const std::vector<std::string> smiles = {
       "C",
@@ -1400,12 +1406,13 @@ TEST_CASE("osmordred duplicates of standard descriptors", "[.][duplicates]") {
            << " vs " << pairs[p].second << ": " << st.compared - st.differ
            << "/" << st.compared;
     if (st.differ) {
-      ++nDiffer;
+      if (!knownDifferent.count(pairs[p].first)) {
+        ++nDiffer;
+      }
       report << ", max " << st.maxDiff << ", e.g. " << st.example;
     }
     report << "\n";
   }
-  WARN(report.str());
   INFO(report.str());
   CHECK(nDiffer == 0);
 }

@@ -388,7 +388,7 @@ std::vector<int> calcAtomCounts(OsmordredContext &ctx) {
 
   // std::vector<int> counts(17, 0);
 
-  int nAtoms = hmol->getNumAtoms();
+  int nAtoms = Descriptors::calcNumAtoms(mol);
   int nHeavy = Descriptors::calcNumHeavyAtoms(mol);
   int nSpiro = Descriptors::calcNumSpiroAtoms(mol);
   int nBrigde = Descriptors::calcNumBridgeheadAtoms(mol);
@@ -1219,110 +1219,6 @@ std::vector<double> calcHydrogenBond(const ROMol &mol) {
   return calcHydrogenBond(ctx);
 }
 
-// MOE need to implement EState here ;-)
-
-// Helper function to calculate VSA_EState
-// Helper function for LabuteASA calculation
-std::vector<double> VSAcontrib(const ROMol &mol, bool includeHs = true) {
-  // Compute the Labute ASA contributions
-  std::vector<double> atomContribs(mol.getNumAtoms(), 0.0);
-  double totalASA = 0.0;
-  Descriptors::getLabuteAtomContribs(mol, atomContribs, totalASA, includeHs);
-
-  // Include the total hydrogen contribution as the first element
-  std::vector<double> Vi(atomContribs.size() + 1, 0.0);
-
-  Vi[0] = totalASA;
-
-  std::copy(atomContribs.begin(), atomContribs.end(), Vi.begin() + 1);
-
-  // Cache the result as a property in the molecule
-  // mol.setProp("_LabuteContribs", Vi);
-
-  return Vi;
-}
-
-// Function to calculate EState-based VSA contributions
-std::vector<double> VSA_EState(const ROMol &mol,
-                               const std::vector<double> &bins) {
-  // Calculate EState indices
-  std::vector<double> propContribs = calcEStateIndices(mol);
-
-  // Calculate VSA contributions
-  std::vector<double> volContribs = VSAcontrib(mol, true);
-
-  // Initialize result vector
-  std::vector<double> ans(bins.size() + 1, 0.0);
-
-  // Assign contributions to bins
-  for (size_t i = 0; i < propContribs.size(); ++i) {
-    if (!std::isnan(propContribs[i])) {
-      double volume = volContribs[i + 1];
-      auto nbin =
-          std::upper_bound(bins.begin(), bins.end(), volume) - bins.begin();
-      ans[nbin] += propContribs[i];
-    }
-  }
-  // Cache the result in the molecule
-  // mol.setProp("_VSA_EState", ans);
-
-  return ans;
-}
-
-// Function to calculate EState-based VSA contributions
-std::vector<double> EState_VSA(const ROMol &mol,
-                               const std::vector<double> &bins) {
-  // Calculate EState indices
-  std::vector<double> propContribs = calcEStateIndices(mol);
-
-  // Calculate VSA contributions
-  std::vector<double> volContribs = VSAcontrib(mol, true);
-
-  // Initialize result vector
-  std::vector<double> ans(bins.size() + 1, 0.0);
-
-  // Assign contributions to bins
-  for (size_t i = 0; i < propContribs.size(); ++i) {
-    if (!std::isnan(propContribs[i])) {
-      auto nbin = std::upper_bound(bins.begin(), bins.end(), propContribs[i]) -
-                  bins.begin();
-      ans[nbin] += volContribs[i + 1];
-    }
-  }
-  // Cache the result in the molecule
-  // mol.setProp("_EState_VSA", ans);
-
-  return ans;
-}
-
-// this is fixed by p = distance + 1
-std::vector<double> calcVSA_EState(const ROMol &mol) {
-  const std::string customPropName =
-      "EState";  // Assume EState values are stored in this property
-  std::vector<double> vsaBins = {4.78, 5.00, 5.410, 5.740, 6.00,
-                                 6.07, 6.45, 7.00,  11.0};
-  std::vector<double> vsaEstate = VSA_EState(mol, vsaBins);
-  return vsaEstate;
-}
-
-//
-std::vector<double> calcEState_VSA(const ROMol &mol) {
-  const std::string customPropName =
-      "EState";  // Assume EState values are stored in this property
-  std::vector<double> estateBins = {-0.390, 0.290, 0.717, 1.165, 1.540,
-                                    1.807,  2.05,  4.69,  9.17,  15.0};
-
-  // Calculate the EState contributions for each atom
-  std::vector<double> estateIndices = calcEStateIndices(mol);
-  std::vector<double> eStateVSA = EState_VSA(mol, estateBins);
-
-  // Use calcCustomProp_VSA with EState bins
-  // std::vector<double> eStateVSA = Descriptors::calcCustomProp_VSA(
-  //    mol, customPropName, estateBins);
-
-  return eStateVSA;
-}
-
 std::vector<double> calcMoeType(const ROMol &mol) {
   // osmordredv3: 58 = LabuteASA + PEOE_VSA(14) + SMR_VSA(10) + SlogP_VSA(12) +
   // EState_VSA(11) + VSA_EState(10). Was res(54) with `p += size - 1` below,
@@ -1358,7 +1254,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
   p += SlogP_VSA.size();
   // std::cout << "- new p: " <<  p << " | ";
 
-  std::vector<double> EState_VSA = calcEState_VSA(mol);
+  std::vector<double> EState_VSA = Descriptors::calcEState_VSA(mol);
   // std::cout << EState_VSA.size() << " ";
   for (size_t i = 0; i < EState_VSA.size(); ++i) {
     res[p + i] = EState_VSA[i];  // Copy EState_VSA
@@ -1367,7 +1263,7 @@ std::vector<double> calcMoeType(const ROMol &mol) {
   // std::cout << "- new p: " << p << " | ";
 
   // EState (mordred) VSA_EState 1-9 & EState_VSA 1-10
-  std::vector<double> VSA_EState = calcVSA_EState(mol);
+  std::vector<double> VSA_EState = Descriptors::calcVSA_EState(mol);
   // std::cout << VSA_EState.size() << "\n";
   for (size_t i = 0; i < VSA_EState.size(); ++i) {
     res[p + i] = VSA_EState[i];  // Copy SlogP_VSA to res[24:34]

@@ -668,23 +668,6 @@ double calcHallKierAlpha(const ROMol &mol) {
   return alphaSum;
 };
 
-double alphakappa1Helper(double P1, double A, double alpha) {
-  double denom = P1 + alpha;
-  double kappa = 0.0;
-  if (denom) {
-    kappa = (A + alpha) * (A + alpha - 1) * (A + alpha - 1) / (denom * denom);
-  }
-  return kappa;
-}
-double alphakappa2Helper(double P2, double A, double alpha) {
-  double denom = (P2 + alpha) * (P2 + alpha);
-  double kappa = 0.0;
-  if (denom) {
-    kappa = (A + alpha - 1) * (A + alpha - 2) * (A + alpha - 2) / denom;
-  }
-  return kappa;
-}
-
 double alphakappa3Helperfix(double P3, int A, double alpha) {
   double denom = (P3 + alpha) * (P3 + alpha);
   double kappa = 0.0;
@@ -698,20 +681,6 @@ double alphakappa3Helperfix(double P3, int A, double alpha) {
   return kappa;
 }
 
-double calcalphaKappa1(const ROMol &mol) {
-  double P1 = mol.getNumBonds();
-  double A = mol.getNumHeavyAtoms();
-  double alpha = calcHallKierAlpha(mol);
-  double kappa = alphakappa1Helper(P1, A, alpha);
-  return kappa;
-}
-double calcalphaKappa2(const ROMol &mol) {
-  double P2 = static_cast<double>(calcPathsOfLengthN(mol, 2));
-  double A = mol.getNumHeavyAtoms();
-  double alpha = calcHallKierAlpha(mol);
-  double kappa = alphakappa2Helper(P2, A, alpha);
-  return kappa;
-}
 double calcalphaKappa3fix(const ROMol &mol) {
   double P3 = static_cast<double>(calcPathsOfLengthN(mol, 3));
   int A = mol.getNumHeavyAtoms();
@@ -720,19 +689,16 @@ double calcalphaKappa3fix(const ROMol &mol) {
   return kappa;
 }
 
-double calcFlexibility(const ROMol &mol) {
-  double AK1 = calcalphaKappa1(mol);
-  double AK2 = calcalphaKappa2(mol);
-  int numHeavyAtom = mol.getNumHeavyAtoms();
-  return AK1 * AK2 / static_cast<double>(numHeavyAtom);
-}
+// Identical to the standard Phi descriptor, so use that one.
+double calcFlexibility(const ROMol &mol) { return Descriptors::calcPhi(mol); }
 
 std::vector<double> calcAlphaKappaShapeIndex(const ROMol &mol) {
   std::vector<double> results(3, 0.0);
-  results[0] = calcalphaKappa1(mol);
-
-  results[1] = calcalphaKappa2(mol);
-
+  // The first two are identical to the standard kappa1 and kappa2
+  // descriptors. kappa3 differs: mordred uses a different formula for even
+  // numbers of heavy atoms.
+  results[0] = Descriptors::calcKappa1(mol);
+  results[1] = Descriptors::calcKappa2(mol);
   results[2] = calcalphaKappa3fix(mol);
 
   return results;
@@ -2692,7 +2658,7 @@ std::vector<int> calcRingDescriptors(const ROMol &mol) {
 
   // part one make rings inventory
 
-  descriptors[0] = sssr.size();
+  descriptors[0] = Descriptors::calcNumRings(mol);
   // Iterate over all rings and count descriptors based on size, aromaticity,
   // fused
   for (const auto &ring : sssr) {
@@ -2772,6 +2738,10 @@ std::vector<int> calcRingDescriptors(const ROMol &mol) {
       }
     }
   }
+
+  // nRing (above) and naRing are identical to the standard NumRings and
+  // NumAromaticRings descriptors, so use those.
+  descriptors[24] = Descriptors::calcNumAromaticRings(mol);
 
   // part two make fused ring inventory
   // maybe we don't need the rings step...
