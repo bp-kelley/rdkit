@@ -34,6 +34,8 @@
 #define _OSMORDRED_H
 
 #include <GraphMol/ROMol.h>
+#include <GraphMol/Descriptors/Property.h>
+#include <string>
 #include <vector>
 
 namespace RDKit {
@@ -300,6 +302,62 @@ struct RDKIT_DESCRIPTORS_EXPORT OsmordredOptions {
   int timeout = 60;      // !< Time to spend (in seconds) on a single molecule
   bool isValid() const;  // !< are the options valid for calculating descriptors
 };
+
+//! The full Osmordred descriptor set as a Descriptors::Properties
+/*!
+  Each molecule's row is the vector calcOsmordred(mol, opts) returns, in
+  getOsmordredDescriptorNames() order. Use computePropertiesForMols() to
+  compute many molecules in parallel; the batch calcOsmordred() overloads are
+  thin wrappers around it.
+
+  A molecule that fails, or that takes longer than OsmordredOptions::timeout,
+  gives a row of NaN; std::bad_alloc is rethrown.
+
+  getProperties() holds the osmordred property functors (see
+  getOsmordredProperties()), but computeProperties() computes all of them
+  together, sharing intermediates and applying OsmordredOptions::timeout.
+*/
+class RDKIT_DESCRIPTORS_EXPORT OsmordredProperties : public Properties {
+ public:
+  explicit OsmordredProperties(
+      const OsmordredOptions &opts = OsmordredOptions());
+
+  //! computes the full descriptor set for \c mol. Does not silence the RDKit
+  //! logs; the calcOsmordred() functions do.
+  std::vector<double> computeProperties(const RDKit::ROMol &mol,
+                                        bool annotate = false) const override;
+  //! Properties::computePropertiesForMols() with the RDKit logs silenced
+  //! for the duration of the call (once, outside the worker threads)
+  std::vector<std::vector<double>> computePropertiesForMols(
+      const std::vector<const RDKit::ROMol *> &mols, int numThreads = 1) const;
+
+  const OsmordredOptions &getOptions() const { return d_opts; }
+
+ private:
+  OsmordredOptions d_opts;
+};
+
+//! version of the osmordred property functors
+const std::string osmordredVersion = "1.0.0";
+
+//! One property functor per osmordred descriptor, in
+//! getOsmordredDescriptorNames() order, built on first use.
+/*!
+  Each is a VectorElementPropertyFunctor of its descriptor block, so the
+  functors can be mixed with the standard ones in a Properties, e.g.
+  Properties({"exactmw", "Vabc"}); Properties::getProperty() finds them by
+  name. A block is computed once per molecule however many of its values are
+  requested. The functors use the default OsmordredOptions and have no
+  timeout. They are not added to Properties::registry, so Properties() and
+  Properties::getAvailableProperties() are unchanged, and where a name is
+  also a standard descriptor (BertzCT and the VSA bins) getProperty()
+  returns the standard one.
+*/
+RDKIT_DESCRIPTORS_EXPORT const std::vector<boost::shared_ptr<PropertyFunctor>> &
+getOsmordredProperties();
+//! the osmordred property functor called \c name, or null if there is none
+RDKIT_DESCRIPTORS_EXPORT boost::shared_ptr<PropertyFunctor>
+getOsmordredProperty(const std::string &name);
 
 RDKIT_DESCRIPTORS_EXPORT std::vector<double> calcOsmordred(
     const ROMol &mol, const OsmordredOptions &opts = OsmordredOptions());

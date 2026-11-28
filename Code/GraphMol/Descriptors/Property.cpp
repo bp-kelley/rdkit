@@ -38,6 +38,9 @@
 #include <GraphMol/Descriptors/Crippen.h>
 #include <GraphMol/Descriptors/MolSurf.h>
 #include <GraphMol/Descriptors/BCUT.h>
+#ifdef RDK_BUILD_OSMORDRED_SUPPORT
+#include <GraphMol/Descriptors/Osmordred.h>
+#endif
 #include <RDGeneral/RDThreads.h>
 
 #include <algorithm>
@@ -266,6 +269,12 @@ boost::shared_ptr<PropertyFunctor> Properties::getProperty(
       return prop;
     }
   }
+#ifdef RDK_BUILD_OSMORDRED_SUPPORT
+  // the osmordred functors are built on first lookup
+  if (auto prop = Osmordred::getOsmordredProperty(name)) {
+    return prop;
+  }
+#endif
   throw KeyErrorException(name);
 }
 
@@ -389,8 +398,10 @@ std::vector<double> Properties::computeProperties(const RDKit::ROMol &mol,
 std::vector<std::vector<double>> Properties::computePropertiesForMols(
     const std::vector<const RDKit::ROMol *> &mols, int numThreads) const {
   const auto nan = std::numeric_limits<double>::quiet_NaN();
+  // getPropertyNames(), not m_properties: subclasses may override
+  // computeProperties() without holding PropertyFunctors
   std::vector<std::vector<double>> res(
-      mols.size(), std::vector<double>(m_properties.size(), nan));
+      mols.size(), std::vector<double>(getPropertyNames().size(), nan));
 
   // Each distinct molecule is computed exactly once: property calculators
   // may cache results on the molecule (or initialize its ring info), so the
@@ -458,8 +469,13 @@ void Properties::annotateProperties(RDKit::ROMol &mol) const {
 
 PROP_RANGE_QUERY *makePropertyRangeQuery(const std::string &name, double min,
                                          double max) {
+  auto func = Properties::getProperty(name)->d_dataFunc;
+  if (func == nullptr) {
+    throw ValueErrorException("property " + name +
+                              " cannot be used in a property query");
+  }
   auto *filter = new PROP_RANGE_QUERY(min, max);
-  filter->setDataFunc(Properties::getProperty(name)->d_dataFunc);
+  filter->setDataFunc(func);
   return filter;
 }
 }  // namespace Descriptors

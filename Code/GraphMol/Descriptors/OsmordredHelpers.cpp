@@ -804,8 +804,15 @@ void solveLinearSystem(const ROMol &mol, std::vector<double> &A,
     return;
   }
 
+  // Eigen 3.4.90+ takes the computation options as a template argument and
+  // deprecates the constructor argument; 3.4.0 only has the latter.
+#if EIGEN_VERSION_AT_LEAST(3, 4, 90)
   Eigen::BDCSVD<Eigen::MatrixXd, Eigen::ComputeThinU | Eigen::ComputeThinV> svd(
       a);
+#else
+  Eigen::BDCSVD<Eigen::MatrixXd> svd(a,
+                                     Eigen::ComputeThinU | Eigen::ComputeThinV);
+#endif
   svd.setThreshold(1e-15);  // dgelss rcond
   const Eigen::MatrixXd x = svd.solve(b);
   if (x.allFinite()) {

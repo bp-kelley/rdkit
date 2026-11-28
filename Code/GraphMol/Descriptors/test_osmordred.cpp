@@ -13,11 +13,18 @@
 #include <catch2/catch_all.hpp>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
+#include <GraphMol/Descriptors/MolDescriptors.h>
+#include <GraphMol/Descriptors/Property.h>
 #include <RDGeneral/RDLog.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <utility>
+#include <limits>
+#include <memory>
+#include <set>
+#include <algorithm>
 #include <cstdlib>
 
 using namespace RDKit;
@@ -1046,6 +1053,368 @@ TEST_CASE("Osmordred full descriptor width on tiny/degenerate molecules (singula
   auto methane = "C"_smiles;  // degenerate 1x1
   REQUIRE(methane != nullptr);
   REQUIRE(calcOsmordred(*methane).size() == ND);
+}
+
+namespace {
+bool sameRow(const std::vector<double> &a, const std::vector<double> &b) {
+  if (a.size() != b.size()) {
+    return false;
+  }
+  for (size_t j = 0; j < a.size(); ++j) {
+    if (!(a[j] == b[j] || (std::isnan(a[j]) && std::isnan(b[j])))) {
+      return false;
+    }
+  }
+  return true;
+}
+bool allNaN(const std::vector<double> &a) {
+  return std::all_of(a.begin(), a.end(),
+                     [](double v) { return std::isnan(v); });
+}
+}  // namespace
+
+TEST_CASE("OsmordredProperties") {
+  const size_t ND = getNumOsmordredDescriptors();
+  OsmordredProperties props;
+  REQUIRE(props.getPropertyNames() == getOsmordredDescriptorNames());
+
+  auto ethanol = "CCO"_smiles;
+  auto benzene = "c1ccccc1"_smiles;
+  auto caffeine = "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"_smiles;
+  REQUIRE(ethanol);
+  REQUIRE(benzene);
+  REQUIRE(caffeine);
+
+  SECTION("single molecule matches calcOsmordred") {
+    auto row = props.computeProperties(*benzene);
+    REQUIRE(row.size() == ND);
+    REQUIRE(sameRow(row, calcOsmordred(*benzene)));
+  }
+
+  SECTION("annotate") {
+    ROMol mol(*ethanol);
+    auto row = props.computeProperties(mol, true);
+    const auto names = props.getPropertyNames();
+    REQUIRE(mol.getProp<double>(names[0]) == row[0]);
+    REQUIRE(mol.getProp<double>(names.back()) == row.back());
+  }
+
+  SECTION("batch, threaded, with nulls and repeats") {
+    std::vector<const ROMol *> mols;
+    for (int rep = 0; rep < 5; ++rep) {
+      mols.push_back(ethanol.get());
+      mols.push_back(nullptr);
+      mols.push_back(benzene.get());
+      mols.push_back(caffeine.get());
+    }
+    const auto expEthanol = calcOsmordred(*ethanol);
+    const auto expBenzene = calcOsmordred(*benzene);
+    const auto expCaffeine = calcOsmordred(*caffeine);
+    for (int nThreads : {1, 4}) {
+      auto rows = calcOsmordred(mols, nThreads);
+      REQUIRE(rows.size() == mols.size());
+      for (size_t i = 0; i < mols.size(); i += 4) {
+        REQUIRE(sameRow(rows[i], expEthanol));
+        REQUIRE(rows[i + 1].size() == ND);
+        REQUIRE(allNaN(rows[i + 1]));
+        REQUIRE(sameRow(rows[i + 2], expBenzene));
+        REQUIRE(sameRow(rows[i + 3], expCaffeine));
+      }
+      REQUIRE(sameRow(props.computePropertiesForMols(mols, nThreads)[3],
+                      expCaffeine));
+    }
+  }
+
+  SECTION("SMILES batch: bad SMILES and bad valences give NaN rows") {
+    std::vector<std::string> smis{"CCO", "not a smiles", "C(C)(C)(C)(C)C",
+                                  "c1ccccc1"};
+    for (int nThreads : {1, 2}) {
+      auto rows = calcOsmordred(smis, nThreads);
+      REQUIRE(rows.size() == smis.size());
+      REQUIRE(sameRow(rows[0], calcOsmordred(*ethanol)));
+      REQUIRE(rows[1].size() == ND);
+      REQUIRE(allNaN(rows[1]));
+      REQUIRE(rows[2].size() == ND);
+      REQUIRE(allNaN(rows[2]));
+      REQUIRE(sameRow(rows[3], calcOsmordred(*benzene)));
+    }
+  }
+
+  SECTION("a failing block only blanks that block") {
+    // VdwVolumeABC has no volume for Hg and throws
+    auto hg = "C[Hg]C"_smiles;
+    REQUIRE(hg);
+    const auto names = getOsmordredDescriptorNames();
+    const auto idx = std::distance(
+        names.begin(), std::find(names.begin(), names.end(), "Vabc"));
+    REQUIRE(idx < static_cast<long>(names.size()));
+    for (const auto &row :
+         {calcOsmordred(*hg), props.computeProperties(*hg),
+          calcOsmordred(std::vector<const ROMol *>{hg.get()}, 1)[0]}) {
+      REQUIRE(row.size() == ND);
+      CHECK(std::isnan(row[idx]));
+      CHECK(!allNaN(row));
+      CHECK(!std::isnan(row[0]));  // ABCIndex
+    }
+  }
+
+  SECTION("logs are restored after a batch") {
+    REQUIRE(rdErrorLog);
+    const bool wasEnabled = rdErrorLog->df_enabled;
+    std::vector<const ROMol *> mols(12, caffeine.get());
+    calcOsmordred(mols, 4);
+    REQUIRE(rdErrorLog->df_enabled == wasEnabled);
+  }
+}
+
+namespace {
+// computes through the osmordred property functors, one block at a time
+struct OsmordredFunctorsOnly : public RDKit::Descriptors::Properties {
+  OsmordredFunctorsOnly() : Properties(std::vector<std::string>()) {
+    m_properties = getOsmordredProperties();
+  }
+};
+bool closeRow(const std::vector<double> &a, const std::vector<double> &b,
+              const std::vector<std::string> &names) {
+  bool ok = a.size() == b.size();
+  for (size_t j = 0; ok && j < a.size(); ++j) {
+    if (std::isnan(a[j]) && std::isnan(b[j])) {
+      continue;
+    }
+    if (!(std::abs(a[j] - b[j]) <= 1e-8 * std::max(1.0, std::abs(b[j])))) {
+      UNSCOPED_INFO(names[j] << ": " << a[j] << " != " << b[j]);
+      ok = false;
+    }
+  }
+  return ok;
+}
+}  // namespace
+
+TEST_CASE("osmordred property functors") {
+  using RDKit::Descriptors::Properties;
+  const auto names = getOsmordredDescriptorNames();
+  const auto &functors = getOsmordredProperties();
+  REQUIRE(functors.size() == names.size());
+  for (size_t i = 0; i < names.size(); ++i) {
+    REQUIRE(functors[i]->getName() == names[i]);
+  }
+  REQUIRE(OsmordredProperties().getProperties().size() == names.size());
+
+  auto caffeine = "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"_smiles;
+  REQUIRE(caffeine);
+  const auto full = calcOsmordred(*caffeine);
+  auto col = [&](const std::string &name) {
+    auto it = std::find(names.begin(), names.end(), name);
+    REQUIRE(it != names.end());
+    return full[std::distance(names.begin(), it)];
+  };
+
+  SECTION("the standard registry is unchanged") {
+    const auto avail = Properties::getAvailableProperties();
+    CHECK(std::find(avail.begin(), avail.end(), "Vabc") == avail.end());
+    const auto defaults = Properties().getPropertyNames();
+    CHECK(std::find(defaults.begin(), defaults.end(), "Vabc") ==
+          defaults.end());
+    // where a name is also a standard descriptor, the standard one wins
+    CHECK(Properties::getProperty("BertzCT") !=
+          getOsmordredProperty("BertzCT"));
+    CHECK(getOsmordredProperty("not a descriptor") == nullptr);
+  }
+
+  SECTION("mix and match with the standard descriptors") {
+    Properties props({"exactmw", "Vabc", names[0], "SLogP"});
+    auto vals = props.computeProperties(*caffeine);
+    REQUIRE(vals.size() == 4);
+    CHECK(vals[0] == RDKit::Descriptors::calcExactMW(*caffeine));
+    CHECK(vals[1] == Catch::Approx(col("Vabc")));
+    CHECK(vals[2] == Catch::Approx(col(names[0])));
+    CHECK(vals[3] == Catch::Approx(col("SLogP")));
+    auto rows = props.computePropertiesForMols(
+        {caffeine.get(), nullptr, caffeine.get()}, 2);
+    REQUIRE(rows.size() == 3);
+    CHECK(rows[0] == vals);
+    CHECK(std::isnan(rows[1][1]));
+    CHECK(rows[2] == vals);
+  }
+
+  SECTION("each functor on its own matches calcOsmordred") {
+    CHECK((*getOsmordredProperty("Vabc"))(*caffeine) ==
+          Catch::Approx(col("Vabc")));
+  }
+
+  SECTION("all functors match calcOsmordred") {
+    OsmordredFunctorsOnly props;
+    CHECK(closeRow(props.computeProperties(*caffeine), full, names));
+  }
+
+  SECTION("a failing block only blanks its own values") {
+    auto hg = "C[Hg]C"_smiles;
+    REQUIRE(hg);
+    Properties props({"Vabc", names[0]});
+    auto vals = props.computeProperties(*hg);
+    CHECK(std::isnan(vals[0]));
+    CHECK(!std::isnan(vals[1]));
+  }
+
+  SECTION("functors without an element function cannot make queries") {
+    CHECK_THROWS_AS(
+        RDKit::Descriptors::makePropertyRangeQuery("Vabc", 0.0, 1.0),
+        ValueErrorException);
+  }
+}
+
+// Compares every osmordred descriptor that duplicates a standard RDKit
+// descriptor. The identical ones are computed with the standard functions,
+// so they must stay identical; the ones in knownDifferent use their own
+// definitions and are only reported. Run with: testOsmordred "[duplicates]"
+TEST_CASE("osmordred duplicates of standard descriptors", "[duplicates]") {
+  using RDKit::Descriptors::Properties;
+  // (osmordred name, standard Properties name)
+  std::vector<std::pair<std::string, std::string>> pairs = {
+      {"BertzCT", "BertzCT"},
+      {"LabuteASA", "labuteASA"},
+      {"Flexibility", "Phi"},
+      {"Kier1", "kappa1"},
+      {"Kier2", "kappa2"},
+      {"Kier3", "kappa3"},
+      {"KierAlpha1", "kappa1"},
+      {"KierAlpha2", "kappa2"},
+      {"KierAlpha3", "kappa3"},
+      {"Xp-0d", "Chi0"},
+      {"Xp-1d", "Chi1"},
+      {"Xp-0dv", "chi0v"},
+      {"Xp-1dv", "chi1v"},
+      {"J", "BalabanJ"},
+      {"SLogP", "CrippenClogP"},
+      {"SMR", "CrippenMR"},
+      {"TopoPSA(NO)", "tpsa"},
+      {"nHBAcc", "NumHBA"},
+      {"nHBDon", "NumHBD"},
+      {"nRot", "NumRotatableBonds"},
+      {"FCSP3", "FractionCSP3"},
+      {"nSpiro", "NumSpiroAtoms"},
+      {"nBridgehead", "NumBridgeheadAtoms"},
+      {"nHetero", "NumHeteroatoms"},
+      {"nRing", "NumRings"},
+      {"naRing", "NumAromaticRings"},
+      {"MW", "exactmw"},
+      {"nHeavyAtom", "NumHeavyAtoms"},
+      {"nAtom", "NumAtoms"},
+  };
+  for (const auto &[prefix, count] :
+       std::vector<std::pair<std::string, int>>{{"PEOE_VSA", 14},
+                                                {"SMR_VSA", 10},
+                                                {"SlogP_VSA", 12},
+                                                {"EState_VSA", 11},
+                                                {"VSA_EState", 10}}) {
+    for (int i = 1; i <= count; ++i) {
+      pairs.emplace_back(prefix + std::to_string(i),
+                         prefix + std::to_string(i));
+    }
+  }
+
+  // osmordred descriptors whose definitions differ from the standard ones
+  const std::set<std::string> knownDifferent = {
+      "BertzCT", "Kier1",  "Kier2",  "Kier3", "KierAlpha3",
+      "Xp-0d",   "Xp-0dv", "Xp-1dv", "J"};
+
+  const std::vector<std::string> smiles = {
+      "C",
+      "CO",
+      "CN",
+      "CF",
+      "CCO",
+      "CC(=O)O",
+      "CC(C)(C)C",
+      "C1CC1",
+      "C1CCCCC1",
+      "c1ccccc1",
+      "Cc1ccccc1O",
+      "c1ccc2ccccc2c1",
+      "c1ccncc1",
+      "c1cc[nH]c1",
+      "O=C(O)c1ccccc1O",
+      "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+      "CC(=O)Nc1ccc(O)cc1",
+      "C1CC2CCC1C2",
+      "C1CCC2(CC1)CCCC2",
+      "C[N+](C)(C)C",
+      "[O-]C(=O)CC",
+      "CS(=O)(=O)N",
+      "OP(=O)(O)O",
+      "FC(F)(F)c1ccc(Cl)c(Br)c1I",
+      "C=CC=CC#N",
+      "CC[C@H](N)C(=O)O",
+      "O=C1CCCN1",
+      "CCCCCCCCCCCCCCCC(=O)O",
+      "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+      "CN1CCC[C@H]1c1cccnc1",
+  };
+
+  const auto names = getOsmordredDescriptorNames();
+  std::vector<size_t> osmoCols;
+  std::vector<std::string> stdNames;
+  for (const auto &[osmo, stdName] : pairs) {
+    auto it = std::find(names.begin(), names.end(), osmo);
+    REQUIRE(it != names.end());
+    osmoCols.push_back(std::distance(names.begin(), it));
+    stdNames.push_back(stdName);
+  }
+  Properties standard(stdNames);
+
+  struct Stats {
+    unsigned int compared = 0;
+    unsigned int differ = 0;
+    double maxDiff = 0.0;
+    std::string example;
+  };
+  std::vector<Stats> stats(pairs.size());
+  for (const auto &smi : smiles) {
+    std::unique_ptr<RWMol> mol(SmilesToMol(smi));
+    REQUIRE(mol);
+    const auto osmo = calcOsmordred(*mol);
+    const auto stdVals = standard.computeProperties(*mol);
+    for (size_t p = 0; p < pairs.size(); ++p) {
+      const double a = osmo[osmoCols[p]];
+      const double b = stdVals[p];
+      auto &st = stats[p];
+      ++st.compared;
+      const bool same = (std::isnan(a) && std::isnan(b)) ||
+                        std::abs(a - b) <= 1e-6 * std::max(1.0, std::abs(b));
+      if (!same) {
+        const double diff = std::isnan(a) || std::isnan(b)
+                                ? std::numeric_limits<double>::infinity()
+                                : std::abs(a - b);
+        if (!st.differ || diff > st.maxDiff) {
+          std::ostringstream ex;
+          ex << smi << ": " << a << " vs " << b;
+          st.example = ex.str();
+        }
+        ++st.differ;
+        st.maxDiff = std::max(st.maxDiff, diff);
+      }
+    }
+  }
+
+  std::ostringstream report;
+  report << "osmordred vs standard: identical/compared, max |diff|, worst "
+            "molecule\n";
+  unsigned int nDiffer = 0;
+  for (size_t p = 0; p < pairs.size(); ++p) {
+    const auto &st = stats[p];
+    report << (st.differ ? "DIFFERS   " : "IDENTICAL ") << pairs[p].first
+           << " vs " << pairs[p].second << ": " << st.compared - st.differ
+           << "/" << st.compared;
+    if (st.differ) {
+      if (!knownDifferent.count(pairs[p].first)) {
+        ++nDiffer;
+      }
+      report << ", max " << st.maxDiff << ", e.g. " << st.example;
+    }
+    report << "\n";
+  }
+  INFO(report.str());
+  CHECK(nDiffer == 0);
 }
 
 #else

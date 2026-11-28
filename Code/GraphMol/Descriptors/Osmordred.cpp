@@ -30,17 +30,16 @@
 //
 
 #include "Osmordred.h"
-#include <atomic>
-#include <thread>
 #include "OsmordredHelpers.h"
 
 #include <boost/functional/hash.hpp>  // For custom hashing of pairs
-#include <RDGeneral/RDThreads.h>
+#include <RDGeneral/RDLog.h>
 #include <GraphMol/MolOps.h>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/Substruct/SubstructMatch.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
 #include <GraphMol/SmilesParse/SmilesWrite.h>
+#include <GraphMol/SanitException.h>
 
 #include <GraphMol/Descriptors/BCUT.h>
 #include <GraphMol/Descriptors/MolDescriptors.h>
@@ -64,8 +63,12 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include <future>
+#include <array>
 #include <chrono>
+#include <boost/make_shared.hpp>
+#include <limits>
+#include <memory>
+#include <new>
 
 namespace RDKit {
 namespace Descriptors {
@@ -87,288 +90,484 @@ bool OsmordredOptions::isValid() const {
 }
 namespace {
 
-// Fast aggregate: compute all descriptors in C++ in one pass
-std::vector<double> calcOsmordred(const ROMol &mol,
+//! thrown when OsmordredOptions::timeout is exceeded; aborts the molecule
+class OsmordredTimeout : public std::runtime_error {
+ public:
+  using std::runtime_error::runtime_error;
+};
+
+std::vector<double> toDoubles(double v) { return {v}; }
+std::vector<double> toDoubles(std::vector<double> v) { return v; }
+std::vector<double> toDoubles(const std::vector<int> &v) {
+  return std::vector<double>(v.begin(), v.end());
+}
+
+//! One osmordred descriptor block: \c size values, in
+//! getOsmordredDescriptorNames() order, computed together by \c calc.
+struct OsmordredBlock {
+  const char *name;
+  unsigned int size;
+  std::vector<double> (*calc)(OsmordredContext &ctx,
+                              const OsmordredOptions &opts);
+};
+
+// clang-format off
+constexpr std::array<OsmordredBlock, 60> kBlocks{{
+    {"ABCIndex", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcABCIndex(ctx.mol()));
+     }},
+    {"AcidBase", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAcidBase(ctx.mol()));
+     }},
+    {"AdjacencyMatrix", 12,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAdjMatrixDescsL(ctx.mol()));
+     }},
+    {"Aromatic", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAromatic(ctx.mol()));
+     }},
+    {"AtomCount", 17,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAtomCounts(ctx));
+     }},
+    {"Autocorrelation", 606,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAutoCorrelation(ctx));
+     }},
+    {"BCUT", 24,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBCUTs(ctx.mol()));
+     }},
+    {"BalabanJ", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBalabanJUnweighted(ctx.mol()));
+     }},
+    {"BaryszMatrix", 104,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBaryszMatrixDescsL(ctx.mol()));
+     }},
+    {"BertzCT", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBertzCT(ctx.mol()));
+     }},
+    {"BondCount", 9,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBondCounts(ctx));
+     }},
+    {"RNCGRPCG", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcRNCG_RPCG(ctx));
+     }},
+    {"CarbonTypes", 11,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcCarbonTypes(ctx.mol()));
+     }},
+    {"Chi", 56,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAllChiDescriptors(ctx.mol()));
+     }},
+    {"Constitutional", 16,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcConstitutional(ctx));
+     }},
+    {"DetourMatrix", 14,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcDetourMatrixDescsL(ctx.mol()));
+     }},
+    {"DistanceMatrix", 12,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcDistMatrixDescsL(ctx.mol()));
+     }},
+    {"EState", 404,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcEStateDescs(ctx, true));
+     }},
+    {"EccentricConnectivityIndex", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcEccentricConnectivityIndex(ctx.mol()));
+     }},
+    {"ExtendedTopochemicalAtom", 45,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcExtendedTopochemicalAtom(ctx.mol()));
+     }},
+    {"FragmentComplexity", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcFragmentComplexity(ctx.mol()));
+     }},
+    {"Framework", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcFramework(ctx));
+     }},
+    {"HydrogenBond", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcHydrogenBond(ctx));
+     }},
+    {"LogS", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcLogS(ctx.mol()));
+     }},
+    {"InformationContent", 42,
+     +[](OsmordredContext &ctx, const OsmordredOptions &opts) {
+       return toDoubles(calcInformationContent(ctx.mol(), opts.icOptions));
+     }},
+    {"KappaShapeIndex", 3,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcKappaShapeIndex(ctx.mol()));
+     }},
+    {"Lipinski", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcLipinskiGhose(ctx));
+     }},
+    {"McGowanVolume", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcMcGowanVolume(ctx));
+     }},
+    {"MoeType", 58,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcMoeType(ctx.mol()));
+     }},
+    {"MolecularDistanceEdge", 19,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcMolecularDistanceEdgeDescs(ctx.mol()));
+     }},
+    {"MolecularId", 12,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcMolecularId(ctx.mol()));
+     }},
+    {"PathCount", 21,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcPathCount(ctx.mol()));
+     }},
+    {"Polarizability", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcPolarizability(ctx));
+     }},
+    {"RingCount", 138,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcRingDescriptors(ctx.mol()));
+     }},
+    {"RotatableBond", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcRotatableBond(ctx.mol()));
+     }},
+    {"SLogP", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcSLogP(ctx.mol()));
+     }},
+    {"TopoPSA", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcTopoPSA(ctx.mol()));
+     }},
+    {"TopologicalCharge", 21,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcTopologicalChargeDescs(ctx.mol()));
+     }},
+    {"TopologicalIndex", 4,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcTopologicalIndex(ctx.mol()));
+     }},
+    {"VdwVolumeABC", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcVdwVolumeABC(ctx));
+     }},
+    {"VertexAdjacencyInformation", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcVertexAdjacencyInformation(ctx.mol()));
+     }},
+    {"WalkCount", 21,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcWalkCounts(ctx.mol()));
+     }},
+    {"Weight", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcWeight(ctx));
+     }},
+    {"WienerIndex", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcWienerIndex(ctx.mol()));
+     }},
+    {"ZagrebIndex", 4,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcZagrebIndex(ctx.mol()));
+     }},
+    {"Pol", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcPol(ctx));
+     }},
+    {"MR", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcMR(ctx));
+     }},
+    {"Flexibility", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcFlexibility(ctx.mol()));
+     }},
+    {"Schultz", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcSchultz(ctx.mol()));
+     }},
+    {"AlphaKappaShapeIndex", 3,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAlphaKappaShapeIndex(ctx.mol()));
+     }},
+    {"HEState", 88,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcHEStateDescs(ctx.mol()));
+     }},
+    {"BEState", 1460,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBEStateDescs(ctx));
+     }},
+    {"Abrahams", 6,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAbrahams(ctx.mol()));
+     }},
+    {"ANMat", 25,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcANMat(ctx.mol()));
+     }},
+    {"ASMat", 20,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcASMat(ctx.mol()));
+     }},
+    {"AZMat", 15,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAZMat(ctx.mol()));
+     }},
+    {"DSMat", 20,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcDSMat(ctx.mol()));
+     }},
+    {"DN2Mat", 20,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcDN2Mat(ctx.mol()));
+     }},
+    {"Frags", 214,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcFrags(ctx.mol()));
+     }},
+    {"AddFeatures", 7,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAddFeatures(ctx.mol()));
+     }},
+}};
+// clang-format on
+
+constexpr unsigned int totalBlockSize() {
+  unsigned int res = 0;
+  for (const auto &blk : kBlocks) {
+    res += blk.size;
+  }
+  return res;
+}
+constexpr unsigned int NUM_OSMORDRED = 3588;
+static_assert(totalBlockSize() == NUM_OSMORDRED,
+              "osmordred block sizes must add up to the descriptor count");
+
+std::vector<double> nanRow() {
+  return std::vector<double>(NUM_OSMORDRED,
+                             std::numeric_limits<double>::quiet_NaN());
+}
+
+// Fast aggregate: computes all descriptor blocks in one pass, sharing the
+// intermediates in one OsmordredContext. A block that throws, or that returns
+// the wrong number of values, gives NaN for that block only; a timeout or
+// std::bad_alloc aborts the molecule. Callers are responsible for silencing
+// the logs (see calcOsmordred() and
+// OsmordredProperties::computePropertiesForMols()).
+std::vector<double> calcAllBlocks(const ROMol &mol,
                                   const OsmordredOptions &opts,
                                   TimePoint *end_time) {
-  // Silence RDKit warnings locally
   PRECONDITION(opts.isValid(), "Invalid Osmordred Options");
-  RDLog::LogStateSetter guard;
-
   std::vector<double> out;
-  out.reserve(4200);  // approximate capacity to avoid many reallocations
-
-  // Always compute the full v2 set; keep signature for ABI stability
-  const bool doExEstate = true;
-
-  // intermediates shared by the blocks below (built lazily, once)
+  out.reserve(NUM_OSMORDRED);
   OsmordredContext ctx(mol);
-
-  auto checkTimeout = [&]() {
+  for (const auto &blk : kBlocks) {
+    const auto first = out.size();
+    try {
+      const auto vals = blk.calc(ctx, opts);
+      if (vals.size() == blk.size) {
+        out.insert(out.end(), vals.begin(), vals.end());
+      }
+    } catch (const std::bad_alloc &) {
+      throw;
+    } catch (const std::exception &e) {
+      BOOST_LOG(rdWarningLog) << "Osmordred descriptor block " << blk.name
+                              << " failed: " << e.what() << std::endl;
+    }
+    if (out.size() != first + blk.size) {
+      out.resize(first);
+      out.insert(out.end(), blk.size, std::numeric_limits<double>::quiet_NaN());
+    }
     if (end_time && Clock::now() >= *end_time) {
-      std::cerr << "*" << std::endl;
       BOOST_LOG(rdErrorLog) << "Mordred calculation timed out" << std::endl;
-      throw ValueErrorException("Mordred calculation timed out");
+      throw OsmordredTimeout("Mordred calculation timed out");
     }
-  };
-
-  // Collect results with minimal inserts
-  auto append = [&](const std::vector<double> &v) {
-    out.insert(out.end(), v.begin(), v.end());
-    checkTimeout();
-  };
-
-  // Collect results with minimal inserts
-  auto append1 = [&](double v) {
-    out.push_back(v);
-    checkTimeout();
-  };
-
-  auto appendInt = [&](const std::vector<int> &v) {
-    out.reserve(out.size() + v.size());
-    for (int x : v) {
-      out.push_back(static_cast<double>(x));
-    }
-    checkTimeout();
-  };
-
-  append(calcABCIndex(mol));            // addNames("ABCIndex", 2);
-  appendInt(calcAcidBase(mol));         // addNames("AcidBase", 2);
-  append(calcAdjMatrixDescsL(mol));     // addNames("AdjacencyMatrix", 12);
-  appendInt(calcAromatic(mol));         // addNames("Aromatic", 2);
-  appendInt(calcAtomCounts(ctx));       // addNames("AtomCount", 17);
-  append(calcAutoCorrelation(ctx));     // addNames("Autocorrelation", 606);
-  append(calcBCUTs(mol));               // addNames("BCUT", 24);
-  append1(calcBalabanJUnweighted(mol));           // addNames("BalabanJ", 1);
-  append(calcBaryszMatrixDescsL(mol));  // addNames("BaryszMatrix", 104);
-  append1(calcBertzCT(mol));            // addNames("BertzCT", 1);
-  appendInt(calcBondCounts(ctx));       // addNames("BondCount", 9);
-  append(calcRNCG_RPCG(ctx));           // addNames("RNCGRPCG", 2);
-  append(calcCarbonTypes(mol));         // addNames("CarbonTypes", 11);
-  append(calcAllChiDescriptors(mol));   // addNames("Chi", 56);
-  append(calcConstitutional(ctx));      // addNames("Constitutional", 16);
-  append(calcDetourMatrixDescsL(mol));  // addNames("DetourMatrix", 14);
-  append(calcDistMatrixDescsL(mol));    // addNames("DistanceMatrix", 12);
-  append(calcEStateDescs(ctx, doExEstate));  // addNames("EState", 404);
-  append1(calcEccentricConnectivityIndex(
-      mol));  // addNames("EccentricConnectivityIndex", 1);
-  append(calcExtendedTopochemicalAtom(
-      mol));  // addNames("ExtendedTopochemicalAtom", 45);
-  append1(calcFragmentComplexity(mol));  // addNames("FragmentComplexity", 1);
-  append1(calcFramework(ctx));           // addNames("Framework", 1);
-  append(calcHydrogenBond(ctx));         // addNames("HydrogenBond", 2);
-  append1(calcLogS(mol));                // addNames("LogS", 1);
-  append(calcInformationContent(
-      mol, opts.icOptions));          // addNames("InformationContent",
-                                      // 42);
-  append(calcKappaShapeIndex(mol));   // addNames("KappaShapeIndex", 3);
-  appendInt(calcLipinskiGhose(ctx));  // addNames("Lipinski", 2);
-  append1(calcMcGowanVolume(ctx));    // addNames("McGowanVolume", 1);
-  append(calcMoeType(mol));           // addNames("MoeType", 54);
-  append(calcMolecularDistanceEdgeDescs(
-      mol));                        // addNames("MolecularDistanceEdge", 19);
-  append(calcMolecularId(mol));     // addNames("MolecularId", 12);
-  append(calcPathCount(mol));       // addNames("PathCount", 21);
-  append(calcPolarizability(ctx));  // addNames("Polarizability", 2);
-  appendInt(calcRingDescriptors(mol));      // addNames("RingCount", 138);
-  append(calcRotatableBond(mol));           // addNames("RotatableBond", 2);
-  append(calcSLogP(mol));                   // addNames("SLogP", 2);
-  append(calcTopoPSA(mol));                 // addNames("TopoPSA", 2);
-  append(calcTopologicalChargeDescs(mol));  // addNames("TopologicalCharge",
-                                            // 21);
-  append(calcTopologicalIndex(mol));        // addNames("TopologicalIndex", 4);
-  append1(calcVdwVolumeABC(ctx));           // addNames("VdwVolumeABC", 1);
-  append1(calcVertexAdjacencyInformation(
-      mol));                      // addNames("VertexAdjacencyInformation", 1);
-  append(calcWalkCounts(mol));    // addNames("WalkCount", 21);
-  append(calcWeight(ctx));        // addNames("Weight", 2);
-  append(calcWienerIndex(mol));   // addNames("WienerIndex", 2);
-  append(calcZagrebIndex(mol));   // addNames("ZagrebIndex", 4);
-  append1(calcPol(ctx));          // addNames("Pol", 1);
-  append1(calcMR(ctx));           // addNames("MR", 1);
-  append1(calcFlexibility(mol));  // addNames("Flexibility", 1);
-  append1(calcSchultz(mol));      // addNames("Schultz", 1);
-  append(calcAlphaKappaShapeIndex(mol));  // addNames("AlphaKappaShapeIndex",
-                                          // 3);
-  append(calcHEStateDescs(mol));          // addNames("HEState", 88);
-  append(calcBEStateDescs(ctx));          // addNames("BEState", 1460);
-  append(calcAbrahams(mol));              // addNames("Abrahams", 6);
-  append(calcANMat(mol));                 // addNames("ANMat", 25);
-  append(calcASMat(mol));                 // addNames("ASMat", 20);
-  append(calcAZMat(mol));                 // addNames("AZMat", 15);
-  append(calcDSMat(mol));                 // addNames("DSMat", 20);
-  append(calcDN2Mat(mol));                // addNames("DN2Mat", 20);
-  append(calcFrags(mol));                 // addNames("Frags", 215);
-  append(calcAddFeatures(mol));           // addNames("AddFeatures", 7);
+  }
   return out;
+}
+
+// one molecule: a failing descriptor block gives NaNs for that block only;
+// a timeout or any other std::runtime_error gives a row of NaN. Does not
+// touch the log state.
+std::vector<double> calcWithTimeout(const ROMol &mol,
+                                    const OsmordredOptions &opts) {
+  TimePoint end_time = Clock::now() + std::chrono::seconds(opts.timeout);
+  try {
+    return calcAllBlocks(mol, opts, &end_time);
+  } catch (const ValueErrorException &) {
+    return nanRow();
+  } catch (const std::runtime_error &) {
+    return nanRow();
+  }
+}
+
+// Block B as a standalone vector function, for the property functors: it
+// builds its own context and uses the default options. A wrong-sized result
+// throws, so the functors' failure handling gives NaN for the block.
+template <size_t B>
+std::vector<double> blockVector(const ROMol &mol) {
+  OsmordredContext ctx(mol);
+  const OsmordredOptions opts;
+  auto vals = kBlocks[B].calc(ctx, opts);
+  if (vals.size() != kBlocks[B].size) {
+    throw ValueErrorException(std::string("osmordred block ") +
+                              kBlocks[B].name + " returned " +
+                              std::to_string(vals.size()) + " values, not " +
+                              std::to_string(kBlocks[B].size));
+  }
+  return vals;
+}
+
+template <size_t... B>
+constexpr std::array<VectorElementPropertyFunctor::VectorFunc, sizeof...(B)>
+makeBlockVectors(std::index_sequence<B...>) {
+  return {&blockVector<B>...};
+}
+
+struct OsmordredRegistry {
+  std::vector<boost::shared_ptr<PropertyFunctor>> functors;
+  std::unordered_map<std::string, size_t> byName;
+};
+
+// Built on first use (thread-safe static initialization) and never modified
+// afterwards, so lookups need no locking.
+const OsmordredRegistry &osmordredRegistry() {
+  static const OsmordredRegistry reg = [] {
+    OsmordredRegistry res;
+    constexpr auto vecFuncs =
+        makeBlockVectors(std::make_index_sequence<kBlocks.size()>());
+    const auto names = getOsmordredDescriptorNames();
+    CHECK_INVARIANT(names.size() == NUM_OSMORDRED,
+                    "bad osmordred descriptor name count");
+    res.functors.reserve(names.size());
+    size_t col = 0;
+    for (size_t b = 0; b < kBlocks.size(); ++b) {
+      for (unsigned int i = 0; i < kBlocks[b].size; ++i, ++col) {
+        res.byName.emplace(names[col], col);
+        res.functors.push_back(boost::make_shared<VectorElementPropertyFunctor>(
+            names[col], osmordredVersion, vecFuncs[b], i, nullptr));
+      }
+    }
+    return res;
+  }();
+  return reg;
 }
 }  // namespace
 
-constexpr int NUM_OSMORDRED = 3588;
+const std::vector<boost::shared_ptr<PropertyFunctor>> &
+getOsmordredProperties() {
+  return osmordredRegistry().functors;
+}
+
+boost::shared_ptr<PropertyFunctor> getOsmordredProperty(
+    const std::string &name) {
+  const auto &reg = osmordredRegistry();
+  auto it = reg.byName.find(name);
+  if (it == reg.byName.end()) {
+    return nullptr;
+  }
+  return reg.functors[it->second];
+}
+
+OsmordredProperties::OsmordredProperties(const OsmordredOptions &opts)
+    : Properties(std::vector<std::string>()), d_opts(opts) {
+  PRECONDITION(d_opts.isValid(), "Invalid Osmordred Options");
+  m_properties = getOsmordredProperties();
+}
+
+std::vector<double> OsmordredProperties::computeProperties(
+    const RDKit::ROMol &mol, bool annotate) const {
+  std::vector<double> res;
+  try {
+    res = calcWithTimeout(mol, d_opts);
+  } catch (const std::bad_alloc &) {
+    throw;
+  } catch (const std::exception &) {
+    res = nanRow();
+  }
+  if (annotate) {
+    const auto names = getPropertyNames();
+    CHECK_INVARIANT(names.size() == res.size(),
+                    "descriptor names and values differ in size");
+    for (size_t i = 0; i < names.size(); ++i) {
+      mol.setProp<double>(names[i], res[i]);
+    }
+  }
+  return res;
+}
+
+std::vector<std::vector<double>> OsmordredProperties::computePropertiesForMols(
+    const std::vector<const RDKit::ROMol *> &mols, int numThreads) const {
+  // RDLog state is global and LogStateSetter is not thread safe, so silence
+  // the logs once here, outside the worker threads, and restore them after.
+  RDLog::LogStateSetter guard;
+  return Properties::computePropertiesForMols(mols, numThreads);
+}
+
 // v2.0: Single molecule with timeout protection (all-or-nothing)
 // Returns NaN vector if computation exceeds timeout_seconds
 std::vector<double> calcOsmordred(const ROMol &mol,
                                   const OsmordredOptions &opts) {
   PRECONDITION(opts.isValid(), "Invalid Osmordred Options");
-  int actual_timeout = opts.timeout;
-
-  TimePoint end_time_storage =
-      Clock::now() + std::chrono::seconds(actual_timeout);
-
-  try {
-    return calcOsmordred(mol, opts, &end_time_storage);
-  } catch (const ValueErrorException &) {
-    return std::vector<double>(NUM_OSMORDRED,
-                               std::numeric_limits<double>::quiet_NaN());
-  } catch (const std::runtime_error &) {
-    return std::vector<double>(NUM_OSMORDRED,
-                               std::numeric_limits<double>::quiet_NaN());
-  }
+  RDLog::LogStateSetter guard;
+  return calcWithTimeout(mol, opts);
 }
 
 // v2.0: Batch version from SMILES: parses each SMILES -> NEW mol (tautomer
-// canonical LOST). For tautomer-canonical mols use
-// calcOsmordredBatchFromMols(mols) with mols from ToBinary.
+// canonical LOST). For tautomer-canonical mols use the ROMol overload.
+// SMILES that fail to parse give a row of NaN.
 std::vector<std::vector<double>> calcOsmordred(
     const std::vector<std::string> &smiles_list, int n_jobs,
     const OsmordredOptions &opts) {
-  PRECONDITION(opts.isValid(), "Invalid Osmordred Options");
-  size_t n = smiles_list.size();
-  std::vector<std::vector<double>> results(n);
-
-  unsigned int nThreads = getNumThreadsToUse(n_jobs);
-  const size_t nFeatures = getNumOsmordredDescriptors();
-  const std::vector<double> nanRow(nFeatures,
-                                   std::numeric_limits<double>::quiet_NaN());
-
-  if (nThreads <= 1 || n < 10) {
-    for (size_t i = 0; i < n; ++i) {
-      std::unique_ptr<RDKit::RWMol> mol;
-
+  OsmordredProperties props(opts);
+  std::vector<std::unique_ptr<RWMol>> owned(smiles_list.size());
+  std::vector<const ROMol *> mols(smiles_list.size(), nullptr);
+  {
+    RDLog::LogStateSetter guard;
+    for (size_t i = 0; i < smiles_list.size(); ++i) {
       try {
-        mol = v2::SmilesParse::MolFromSmiles(smiles_list[i]);
+        owned[i] = v2::SmilesParse::MolFromSmiles(smiles_list[i]);
       } catch (const SmilesParseException &) {
-        mol = nullptr;
+        owned[i].reset();
+      } catch (const MolSanitizeException &) {
+        owned[i].reset();
       }
-
-      if (mol == nullptr) {
-        results[i] = nanRow;
-      } else {
-        try {
-          results[i] = calcOsmordred(*mol, opts);
-        } catch (...) {
-          results[i] = nanRow;
-        }
-      }
+      mols[i] = owned[i].get();
     }
-    return results;
   }
-
-  // v3: bounded thread pool (nThreads workers + atomic work index), each
-  // running its molecule via std::async + wait_for -> bounded thread count
-  // (safe for large batches) AND a per-molecule timeout (hang protection).
-  // Replaces the previous one-std::async-per-molecule scheme (N threads, OOM
-  // risk at scale).
-  std::atomic<size_t> nextIdx(0);
-  auto worker = [&]() {
-    size_t i;
-    while ((i = nextIdx.fetch_add(1)) < n) {
-      std::unique_ptr<RDKit::RWMol> mol;
-      try {
-        mol = v2::SmilesParse::MolFromSmiles(smiles_list[i]);
-      } catch (const SmilesParseException &) {
-        mol = nullptr;
-      }
-      if (mol == nullptr) {
-        results[i] = nanRow;
-        continue;
-      }
-      auto fut = std::async(std::launch::async,
-                            [&mol, &nanRow, &opts]() -> std::vector<double> {
-                              try {
-                                return calcOsmordred(*mol, opts);
-                              } catch (const ValueErrorException &) {
-                                return nanRow;
-                              }
-                            });
-      // is this timeout per mol or per job?
-      results[i] = fut.get();
-    }
-  };
-  std::vector<std::thread> pool;
-  pool.reserve(nThreads);
-  for (unsigned int t = 0; t < nThreads; ++t) {
-    pool.emplace_back(worker);
-  }
-  for (auto &th : pool) {
-    th.join();
-  }
-  return results;
+  return props.computePropertiesForMols(mols, n_jobs);
 }
 
 // v2.0: Batch version from mol objects: PRESERVES tautomer canonical.
-// Python binding uses mol.ToBinary() -> MolPickler::molFromPickle -> these
-// mols.
+// Null molecules give a row of NaN.
 std::vector<std::vector<double>> calcOsmordred(
     const std::vector<const ROMol *> &mols, int n_jobs,
     const OsmordredOptions &opts) {
-  PRECONDITION(opts.isValid(), "Invalid Osmordred Options");
-
-  size_t n = mols.size();
-  std::vector<std::vector<double>> results(n);
-
-  unsigned int nThreads = getNumThreadsToUse(n_jobs);
-  const size_t nFeatures = getNumOsmordredDescriptors();
-  const std::vector<double> nanRow(nFeatures,
-                                   std::numeric_limits<double>::quiet_NaN());
-
-  if (nThreads <= 1 || n < 10) {
-    for (size_t i = 0; i < n; ++i) {
-      const ROMol *mol = mols[i];
-      try {
-        results[i] = mol ? calcOsmordred(*mol, opts) : nanRow;
-      } catch (...) {
-        results[i] = nanRow;
-      }
-    }
-    return results;
-  }
-
-  // v3: bounded thread pool (nThreads workers + atomic work index), each
-  // running its molecule via std::async + wait_for -> bounded thread count
-  // (safe for large batches) AND a per-molecule timeout (hang protection).
-  // Replaces the previous one-std::async-per-molecule scheme (N threads, OOM
-  // risk at scale).
-  std::atomic<size_t> nextIdx(0);
-  auto worker = [&]() {
-    size_t i;
-    while ((i = nextIdx.fetch_add(1)) < n) {
-      const ROMol *mol = mols[i];
-      if (!mol) {
-        results[i] = nanRow;
-        continue;
-      }
-      auto fut = std::async(std::launch::async,
-                            [mol, &nanRow, &opts]() -> std::vector<double> {
-                              try {
-                                return calcOsmordred(*mol, opts);
-                              } catch (const ValueErrorException &) {
-                                return nanRow;
-                              }
-                            });
-      // is this timeout per mol or per job?
-      results[i] = fut.get();
-    }
-  };
-  std::vector<std::thread> pool;
-  pool.reserve(nThreads);
-  for (unsigned int t = 0; t < nThreads; ++t) {
-    pool.emplace_back(worker);
-  }
-  for (auto &th : pool) {
-    th.join();
-  }
-  return results;
+  return OsmordredProperties(opts).computePropertiesForMols(mols, n_jobs);
 }
 
 // v2.0: Get descriptor names in the same order as calcOsmordred returns values

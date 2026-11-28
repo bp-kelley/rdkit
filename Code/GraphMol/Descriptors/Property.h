@@ -102,14 +102,23 @@ struct RDKIT_DESCRIPTORS_EXPORT VectorElementPropertyFunctor
   VectorFunc d_vectorFunc;
   unsigned int d_index;
 
-  //! \c elementFunc must return element \c index of \c vectorFunc; it is
-  //! the plain function used for property queries.
+  //! \c elementFunc, if not null, must return element \c index of
+  //! \c vectorFunc; it is the plain function used for property queries.
   VectorElementPropertyFunctor(std::string name, std::string version,
                                VectorFunc vectorFunc, unsigned int index,
                                double (*elementFunc)(const ROMol &))
       : PropertyFunctor(std::move(name), std::move(version), elementFunc),
         d_vectorFunc(vectorFunc),
         d_index(index) {}
+
+  //! Computes the element; uses \c vectorFunc when there is no elementFunc
+  //! (such properties cannot be used in property queries)
+  double operator()(const RDKit::ROMol &mol) const override {
+    if (d_dataFunc != nullptr) {
+      return (*d_dataFunc)(mol);
+    }
+    return d_vectorFunc(mol).at(d_index);
+  }
 };
 
 //! Holds a collection of properties for computation purposes
@@ -198,8 +207,13 @@ typedef Queries::RangeQuery<double, const ROMol &, true> PROP_RANGE_QUERY;
 
 template <class T>
 T *makePropertyQuery(const std::string &name, double what) {
+  auto func = Properties::getProperty(name)->d_dataFunc;
+  if (func == nullptr) {
+    throw ValueErrorException("property " + name +
+                              " cannot be used in a property query");
+  }
   T *t = new T(what);
-  t->setDataFunc(Properties::getProperty(name)->d_dataFunc);
+  t->setDataFunc(func);
   return t;
 }
 
