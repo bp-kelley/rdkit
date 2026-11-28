@@ -313,15 +313,15 @@ struct RDKIT_DESCRIPTORS_EXPORT OsmordredOptions {
   A molecule that fails, or that takes longer than OsmordredOptions::timeout,
   gives a row of NaN; std::bad_alloc is rethrown.
 
-  This class does not hold PropertyFunctors: getProperties() is empty, and the
-  values come from the overridden computeProperties().
+  getProperties() holds the osmordred property functors (see
+  getOsmordredProperties()), but computeProperties() computes all of them
+  together, sharing intermediates and applying OsmordredOptions::timeout.
 */
 class RDKIT_DESCRIPTORS_EXPORT OsmordredProperties : public Properties {
  public:
   explicit OsmordredProperties(
       const OsmordredOptions &opts = OsmordredOptions());
 
-  std::vector<std::string> getPropertyNames() const override;
   //! computes the full descriptor set for \c mol. Does not silence the RDKit
   //! logs; the calcOsmordred() functions do.
   std::vector<double> computeProperties(const RDKit::ROMol &mol,
@@ -336,6 +336,28 @@ class RDKIT_DESCRIPTORS_EXPORT OsmordredProperties : public Properties {
  private:
   OsmordredOptions d_opts;
 };
+
+//! version of the osmordred property functors
+const std::string osmordredVersion = "1.0.0";
+
+//! One property functor per osmordred descriptor, in
+//! getOsmordredDescriptorNames() order, built on first use.
+/*!
+  Each is a VectorElementPropertyFunctor of its descriptor block, so the
+  functors can be mixed with the standard ones in a Properties, e.g.
+  Properties({"exactmw", "Vabc"}); Properties::getProperty() finds them by
+  name. A block is computed once per molecule however many of its values are
+  requested. The functors use the default OsmordredOptions and have no
+  timeout. They are not added to Properties::registry, so Properties() and
+  Properties::getAvailableProperties() are unchanged, and where a name is
+  also a standard descriptor (BertzCT and the VSA bins) getProperty()
+  returns the standard one.
+*/
+RDKIT_DESCRIPTORS_EXPORT const std::vector<boost::shared_ptr<PropertyFunctor>> &
+getOsmordredProperties();
+//! the osmordred property functor called \c name, or null if there is none
+RDKIT_DESCRIPTORS_EXPORT boost::shared_ptr<PropertyFunctor>
+getOsmordredProperty(const std::string &name);
 
 RDKIT_DESCRIPTORS_EXPORT std::vector<double> calcOsmordred(
     const ROMol &mol, const OsmordredOptions &opts = OsmordredOptions());

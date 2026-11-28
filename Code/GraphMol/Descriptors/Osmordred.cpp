@@ -63,7 +63,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <array>
 #include <chrono>
+#include <boost/make_shared.hpp>
 #include <limits>
 #include <memory>
 #include <new>
@@ -94,142 +96,318 @@ class OsmordredTimeout : public std::runtime_error {
   using std::runtime_error::runtime_error;
 };
 
-void appendValues(std::vector<double> &out, double v) { out.push_back(v); }
-void appendValues(std::vector<double> &out, const std::vector<double> &v) {
-  out.insert(out.end(), v.begin(), v.end());
-}
-void appendValues(std::vector<double> &out, const std::vector<int> &v) {
-  out.insert(out.end(), v.begin(), v.end());
+std::vector<double> toDoubles(double v) { return {v}; }
+std::vector<double> toDoubles(std::vector<double> v) { return v; }
+std::vector<double> toDoubles(const std::vector<int> &v) {
+  return std::vector<double>(v.begin(), v.end());
 }
 
-// Fast aggregate: compute all descriptors in C++ in one pass.
-// Callers are responsible for silencing the logs (see calcOsmordred() and
+//! One osmordred descriptor block: \c size values, in
+//! getOsmordredDescriptorNames() order, computed together by \c calc.
+struct OsmordredBlock {
+  const char *name;
+  unsigned int size;
+  std::vector<double> (*calc)(OsmordredContext &ctx,
+                              const OsmordredOptions &opts);
+};
+
+// clang-format off
+constexpr std::array<OsmordredBlock, 60> kBlocks{{
+    {"ABCIndex", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcABCIndex(ctx.mol()));
+     }},
+    {"AcidBase", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAcidBase(ctx.mol()));
+     }},
+    {"AdjacencyMatrix", 12,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAdjMatrixDescsL(ctx.mol()));
+     }},
+    {"Aromatic", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAromatic(ctx.mol()));
+     }},
+    {"AtomCount", 17,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAtomCounts(ctx));
+     }},
+    {"Autocorrelation", 606,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAutoCorrelation(ctx));
+     }},
+    {"BCUT", 24,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBCUTs(ctx.mol()));
+     }},
+    {"BalabanJ", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBalabanJUnweighted(ctx.mol()));
+     }},
+    {"BaryszMatrix", 104,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBaryszMatrixDescsL(ctx.mol()));
+     }},
+    {"BertzCT", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBertzCT(ctx.mol()));
+     }},
+    {"BondCount", 9,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBondCounts(ctx));
+     }},
+    {"RNCGRPCG", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcRNCG_RPCG(ctx));
+     }},
+    {"CarbonTypes", 11,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcCarbonTypes(ctx.mol()));
+     }},
+    {"Chi", 56,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAllChiDescriptors(ctx.mol()));
+     }},
+    {"Constitutional", 16,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcConstitutional(ctx));
+     }},
+    {"DetourMatrix", 14,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcDetourMatrixDescsL(ctx.mol()));
+     }},
+    {"DistanceMatrix", 12,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcDistMatrixDescsL(ctx.mol()));
+     }},
+    {"EState", 404,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcEStateDescs(ctx, true));
+     }},
+    {"EccentricConnectivityIndex", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcEccentricConnectivityIndex(ctx.mol()));
+     }},
+    {"ExtendedTopochemicalAtom", 45,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcExtendedTopochemicalAtom(ctx.mol()));
+     }},
+    {"FragmentComplexity", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcFragmentComplexity(ctx.mol()));
+     }},
+    {"Framework", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcFramework(ctx));
+     }},
+    {"HydrogenBond", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcHydrogenBond(ctx));
+     }},
+    {"LogS", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcLogS(ctx.mol()));
+     }},
+    {"InformationContent", 42,
+     +[](OsmordredContext &ctx, const OsmordredOptions &opts) {
+       return toDoubles(calcInformationContent(ctx.mol(), opts.icOptions));
+     }},
+    {"KappaShapeIndex", 3,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcKappaShapeIndex(ctx.mol()));
+     }},
+    {"Lipinski", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcLipinskiGhose(ctx));
+     }},
+    {"McGowanVolume", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcMcGowanVolume(ctx));
+     }},
+    {"MoeType", 58,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcMoeType(ctx.mol()));
+     }},
+    {"MolecularDistanceEdge", 19,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcMolecularDistanceEdgeDescs(ctx.mol()));
+     }},
+    {"MolecularId", 12,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcMolecularId(ctx.mol()));
+     }},
+    {"PathCount", 21,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcPathCount(ctx.mol()));
+     }},
+    {"Polarizability", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcPolarizability(ctx));
+     }},
+    {"RingCount", 138,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcRingDescriptors(ctx.mol()));
+     }},
+    {"RotatableBond", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcRotatableBond(ctx.mol()));
+     }},
+    {"SLogP", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcSLogP(ctx.mol()));
+     }},
+    {"TopoPSA", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcTopoPSA(ctx.mol()));
+     }},
+    {"TopologicalCharge", 21,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcTopologicalChargeDescs(ctx.mol()));
+     }},
+    {"TopologicalIndex", 4,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcTopologicalIndex(ctx.mol()));
+     }},
+    {"VdwVolumeABC", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcVdwVolumeABC(ctx));
+     }},
+    {"VertexAdjacencyInformation", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcVertexAdjacencyInformation(ctx.mol()));
+     }},
+    {"WalkCount", 21,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcWalkCounts(ctx.mol()));
+     }},
+    {"Weight", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcWeight(ctx));
+     }},
+    {"WienerIndex", 2,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcWienerIndex(ctx.mol()));
+     }},
+    {"ZagrebIndex", 4,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcZagrebIndex(ctx.mol()));
+     }},
+    {"Pol", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcPol(ctx));
+     }},
+    {"MR", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcMR(ctx));
+     }},
+    {"Flexibility", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcFlexibility(ctx.mol()));
+     }},
+    {"Schultz", 1,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcSchultz(ctx.mol()));
+     }},
+    {"AlphaKappaShapeIndex", 3,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAlphaKappaShapeIndex(ctx.mol()));
+     }},
+    {"HEState", 88,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcHEStateDescs(ctx.mol()));
+     }},
+    {"BEState", 1460,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcBEStateDescs(ctx));
+     }},
+    {"Abrahams", 6,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAbrahams(ctx.mol()));
+     }},
+    {"ANMat", 25,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcANMat(ctx.mol()));
+     }},
+    {"ASMat", 20,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcASMat(ctx.mol()));
+     }},
+    {"AZMat", 15,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAZMat(ctx.mol()));
+     }},
+    {"DSMat", 20,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcDSMat(ctx.mol()));
+     }},
+    {"DN2Mat", 20,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcDN2Mat(ctx.mol()));
+     }},
+    {"Frags", 214,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcFrags(ctx.mol()));
+     }},
+    {"AddFeatures", 7,
+     +[](OsmordredContext &ctx, const OsmordredOptions &) {
+       return toDoubles(calcAddFeatures(ctx.mol()));
+     }},
+}};
+// clang-format on
+
+constexpr unsigned int totalBlockSize() {
+  unsigned int res = 0;
+  for (const auto &blk : kBlocks) {
+    res += blk.size;
+  }
+  return res;
+}
+constexpr unsigned int NUM_OSMORDRED = 3588;
+static_assert(totalBlockSize() == NUM_OSMORDRED,
+              "osmordred block sizes must add up to the descriptor count");
+
+std::vector<double> nanRow() {
+  return std::vector<double>(NUM_OSMORDRED,
+                             std::numeric_limits<double>::quiet_NaN());
+}
+
+// Fast aggregate: computes all descriptor blocks in one pass, sharing the
+// intermediates in one OsmordredContext. A block that throws, or that returns
+// the wrong number of values, gives NaN for that block only; a timeout or
+// std::bad_alloc aborts the molecule. Callers are responsible for silencing
+// the logs (see calcOsmordred() and
 // OsmordredProperties::computePropertiesForMols()).
-std::vector<double> calcOsmordred(const ROMol &mol,
+std::vector<double> calcAllBlocks(const ROMol &mol,
                                   const OsmordredOptions &opts,
                                   TimePoint *end_time) {
   PRECONDITION(opts.isValid(), "Invalid Osmordred Options");
-
   std::vector<double> out;
-  out.reserve(4200);  // approximate capacity to avoid many reallocations
-
-  // Always compute the full v2 set; keep signature for ABI stability
-  const bool doExEstate = true;
-
-  // intermediates shared by the blocks below (built lazily, once)
+  out.reserve(NUM_OSMORDRED);
   OsmordredContext ctx(mol);
-
-  auto checkTimeout = [&]() {
+  for (const auto &blk : kBlocks) {
+    const auto first = out.size();
+    try {
+      const auto vals = blk.calc(ctx, opts);
+      if (vals.size() == blk.size) {
+        out.insert(out.end(), vals.begin(), vals.end());
+      }
+    } catch (const std::bad_alloc &) {
+      throw;
+    } catch (const std::exception &e) {
+      BOOST_LOG(rdWarningLog) << "Osmordred descriptor block " << blk.name
+                              << " failed: " << e.what() << std::endl;
+    }
+    if (out.size() != first + blk.size) {
+      out.resize(first);
+      out.insert(out.end(), blk.size, std::numeric_limits<double>::quiet_NaN());
+    }
     if (end_time && Clock::now() >= *end_time) {
       BOOST_LOG(rdErrorLog) << "Mordred calculation timed out" << std::endl;
       throw OsmordredTimeout("Mordred calculation timed out");
     }
-  };
-
-  // Appends one block of n values. A block that throws, or that returns the
-  // wrong number of values, gives n NaNs: only that block is lost, and the
-  // remaining values keep their positions. Timeouts and std::bad_alloc still
-  // abort the whole molecule.
-  auto block = [&](size_t n, auto &&fn) {
-    const auto first = out.size();
-    try {
-      appendValues(out, fn());
-    } catch (const std::bad_alloc &) {
-      throw;
-    } catch (const std::exception &e) {
-      BOOST_LOG(rdWarningLog)
-          << "Osmordred descriptor block failed: " << e.what() << std::endl;
-      out.resize(first);
-    }
-    if (out.size() != first + n) {
-      out.resize(first);
-      out.insert(out.end(), n, std::numeric_limits<double>::quiet_NaN());
-    }
-    checkTimeout();
-  };
-
-  block(2, [&] { return calcABCIndex(mol); });              // ABCIndex
-  block(2, [&] { return calcAcidBase(mol); });              // AcidBase
-  block(12, [&] { return calcAdjMatrixDescsL(mol); });      // AdjacencyMatrix
-  block(2, [&] { return calcAromatic(mol); });              // Aromatic
-  block(17, [&] { return calcAtomCounts(ctx); });           // AtomCount
-  block(606, [&] { return calcAutoCorrelation(ctx); });     // Autocorrelation
-  block(24, [&] { return calcBCUTs(mol); });                // BCUT
-  block(1, [&] { return calcBalabanJUnweighted(mol); });    // BalabanJ
-  block(104, [&] { return calcBaryszMatrixDescsL(mol); });  // BaryszMatrix
-  block(1, [&] { return calcBertzCT(mol); });               // BertzCT
-  block(9, [&] { return calcBondCounts(ctx); });            // BondCount
-  block(2, [&] { return calcRNCG_RPCG(ctx); });             // RNCGRPCG
-  block(11, [&] { return calcCarbonTypes(mol); });          // CarbonTypes
-  block(56, [&] { return calcAllChiDescriptors(mol); });    // Chi
-  block(16, [&] { return calcConstitutional(ctx); });       // Constitutional
-  block(14, [&] { return calcDetourMatrixDescsL(mol); });   // DetourMatrix
-  block(12, [&] { return calcDistMatrixDescsL(mol); });     // DistanceMatrix
-  block(404, [&] { return calcEStateDescs(ctx, doExEstate); });  // EState
-  block(1, [&] {
-    return calcEccentricConnectivityIndex(mol);
-  });  // EccentricConnectivityIndex
-  block(45, [&] {
-    return calcExtendedTopochemicalAtom(mol);
-  });  // ExtendedTopochemicalAtom
-  block(1, [&] { return calcFragmentComplexity(mol); });  // FragmentComplexity
-  block(1, [&] { return calcFramework(ctx); });           // Framework
-  block(2, [&] { return calcHydrogenBond(ctx); });        // HydrogenBond
-  block(1, [&] { return calcLogS(mol); });                // LogS
-  block(42, [&] {
-    return calcInformationContent(mol, opts.icOptions);
-  });                                                  // InformationContent
-  block(3, [&] { return calcKappaShapeIndex(mol); });  // KappaShapeIndex
-  block(2, [&] { return calcLipinskiGhose(ctx); });    // Lipinski
-  block(1, [&] { return calcMcGowanVolume(ctx); });    // McGowanVolume
-  block(58, [&] { return calcMoeType(mol); });         // MoeType
-  block(19, [&] {
-    return calcMolecularDistanceEdgeDescs(mol);
-  });                                                 // MolecularDistanceEdge
-  block(12, [&] { return calcMolecularId(mol); });    // MolecularId
-  block(21, [&] { return calcPathCount(mol); });      // PathCount
-  block(2, [&] { return calcPolarizability(ctx); });  // Polarizability
-  block(138, [&] { return calcRingDescriptors(mol); });  // RingCount
-  block(2, [&] { return calcRotatableBond(mol); });      // RotatableBond
-  block(2, [&] { return calcSLogP(mol); });              // SLogP
-  block(2, [&] { return calcTopoPSA(mol); });            // TopoPSA
-  block(21,
-        [&] { return calcTopologicalChargeDescs(mol); });  // TopologicalCharge
-  block(4, [&] { return calcTopologicalIndex(mol); });     // TopologicalIndex
-  block(1, [&] { return calcVdwVolumeABC(ctx); });         // VdwVolumeABC
-  block(1, [&] {
-    return calcVertexAdjacencyInformation(mol);
-  });                                              // VertexAdjacencyInformation
-  block(21, [&] { return calcWalkCounts(mol); });  // WalkCount
-  block(2, [&] { return calcWeight(ctx); });       // Weight
-  block(2, [&] { return calcWienerIndex(mol); });  // WienerIndex
-  block(4, [&] { return calcZagrebIndex(mol); });  // ZagrebIndex
-  block(1, [&] { return calcPol(ctx); });          // Pol
-  block(1, [&] { return calcMR(ctx); });           // MR
-  block(1, [&] { return calcFlexibility(mol); });  // Flexibility
-  block(1, [&] { return calcSchultz(mol); });      // Schultz
-  block(3,
-        [&] { return calcAlphaKappaShapeIndex(mol); });  // AlphaKappaShapeIndex
-  block(88, [&] { return calcHEStateDescs(mol); });      // HEState
-  block(1460, [&] { return calcBEStateDescs(ctx); });    // BEState
-  block(6, [&] { return calcAbrahams(mol); });           // Abrahams
-  block(25, [&] { return calcANMat(mol); });             // ANMat
-  block(20, [&] { return calcASMat(mol); });             // ASMat
-  block(15, [&] { return calcAZMat(mol); });             // AZMat
-  block(20, [&] { return calcDSMat(mol); });             // DSMat
-  block(20, [&] { return calcDN2Mat(mol); });            // DN2Mat
-  block(214, [&] { return calcFrags(mol); });            // Frags
-  block(7, [&] { return calcAddFeatures(mol); });        // AddFeatures
+  }
   return out;
-}
-}  // namespace
-
-constexpr int NUM_OSMORDRED = 3588;
-
-namespace {
-std::vector<double> nanRow() {
-  return std::vector<double>(NUM_OSMORDRED,
-                             std::numeric_limits<double>::quiet_NaN());
 }
 
 // one molecule: a failing descriptor block gives NaNs for that block only;
@@ -239,23 +417,86 @@ std::vector<double> calcWithTimeout(const ROMol &mol,
                                     const OsmordredOptions &opts) {
   TimePoint end_time = Clock::now() + std::chrono::seconds(opts.timeout);
   try {
-    return calcOsmordred(mol, opts, &end_time);
+    return calcAllBlocks(mol, opts, &end_time);
   } catch (const ValueErrorException &) {
     return nanRow();
   } catch (const std::runtime_error &) {
     return nanRow();
   }
 }
-}  // namespace
 
-OsmordredProperties::OsmordredProperties(const OsmordredOptions &opts)
-    // no PropertyFunctors: computeProperties() is overridden
-    : Properties(std::vector<std::string>()), d_opts(opts) {
-  PRECONDITION(d_opts.isValid(), "Invalid Osmordred Options");
+// Block B as a standalone vector function, for the property functors: it
+// builds its own context and uses the default options. A wrong-sized result
+// throws, so the functors' failure handling gives NaN for the block.
+template <size_t B>
+std::vector<double> blockVector(const ROMol &mol) {
+  OsmordredContext ctx(mol);
+  const OsmordredOptions opts;
+  auto vals = kBlocks[B].calc(ctx, opts);
+  if (vals.size() != kBlocks[B].size) {
+    throw ValueErrorException(std::string("osmordred block ") +
+                              kBlocks[B].name + " returned " +
+                              std::to_string(vals.size()) + " values, not " +
+                              std::to_string(kBlocks[B].size));
+  }
+  return vals;
 }
 
-std::vector<std::string> OsmordredProperties::getPropertyNames() const {
-  return getOsmordredDescriptorNames();
+template <size_t... B>
+constexpr std::array<VectorElementPropertyFunctor::VectorFunc, sizeof...(B)>
+makeBlockVectors(std::index_sequence<B...>) {
+  return {&blockVector<B>...};
+}
+
+struct OsmordredRegistry {
+  std::vector<boost::shared_ptr<PropertyFunctor>> functors;
+  std::unordered_map<std::string, size_t> byName;
+};
+
+// Built on first use (thread-safe static initialization) and never modified
+// afterwards, so lookups need no locking.
+const OsmordredRegistry &osmordredRegistry() {
+  static const OsmordredRegistry reg = [] {
+    OsmordredRegistry res;
+    constexpr auto vecFuncs =
+        makeBlockVectors(std::make_index_sequence<kBlocks.size()>());
+    const auto names = getOsmordredDescriptorNames();
+    CHECK_INVARIANT(names.size() == NUM_OSMORDRED,
+                    "bad osmordred descriptor name count");
+    res.functors.reserve(names.size());
+    size_t col = 0;
+    for (size_t b = 0; b < kBlocks.size(); ++b) {
+      for (unsigned int i = 0; i < kBlocks[b].size; ++i, ++col) {
+        res.byName.emplace(names[col], col);
+        res.functors.push_back(boost::make_shared<VectorElementPropertyFunctor>(
+            names[col], osmordredVersion, vecFuncs[b], i, nullptr));
+      }
+    }
+    return res;
+  }();
+  return reg;
+}
+}  // namespace
+
+const std::vector<boost::shared_ptr<PropertyFunctor>> &
+getOsmordredProperties() {
+  return osmordredRegistry().functors;
+}
+
+boost::shared_ptr<PropertyFunctor> getOsmordredProperty(
+    const std::string &name) {
+  const auto &reg = osmordredRegistry();
+  auto it = reg.byName.find(name);
+  if (it == reg.byName.end()) {
+    return nullptr;
+  }
+  return reg.functors[it->second];
+}
+
+OsmordredProperties::OsmordredProperties(const OsmordredOptions &opts)
+    : Properties(std::vector<std::string>()), d_opts(opts) {
+  PRECONDITION(d_opts.isValid(), "Invalid Osmordred Options");
+  m_properties = getOsmordredProperties();
 }
 
 std::vector<double> OsmordredProperties::computeProperties(

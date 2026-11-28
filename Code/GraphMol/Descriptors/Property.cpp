@@ -38,6 +38,9 @@
 #include <GraphMol/Descriptors/Crippen.h>
 #include <GraphMol/Descriptors/MolSurf.h>
 #include <GraphMol/Descriptors/BCUT.h>
+#ifdef RDK_BUILD_OSMORDRED_SUPPORT
+#include <GraphMol/Descriptors/Osmordred.h>
+#endif
 #include <RDGeneral/RDThreads.h>
 
 #include <algorithm>
@@ -266,6 +269,12 @@ boost::shared_ptr<PropertyFunctor> Properties::getProperty(
       return prop;
     }
   }
+#ifdef RDK_BUILD_OSMORDRED_SUPPORT
+  // the osmordred functors are built on first lookup
+  if (auto prop = Osmordred::getOsmordredProperty(name)) {
+    return prop;
+  }
+#endif
   throw KeyErrorException(name);
 }
 
@@ -460,8 +469,13 @@ void Properties::annotateProperties(RDKit::ROMol &mol) const {
 
 PROP_RANGE_QUERY *makePropertyRangeQuery(const std::string &name, double min,
                                          double max) {
+  auto func = Properties::getProperty(name)->d_dataFunc;
+  if (func == nullptr) {
+    throw ValueErrorException("property " + name +
+                              " cannot be used in a property query");
+  }
   auto *filter = new PROP_RANGE_QUERY(min, max);
-  filter->setDataFunc(Properties::getProperty(name)->d_dataFunc);
+  filter->setDataFunc(func);
   return filter;
 }
 }  // namespace Descriptors

@@ -13,6 +13,8 @@
 #include <catch2/catch_all.hpp>
 #include <GraphMol/RDKitBase.h>
 #include <GraphMol/SmilesParse/SmilesParse.h>
+#include <GraphMol/Descriptors/MolDescriptors.h>
+#include <GraphMol/Descriptors/Property.h>
 #include <RDGeneral/RDLog.h>
 #include <iostream>
 #include <fstream>
@@ -1158,6 +1160,102 @@ TEST_CASE("OsmordredProperties") {
     std::vector<const ROMol *> mols(12, caffeine.get());
     calcOsmordred(mols, 4);
     REQUIRE(rdErrorLog->df_enabled == wasEnabled);
+  }
+}
+
+namespace {
+// computes through the osmordred property functors, one block at a time
+struct OsmordredFunctorsOnly : public RDKit::Descriptors::Properties {
+  OsmordredFunctorsOnly() : Properties(std::vector<std::string>()) {
+    m_properties = getOsmordredProperties();
+  }
+};
+bool closeRow(const std::vector<double> &a, const std::vector<double> &b,
+              const std::vector<std::string> &names) {
+  bool ok = a.size() == b.size();
+  for (size_t j = 0; ok && j < a.size(); ++j) {
+    if (std::isnan(a[j]) && std::isnan(b[j])) {
+      continue;
+    }
+    if (!(std::abs(a[j] - b[j]) <= 1e-8 * std::max(1.0, std::abs(b[j])))) {
+      UNSCOPED_INFO(names[j] << ": " << a[j] << " != " << b[j]);
+      ok = false;
+    }
+  }
+  return ok;
+}
+}  // namespace
+
+TEST_CASE("osmordred property functors") {
+  using RDKit::Descriptors::Properties;
+  const auto names = getOsmordredDescriptorNames();
+  const auto &functors = getOsmordredProperties();
+  REQUIRE(functors.size() == names.size());
+  for (size_t i = 0; i < names.size(); ++i) {
+    REQUIRE(functors[i]->getName() == names[i]);
+  }
+  REQUIRE(OsmordredProperties().getProperties().size() == names.size());
+
+  auto caffeine = "CN1C=NC2=C1C(=O)N(C(=O)N2C)C"_smiles;
+  REQUIRE(caffeine);
+  const auto full = calcOsmordred(*caffeine);
+  auto col = [&](const std::string &name) {
+    auto it = std::find(names.begin(), names.end(), name);
+    REQUIRE(it != names.end());
+    return full[std::distance(names.begin(), it)];
+  };
+
+  SECTION("the standard registry is unchanged") {
+    const auto avail = Properties::getAvailableProperties();
+    CHECK(std::find(avail.begin(), avail.end(), "Vabc") == avail.end());
+    const auto defaults = Properties().getPropertyNames();
+    CHECK(std::find(defaults.begin(), defaults.end(), "Vabc") ==
+          defaults.end());
+    // where a name is also a standard descriptor, the standard one wins
+    CHECK(Properties::getProperty("BertzCT") !=
+          getOsmordredProperty("BertzCT"));
+    CHECK(getOsmordredProperty("not a descriptor") == nullptr);
+  }
+
+  SECTION("mix and match with the standard descriptors") {
+    Properties props({"exactmw", "Vabc", names[0], "SLogP"});
+    auto vals = props.computeProperties(*caffeine);
+    REQUIRE(vals.size() == 4);
+    CHECK(vals[0] == RDKit::Descriptors::calcExactMW(*caffeine));
+    CHECK(vals[1] == Catch::Approx(col("Vabc")));
+    CHECK(vals[2] == Catch::Approx(col(names[0])));
+    CHECK(vals[3] == Catch::Approx(col("SLogP")));
+    auto rows = props.computePropertiesForMols(
+        {caffeine.get(), nullptr, caffeine.get()}, 2);
+    REQUIRE(rows.size() == 3);
+    CHECK(rows[0] == vals);
+    CHECK(std::isnan(rows[1][1]));
+    CHECK(rows[2] == vals);
+  }
+
+  SECTION("each functor on its own matches calcOsmordred") {
+    CHECK((*getOsmordredProperty("Vabc"))(*caffeine) ==
+          Catch::Approx(col("Vabc")));
+  }
+
+  SECTION("all functors match calcOsmordred") {
+    OsmordredFunctorsOnly props;
+    CHECK(closeRow(props.computeProperties(*caffeine), full, names));
+  }
+
+  SECTION("a failing block only blanks its own values") {
+    auto hg = "C[Hg]C"_smiles;
+    REQUIRE(hg);
+    Properties props({"Vabc", names[0]});
+    auto vals = props.computeProperties(*hg);
+    CHECK(std::isnan(vals[0]));
+    CHECK(!std::isnan(vals[1]));
+  }
+
+  SECTION("functors without an element function cannot make queries") {
+    CHECK_THROWS_AS(
+        RDKit::Descriptors::makePropertyRangeQuery("Vabc", 0.0, 1.0),
+        ValueErrorException);
   }
 }
 
