@@ -20,6 +20,9 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <utility>
+#include <limits>
+#include <memory>
 #include <algorithm>
 #include <cstdlib>
 
@@ -1257,6 +1260,153 @@ TEST_CASE("osmordred property functors") {
         RDKit::Descriptors::makePropertyRangeQuery("Vabc", 0.0, 1.0),
         ValueErrorException);
   }
+}
+
+// Compares every osmordred descriptor that duplicates a standard RDKit
+// descriptor, so the osmordred copies can be pruned. Prints one line per
+// pair; fails if any pair differs. Run it with: testOsmordred "[duplicates]"
+TEST_CASE("osmordred duplicates of standard descriptors", "[duplicates]") {
+  using RDKit::Descriptors::Properties;
+  // (osmordred name, standard Properties name)
+  std::vector<std::pair<std::string, std::string>> pairs = {
+      {"BertzCT", "BertzCT"},
+      {"LabuteASA", "labuteASA"},
+      {"Flexibility", "Phi"},
+      {"Kier1", "kappa1"},
+      {"Kier2", "kappa2"},
+      {"Kier3", "kappa3"},
+      {"KierAlpha1", "kappa1"},
+      {"KierAlpha2", "kappa2"},
+      {"KierAlpha3", "kappa3"},
+      {"Xp-0d", "Chi0"},
+      {"Xp-1d", "Chi1"},
+      {"Xp-0dv", "chi0v"},
+      {"Xp-1dv", "chi1v"},
+      {"J", "BalabanJ"},
+      {"SLogP", "CrippenClogP"},
+      {"SMR", "CrippenMR"},
+      {"TopoPSA(NO)", "tpsa"},
+      {"nHBAcc", "NumHBA"},
+      {"nHBDon", "NumHBD"},
+      {"nRot", "NumRotatableBonds"},
+      {"FCSP3", "FractionCSP3"},
+      {"nSpiro", "NumSpiroAtoms"},
+      {"nBridgehead", "NumBridgeheadAtoms"},
+      {"nHetero", "NumHeteroatoms"},
+      {"nRing", "NumRings"},
+      {"naRing", "NumAromaticRings"},
+      {"MW", "exactmw"},
+      {"nHeavyAtom", "NumHeavyAtoms"},
+      {"nAtom", "NumAtoms"},
+  };
+  for (const auto &[prefix, count] :
+       std::vector<std::pair<std::string, int>>{{"PEOE_VSA", 14},
+                                                {"SMR_VSA", 10},
+                                                {"SlogP_VSA", 12},
+                                                {"EState_VSA", 11},
+                                                {"VSA_EState", 10}}) {
+    for (int i = 1; i <= count; ++i) {
+      pairs.emplace_back(prefix + std::to_string(i),
+                         prefix + std::to_string(i));
+    }
+  }
+
+  const std::vector<std::string> smiles = {
+      "C",
+      "CO",
+      "CN",
+      "CF",
+      "CCO",
+      "CC(=O)O",
+      "CC(C)(C)C",
+      "C1CC1",
+      "C1CCCCC1",
+      "c1ccccc1",
+      "Cc1ccccc1O",
+      "c1ccc2ccccc2c1",
+      "c1ccncc1",
+      "c1cc[nH]c1",
+      "O=C(O)c1ccccc1O",
+      "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+      "CC(=O)Nc1ccc(O)cc1",
+      "C1CC2CCC1C2",
+      "C1CCC2(CC1)CCCC2",
+      "C[N+](C)(C)C",
+      "[O-]C(=O)CC",
+      "CS(=O)(=O)N",
+      "OP(=O)(O)O",
+      "FC(F)(F)c1ccc(Cl)c(Br)c1I",
+      "C=CC=CC#N",
+      "CC[C@H](N)C(=O)O",
+      "O=C1CCCN1",
+      "CCCCCCCCCCCCCCCC(=O)O",
+      "CC(C)Cc1ccc(cc1)C(C)C(=O)O",
+      "CN1CCC[C@H]1c1cccnc1",
+  };
+
+  const auto names = getOsmordredDescriptorNames();
+  std::vector<size_t> osmoCols;
+  std::vector<std::string> stdNames;
+  for (const auto &[osmo, stdName] : pairs) {
+    auto it = std::find(names.begin(), names.end(), osmo);
+    REQUIRE(it != names.end());
+    osmoCols.push_back(std::distance(names.begin(), it));
+    stdNames.push_back(stdName);
+  }
+  Properties standard(stdNames);
+
+  struct Stats {
+    unsigned int compared = 0;
+    unsigned int differ = 0;
+    double maxDiff = 0.0;
+    std::string example;
+  };
+  std::vector<Stats> stats(pairs.size());
+  for (const auto &smi : smiles) {
+    std::unique_ptr<RWMol> mol(SmilesToMol(smi));
+    REQUIRE(mol);
+    const auto osmo = calcOsmordred(*mol);
+    const auto stdVals = standard.computeProperties(*mol);
+    for (size_t p = 0; p < pairs.size(); ++p) {
+      const double a = osmo[osmoCols[p]];
+      const double b = stdVals[p];
+      auto &st = stats[p];
+      ++st.compared;
+      const bool same = (std::isnan(a) && std::isnan(b)) ||
+                        std::abs(a - b) <= 1e-6 * std::max(1.0, std::abs(b));
+      if (!same) {
+        const double diff = std::isnan(a) || std::isnan(b)
+                                ? std::numeric_limits<double>::infinity()
+                                : std::abs(a - b);
+        if (!st.differ || diff > st.maxDiff) {
+          std::ostringstream ex;
+          ex << smi << ": " << a << " vs " << b;
+          st.example = ex.str();
+        }
+        ++st.differ;
+        st.maxDiff = std::max(st.maxDiff, diff);
+      }
+    }
+  }
+
+  std::ostringstream report;
+  report << "osmordred vs standard: identical/compared, max |diff|, worst "
+            "molecule\n";
+  unsigned int nDiffer = 0;
+  for (size_t p = 0; p < pairs.size(); ++p) {
+    const auto &st = stats[p];
+    report << (st.differ ? "DIFFERS   " : "IDENTICAL ") << pairs[p].first
+           << " vs " << pairs[p].second << ": " << st.compared - st.differ
+           << "/" << st.compared;
+    if (st.differ) {
+      ++nDiffer;
+      report << ", max " << st.maxDiff << ", e.g. " << st.example;
+    }
+    report << "\n";
+  }
+  WARN(report.str());
+  INFO(report.str());
+  CHECK(nDiffer == 0);
 }
 
 #else
